@@ -2152,8 +2152,15 @@ export default class GameScene extends Phaser.Scene {
         this.attackHitbox.setVisible(active);
 
         if (active) {
-          const bodyCenterX = body.x + body.width / 2;
+          const rawBodyCenterX = body.x + body.width / 2;
           const bodyCenterY = body.y + body.height / 2;
+          const frameOffsetDelta =
+            (fighter.currentAttackAnim.charFrameOffsetX - BODY_OFFSET_X) * SPRITE_SCALE;
+          const visualCenterShift =
+            fighter.currentAttackAnim === fighter.keys.attackHorizontal
+              ? 0
+              : (this.player.flipX ? -frameOffsetDelta : frameOffsetDelta);
+          const bodyCenterX = rawBodyCenterX + visualCenterShift;
           const distance =
             (BODY_WIDTH * SPRITE_SCALE) / 2 + ATTACK_HITBOX_WIDTH / 2;
           this.attackHitbox.setPosition(
