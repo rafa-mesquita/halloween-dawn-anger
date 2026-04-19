@@ -1050,10 +1050,11 @@ export default class GameScene extends Phaser.Scene {
     return fighter;
   }
 
-  damageFighter(fighter, amount) {
+  damageFighter(fighter, amount, opts) {
     if (fighter.isInvulnerable || fighter.isDead) return;
+    const ignoreShield = !!(opts && opts.ignoreShield);
     let finalAmount = amount * (fighter.curseMultiplier || 1);
-    if (fighter.shieldCharges > 0) {
+    if (!ignoreShield && fighter.shieldCharges > 0) {
       finalAmount = finalAmount * SHIELD_DAMAGE_MULTIPLIER;
       fighter.shieldCharges -= 1;
       if (fighter.shieldCharges <= 0) {
@@ -1697,7 +1698,8 @@ export default class GameScene extends Phaser.Scene {
             dx <= HEAVENS_FURY_BEAM_HALF_WIDTH
           ) {
             this.dealHit(target, {
-              damage: HEAVENS_FURY_DAMAGE_BEAM,
+              damage: MAX_HP,
+              ignoreShield: true,
               powerFlashColor: POWERS.heavens_fury.orbColor,
             });
           }
@@ -1726,7 +1728,7 @@ export default class GameScene extends Phaser.Scene {
       this.playSfx('sfx_shield_break');
       this.removeShield(target);
     }
-    this.damageFighter(target, hit.damage);
+    this.damageFighter(target, hit.damage, { ignoreShield: !!hit.ignoreShield });
     if (!target.isDead) {
       if (hit.knockupY) target.sprite.body.setVelocityY(hit.knockupY);
       if (hit.stun) this.applyStun(target);
