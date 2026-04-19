@@ -2073,8 +2073,8 @@ export default class GameScene extends Phaser.Scene {
           const hbBottom = this.attackHitbox.y + physH / 2;
 
           const isHorizontal = !isVertical;
-          const backHbW = isHorizontal ? ATTACK_HITBOX_WIDTH * 0.45 : 0;
-          const backHbH = isHorizontal ? ATTACK_HITBOX_HEIGHT * 0.7 : 0;
+          const backHbW = isHorizontal ? ATTACK_HITBOX_WIDTH * 0.18 : 0;
+          const backHbH = isHorizontal ? ATTACK_HITBOX_HEIGHT * 0.5 : 0;
           const backDist = isHorizontal
             ? (BODY_WIDTH * SPRITE_SCALE) / 2 + backHbW / 2
             : 0;
