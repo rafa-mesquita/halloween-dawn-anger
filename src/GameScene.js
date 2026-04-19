@@ -1761,6 +1761,7 @@ export default class GameScene extends Phaser.Scene {
     }
     this.damageFighter(target, hit.damage, { ignoreShield: !!hit.ignoreShield });
     if (!target.isDead) {
+      if (hit.knockbackX) target.sprite.body.setVelocityX(hit.knockbackX);
       if (hit.knockupY) target.sprite.body.setVelocityY(hit.knockupY);
       if (hit.stun) this.applyStun(target);
       if (hit.curse) this.applySkullCurse(target);
@@ -2156,7 +2157,18 @@ export default class GameScene extends Phaser.Scene {
               backTop < tb.y + tb.height;
             if (frontHit || backHit) {
               this.targetsHitThisAttack.add(target);
-              this.dealHit(target, { damage: ATTACK_DAMAGE, playHitSfx: true });
+              const isVerticalAtk = Math.abs(Math.cos(this.attackAngle)) < 0.5;
+              const knockDir = Math.sign(Math.cos(this.attackAngle)) || (this.player.flipX ? -1 : 1);
+              const knockbackX = isVerticalAtk ? 0 : knockDir * 260;
+              const knockupY = isVerticalAtk
+                ? (Math.sin(this.attackAngle) > 0 ? 220 : -220)
+                : -120;
+              this.dealHit(target, {
+                damage: ATTACK_DAMAGE,
+                playHitSfx: true,
+                knockbackX,
+                knockupY,
+              });
             }
           }
           if (
