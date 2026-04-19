@@ -2002,6 +2002,11 @@ export default class GameScene extends Phaser.Scene {
           this.attackAngle = Math.PI;
         }
 
+        if (direction === 'down' && body.blocked.down) {
+          direction = pointer.worldX < bodyCenterX ? 'left' : 'right';
+          this.attackAngle = direction === 'left' ? Math.PI : 0;
+        }
+
         if (direction === 'left' || direction === 'right') {
           const shouldFlip = direction === 'left';
           if (shouldFlip !== this.player.flipX) {
@@ -2019,8 +2024,10 @@ export default class GameScene extends Phaser.Scene {
         else if (direction === 'down') fighter.currentAttackAnim = fighter.keys.attackDown;
         else fighter.currentAttackAnim = fighter.keys.attackHorizontal;
 
-        const charShift =
-          (fighter.currentAttackAnim.charFrameOffsetX - BODY_OFFSET_X) * SPRITE_SCALE;
+        const isHorizontalDir = direction === 'left' || direction === 'right';
+        const charShift = isHorizontalDir
+          ? (fighter.currentAttackAnim.charFrameOffsetX - BODY_OFFSET_X) * SPRITE_SCALE
+          : 0;
         fighter.attackSpriteShift = this.player.flipX ? charShift : -charShift;
         this.player.x += fighter.attackSpriteShift;
 
