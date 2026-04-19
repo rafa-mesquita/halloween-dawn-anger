@@ -29,6 +29,7 @@ const ORB_SPACING = 28;
 const MAX_HP = 100;
 const ATTACK_DAMAGE = 17;
 const STARTING_LIVES = 3;
+const MULTIPLAYER_LIVES = 5;
 const RESPAWN_DELAY_MS = 1500;
 const INVULN_DURATION_MS = 1500;
 const HIT_FLASH_DURATION_MS = 280;
@@ -794,7 +795,8 @@ export default class GameScene extends Phaser.Scene {
       font: '13px sans-serif', color: '#ffffff',
     }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(21);
 
-    this.hudLivesText = this.add.text(hudBarX, hudBarY + 50, `Vidas: ${STARTING_LIVES}`, {
+    const startingLives = this.isMultiplayer ? MULTIPLAYER_LIVES : STARTING_LIVES;
+    this.hudLivesText = this.add.text(hudBarX, hudBarY + 50, `Vidas: ${startingLives}`, {
       font: 'bold 14px sans-serif', color: '#ffffff',
     }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(21);
 
@@ -1008,7 +1010,7 @@ export default class GameScene extends Phaser.Scene {
       isInvulnerable: false,
       isDead: false,
       hp: MAX_HP,
-      lives: STARTING_LIVES,
+      lives: this.isMultiplayer ? MULTIPLAYER_LIVES : STARTING_LIVES,
       hpBarBg,
       hpBarFill,
       hpBarWidth,
@@ -1413,9 +1415,39 @@ export default class GameScene extends Phaser.Scene {
       fighter.attackSpriteShift = 0;
     }
 
+    if (this.isMultiplayer && fighter.lives <= 0) {
+      this.checkMatchOver();
+      return;
+    }
+
     this.time.delayedCall(RESPAWN_DELAY_MS, () => {
       this.respawnFighter(fighter);
     });
+  }
+
+  checkMatchOver() {
+    if (!this.isMultiplayer || this.matchOver) return;
+    const alive = this.fighters.filter((f) => f.lives > 0);
+    if (alive.length > 1) return;
+    this.matchOver = true;
+    const winner = alive[0] ?? null;
+    const isLocalWinner = winner === this.playerFighter;
+    const label = winner
+      ? (isLocalWinner ? 'Você venceu!' : 'Você perdeu')
+      : 'Empate';
+    const cam = this.cameras.main;
+    this.add.rectangle(cam.width / 2, cam.height / 2, cam.width, cam.height, 0x000000, 0.55)
+      .setScrollFactor(0).setDepth(100);
+    this.add.text(cam.width / 2, cam.height / 2, label, {
+      font: 'bold 64px sans-serif',
+      color: isLocalWinner ? '#22c55e' : '#ef4444',
+      stroke: '#000000',
+      strokeThickness: 6,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+    this.add.text(cam.width / 2, cam.height / 2 + 60, 'Atualize a página para jogar de novo', {
+      font: '20px sans-serif',
+      color: '#ffffff',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
   }
 
   respawnFighter(fighter) {
@@ -1772,6 +1804,7 @@ export default class GameScene extends Phaser.Scene {
       anim: currentAnim,
       frame: sprite.anims.currentFrame?.index ?? 0,
       hp: f.hp,
+      lives: f.lives,
       shielded: f.shieldCharges > 0,
     });
   }
@@ -1811,6 +1844,10 @@ export default class GameScene extends Phaser.Scene {
     }
     if (typeof data.hp === 'number') {
       this.remoteFighter.hp = data.hp;
+    }
+    if (typeof data.lives === 'number') {
+      this.remoteFighter.lives = data.lives;
+      this.checkMatchOver();
     }
     const hasShieldVisual = !!this.remoteFighter.shieldAnimSprite;
     if (data.shielded === false && hasShieldVisual) {
