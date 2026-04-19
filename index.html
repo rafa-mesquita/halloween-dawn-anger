@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Halloween Dawn Anger</title>
+    <style>
+      body {
+        margin: 0;
+        background: #111;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        font-family: sans-serif;
+      }
+      #game {
+        box-shadow: 0 0 40px rgba(255, 255, 255, 0.1);
+        position: relative;
+      }
+      #volume-control {
+        position: absolute;
+        bottom: 12px;
+        right: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 6px 10px;
+        border-radius: 6px;
+        color: #fff;
+        font-size: 12px;
+        z-index: 10;
+      }
+      #volume-slider {
+        width: 100px;
+      }
+      #hitbox-toggle {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        background: rgba(0, 0, 0, 0.5);
+        color: #fff;
+        border: 1px solid #555;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        cursor: pointer;
+        z-index: 10;
+        font-family: sans-serif;
+      }
+      #hitbox-toggle:hover {
+        background: rgba(0, 0, 0, 0.7);
+      }
+      #hitbox-toggle.off {
+        opacity: 0.6;
+      }
+      #dev-power-panel {
+        position: absolute;
+        top: 56px;
+        right: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        background: rgba(0, 0, 0, 0.55);
+        padding: 8px;
+        border-radius: 6px;
+        z-index: 10;
+        font-family: sans-serif;
+      }
+      #dev-power-panel .dev-label {
+        color: #aaa;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 2px;
+      }
+      .dev-power-btn {
+        background: rgba(30, 30, 40, 0.8);
+        color: #fff;
+        border: 1px solid #444;
+        padding: 6px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        cursor: pointer;
+        font-family: sans-serif;
+        text-align: left;
+        min-width: 140px;
+      }
+      .dev-power-btn:hover {
+        background: rgba(60, 60, 80, 0.9);
+      }
+      .dev-power-btn.active {
+        border-color: #38bdf8;
+        background: rgba(20, 60, 90, 0.9);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game">
+      <button id="hitbox-toggle" type="button">Hitbox: ON</button>
+      <div id="dev-power-panel">
+        <div class="dev-label">DEV: escolher poder</div>
+        <button class="dev-power-btn" data-power="none" type="button">Nenhum</button>
+        <button class="dev-power-btn" data-power="heavens_fury" type="button">1 - Heavens Fury</button>
+        <button class="dev-power-btn" data-power="shield" type="button">2 - Holy Shield</button>
+        <button class="dev-power-btn" data-power="skull_curse" type="button">3 - Skull Curse</button>
+        <button class="dev-power-btn" data-power="wheel" type="button">4 - Wheel</button>
+      </div>
+      <div id="volume-control">
+        <span>Volume</span>
+        <input id="volume-slider" type="range" min="0" max="100" value="5" />
+        <span id="volume-value">5%</span>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

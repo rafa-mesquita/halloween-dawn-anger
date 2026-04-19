@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(git --version)",
+      "Bash(gh --version)",
+      "Bash(gh auth *)",
+      "Bash(rtk npm *)",
+      "Bash(cp \"SHADOW Series - Hallokin \\(free\\)/png \\(free\\)/attack up.png\" \"public/sprites/player_attack_up.png\")",
+      "Bash(node -e ' *)",
+      "Bash(node -e \"const fs=require\\('fs'\\);for\\(const n of ['wood on map.png','wood catch.png']\\){const b=fs.readFileSync\\('c:/Users/rafam/Desktop/Rpositórios Github - claude/Pessoal/Chaotic Game/public/sprites/Wood/'+n\\);console.log\\(n,'w=',b.readUInt32BE\\(16\\),'h=',b.readUInt32BE\\(20\\)\\);}\")",
+      "Bash(node -e \"const fs=require\\('fs'\\);const b=fs.readFileSync\\('c:/Users/rafam/Desktop/Rpositórios Github - claude/Pessoal/Chaotic Game/public/sprites/HP/hp effect.png'\\);console.log\\('w=',b.readUInt32BE\\(16\\),'h=',b.readUInt32BE\\(20\\)\\);\")",
+      "Bash(node -e \"const fs=require\\('fs'\\);const b=fs.readFileSync\\('c:/Users/rafam/Desktop/Rpositórios Github - claude/Pessoal/Chaotic Game/public/sprites/Poder 1/HeavensFury_spritesheet.png'\\);console.log\\('w=',b.readUInt32BE\\(16\\),'h=',b.readUInt32BE\\(20\\)\\);\")",
+      "Bash(python -c \"from PIL import Image; img = Image.open\\('Smite_spritesheet.png'\\); print\\(img.size\\)\")",
+      "Bash(node -e \"const fs=require\\('fs'\\); const b=fs.readFileSync\\('Smite_spritesheet.png'\\); console.log\\('w:', b.readUInt32BE\\(16\\), 'h:', b.readUInt32BE\\(20\\)\\)\")",
+      "Bash(node -e \"const fs=require\\('fs'\\); const b=fs.readFileSync\\('public/sprites/Poder 2 \\(Shield\\)/HolyShield_spritesheet.png'\\); console.log\\('w:', b.readUInt32BE\\(16\\), 'h:', b.readUInt32BE\\(20\\)\\)\")",
+      "Bash(node -e \"const fs=require\\('fs'\\); const b=fs.readFileSync\\('public/sprites/Poder 2 \\(Shield\\)/shield icon.png'\\); console.log\\('w:', b.readUInt32BE\\(16\\), 'h:', b.readUInt32BE\\(20\\)\\)\")",
+      "Read(//c/Users/rafam/.claude/projects/c--Users-rafam-Desktop-Rposit-rios-Github---claude-Pessoal-Chaotic-Game/memory/**)",
+      "Bash(node -e \"const fs = require\\('fs'\\); const buf = fs.readFileSync\\('c:/Users/rafam/Desktop/Rpositórios Github - claude/Pessoal/Chaotic Game/public/sprites/Poder 3 \\(skull curse\\)/518.png'\\); const w = buf.readUInt32BE\\(16\\); const h = buf.readUInt32BE\\(20\\); console.log\\('width:', w, 'height:', h\\);\")",
+      "Bash(node -e \"const fs=require\\('fs'\\); const b=fs.readFileSync\\('c:/Users/rafam/Desktop/Rpositórios Github - claude/Pessoal/Chaotic Game/map 1/Crow.png'\\); console.log\\('W:', b.readUInt32BE\\(16\\), 'H:', b.readUInt32BE\\(20\\)\\);\")",
+      "Bash(node -e \"const fs=require\\('fs'\\); const b=fs.readFileSync\\('c:/Users/rafam/Desktop/Rpositórios Github - claude/Pessoal/Chaotic Game/public/sprites/Poder 4 \\(Wheel\\)/mid-Attack 4.png'\\); console.log\\('W:', b.readUInt32BE\\(16\\), 'H:', b.readUInt32BE\\(20\\)\\);\")",
+      "Bash(node -e \"const fs=require\\('fs'\\); const b=fs.readFileSync\\('c:/Users/rafam/Desktop/Rpositórios Github - claude/Pessoal/Chaotic Game/public/sprites/Poder 4 \\(Wheel\\)/stun.png'\\); console.log\\('W:', b.readUInt32BE\\(16\\), 'H:', b.readUInt32BE\\(20\\)\\);\")",
+      "Bash(node -e \"const fs=require\\('fs'\\); const b=fs.readFileSync\\('c:/Users/rafam/Desktop/Rpositórios Github - claude/Pessoal/Chaotic Game/public/sprites/Poder 4 \\(Wheel\\)/mid-Attack 5.png'\\); console.log\\('W:', b.readUInt32BE\\(16\\), 'H:', b.readUInt32BE\\(20\\)\\);\")",
+      "Bash(git init *)",
+      "Bash(git add *)"
+    ]
+  }
+}
