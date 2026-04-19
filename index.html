@@ -174,15 +174,15 @@
         <button id="btn-join" type="button">Entrar em Partida</button>
       </div>
       <div id="lobby-host" class="panel">
-        <p class="muted">Envie seu ID para o seu amigo:</p>
+        <p class="muted">Envie seu código para o seu amigo:</p>
         <div class="id-display" id="host-id">gerando...</div>
-        <button id="btn-copy-id" type="button">Copiar ID</button>
+        <button id="btn-copy-id" type="button">Copiar código</button>
         <p class="muted" id="host-status">Aguardando conexão...</p>
         <button id="btn-host-back" type="button">Voltar</button>
       </div>
       <div id="lobby-join" class="panel">
-        <p class="muted">Cole o ID do host:</p>
-        <input id="join-id" type="text" placeholder="ID do host" />
+        <p class="muted">Digite o código do host (5 dígitos):</p>
+        <input id="join-id" type="text" inputmode="numeric" maxlength="5" placeholder="12345" />
         <button id="btn-connect" type="button">Conectar</button>
         <p class="muted" id="join-status"></p>
         <button id="btn-join-back" type="button">Voltar</button>

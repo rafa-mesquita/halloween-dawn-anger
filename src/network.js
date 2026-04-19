@@ -1,5 +1,11 @@
 import Peer from 'peerjs';
 
+const ID_PREFIX = 'hda-';
+
+function randomCode() {
+  return String(Math.floor(10000 + Math.random() * 90000));
+}
+
 export class NetworkManager {
   constructor() {
     this.peer = null;
@@ -11,22 +17,38 @@ export class NetworkManager {
 
   host() {
     return new Promise((resolve, reject) => {
-      this.peer = new Peer();
-      this.peer.on('open', (id) => resolve(id));
-      this.peer.on('error', reject);
-      this.peer.on('connection', (conn) => {
-        this.conn = conn;
-        conn.on('open', () => this.setupConn());
-      });
+      let attempts = 0;
+      const tryOpen = () => {
+        const code = randomCode();
+        const peer = new Peer(ID_PREFIX + code);
+        peer.on('open', () => {
+          this.peer = peer;
+          this.peer.on('connection', (conn) => {
+            this.conn = conn;
+            conn.on('open', () => this.setupConn());
+          });
+          resolve(code);
+        });
+        peer.on('error', (err) => {
+          if (err && err.type === 'unavailable-id' && attempts < 8) {
+            attempts += 1;
+            peer.destroy();
+            tryOpen();
+          } else if (!this.peer) {
+            reject(err);
+          }
+        });
+      };
+      tryOpen();
     });
   }
 
-  join(hostId) {
+  join(code) {
     return new Promise((resolve, reject) => {
       this.peer = new Peer();
       this.peer.on('error', reject);
       this.peer.on('open', () => {
-        this.conn = this.peer.connect(hostId, { reliable: false });
+        this.conn = this.peer.connect(ID_PREFIX + code, { reliable: false });
         this.conn.on('open', () => {
           this.setupConn();
           resolve();
