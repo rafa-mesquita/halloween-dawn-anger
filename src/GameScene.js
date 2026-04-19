@@ -2,8 +2,8 @@ import Phaser from 'phaser';
 import { MAP_WIDTH, MAP_HEIGHT, PLATFORM_RECTS } from './map1.js';
 
 const MOVE_SPEED = 420;
-const JUMP_VELOCITY = 720;
-const DOUBLE_JUMP_VELOCITY = 540;
+const JUMP_VELOCITY = 780;
+const DOUBLE_JUMP_VELOCITY = 600;
 const WHEEL_STUN_HITS = 3;
 const MAX_JUMPS = 2;
 const FALL_GRAVITY_MULTIPLIER = 2.8;
@@ -104,7 +104,7 @@ const WHEEL_BODY_H = 24;
 const WHEEL_BALL_LOCAL_X = 95;
 const WHEEL_BALL_LOCAL_Y = 45;
 const WHEEL_VISUAL_Y_OFFSET = -14;
-const WHEEL_SPEED = 500;
+const WHEEL_SPEED = 650;
 const WHEEL_DAMAGE = 25;
 const WHEEL_STUN_MS = 4000;
 const WHEEL_KNOCKUP = -380;
@@ -931,6 +931,9 @@ export default class GameScene extends Phaser.Scene {
     else if (loot.lootType === 'hp') this.playSfx('sfx_cure', 0.6, 0.3);
     const type = LOOT_TYPES[loot.lootType];
     type.onPickup(this, fighter, loot);
+    if (loot.lootType === 'hp' && fighter === this.playerFighter) {
+      this.resetAttackOrbs();
+    }
     if (loot.lifetimeTimer) loot.lifetimeTimer.remove(false);
     loot.body.enable = false;
     if (loot.glowPulse) loot.glowPulse.stop();
@@ -1068,6 +1071,11 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  resetAttackOrbs() {
+    for (let i = 0; i < this.attackOrbs.length; i++) this.attackOrbs[i] = true;
+    this.resetAt = null;
+  }
+
   applyShield(fighter) {
     this.removeShield(fighter);
     this.playSfx('sfx_shield_cast');
@@ -1077,12 +1085,12 @@ export default class GameScene extends Phaser.Scene {
     const cx = body.x + body.width / 2;
     const cy = body.y + body.height / 2;
 
-    fighter.shieldAnimSprite = this.add.sprite(cx, cy, 'hp_sheet', 0)
+    fighter.shieldAnimSprite = this.add.sprite(cx, cy, 'wood_idle', 0)
       .setScale(HOLY_SHIELD_SCALE * 1.3)
       .setTint(0x3b82f6)
       .setAlpha(0.85)
       .setDepth(ATTACKER_DEPTH + 0.5);
-    fighter.shieldAnimSprite.play('hp_idle');
+    fighter.shieldAnimSprite.play('wood_idle');
 
     fighter.shieldGoldSprite = this.add.sprite(
       fighter.sprite.x,
@@ -1951,6 +1959,7 @@ export default class GameScene extends Phaser.Scene {
         } else if (power === 'shield') {
           fighter.specialPowers.shift();
           this.applyShield(fighter);
+          this.resetAttackOrbs();
           this.sendPowerCast('shield', {});
         } else if (power === 'skull_curse') {
           fighter.specialPowers.shift();
