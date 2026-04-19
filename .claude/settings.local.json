@@ -22,7 +22,14 @@
       "Bash(node -e \"const fs=require\\('fs'\\); const b=fs.readFileSync\\('c:/Users/rafam/Desktop/Rpositórios Github - claude/Pessoal/Chaotic Game/public/sprites/Poder 4 \\(Wheel\\)/stun.png'\\); console.log\\('W:', b.readUInt32BE\\(16\\), 'H:', b.readUInt32BE\\(20\\)\\);\")",
       "Bash(node -e \"const fs=require\\('fs'\\); const b=fs.readFileSync\\('c:/Users/rafam/Desktop/Rpositórios Github - claude/Pessoal/Chaotic Game/public/sprites/Poder 4 \\(Wheel\\)/mid-Attack 5.png'\\); console.log\\('W:', b.readUInt32BE\\(16\\), 'H:', b.readUInt32BE\\(20\\)\\);\")",
       "Bash(git init *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(gh repo *)",
+      "Bash(ngrok version *)",
+      "Bash(cloudflared --version)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "Bash(./cloudflared.exe tunnel *)",
+      "Bash(git rm *)"
     ]
   }
 }

@@ -94,9 +94,100 @@
         border-color: #38bdf8;
         background: rgba(20, 60, 90, 0.9);
       }
+      #lobby {
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 10, 20, 0.95);
+        z-index: 2000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-family: sans-serif;
+        gap: 16px;
+      }
+      #lobby h1 {
+        color: #ff9646;
+        margin: 0 0 24px 0;
+        letter-spacing: 2px;
+      }
+      #lobby button {
+        background: rgba(40, 40, 60, 0.9);
+        color: #fff;
+        border: 1px solid #666;
+        padding: 10px 24px;
+        border-radius: 6px;
+        font-size: 14px;
+        cursor: pointer;
+        font-family: sans-serif;
+        min-width: 200px;
+      }
+      #lobby button:hover {
+        background: rgba(80, 80, 120, 0.9);
+        border-color: #aaa;
+      }
+      #lobby .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      #lobby input {
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 1px solid #666;
+        background: rgba(30, 30, 40, 0.9);
+        color: #fff;
+        font-size: 13px;
+        min-width: 240px;
+      }
+      #lobby .panel {
+        display: none;
+        flex-direction: column;
+        gap: 10px;
+        align-items: center;
+      }
+      #lobby .panel.visible {
+        display: flex;
+      }
+      #lobby .muted {
+        color: #999;
+        font-size: 12px;
+      }
+      #lobby .id-display {
+        background: rgba(30, 30, 40, 0.9);
+        padding: 8px 14px;
+        border-radius: 6px;
+        border: 1px solid #555;
+        font-family: monospace;
+        font-size: 13px;
+        user-select: all;
+      }
     </style>
   </head>
   <body>
+    <div id="lobby">
+      <h1>Halloween Dawn Anger</h1>
+      <div id="lobby-choice" class="panel visible">
+        <button id="btn-single" type="button">Single Player</button>
+        <button id="btn-host" type="button">Criar Partida (Host)</button>
+        <button id="btn-join" type="button">Entrar em Partida</button>
+      </div>
+      <div id="lobby-host" class="panel">
+        <p class="muted">Envie seu ID para o seu amigo:</p>
+        <div class="id-display" id="host-id">gerando...</div>
+        <button id="btn-copy-id" type="button">Copiar ID</button>
+        <p class="muted" id="host-status">Aguardando conexão...</p>
+        <button id="btn-host-back" type="button">Voltar</button>
+      </div>
+      <div id="lobby-join" class="panel">
+        <p class="muted">Cole o ID do host:</p>
+        <input id="join-id" type="text" placeholder="ID do host" />
+        <button id="btn-connect" type="button">Conectar</button>
+        <p class="muted" id="join-status"></p>
+        <button id="btn-join-back" type="button">Voltar</button>
+      </div>
+    </div>
     <div id="game">
       <button id="hitbox-toggle" type="button">Hitbox: ON</button>
       <div id="dev-power-panel">

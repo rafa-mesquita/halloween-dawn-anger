@@ -184,6 +184,14 @@ export default class GameScene extends Phaser.Scene {
     super('GameScene');
   }
 
+  init(data) {
+    this.mode = data?.mode ?? 'single';
+    this.network = data?.network ?? null;
+    this.localFighterIndex = this.mode === 'client' ? 1 : 0;
+    this.remoteFighterIndex = this.mode === 'client' ? 0 : 1;
+    this.isMultiplayer = this.mode === 'host' || this.mode === 'client';
+  }
+
   preload() {
     const baseSheets = ['idle', 'run', 'jump', 'fall', 'attack', 'attack_up', 'attack_down', 'death'];
     for (const char of CHARACTERS) {
@@ -198,6 +206,8 @@ export default class GameScene extends Phaser.Scene {
     this.load.audio('bgm', 'audio/bgm.mp3');
     this.load.audio('sfx_heavens_fury_cast', 'audio/powers/heavens_fury/Cast.mp3');
     this.load.audio('sfx_heavens_fury_second', 'audio/powers/heavens_fury/Second.mp3');
+    this.load.audio('sfx_attack', 'audio/attacks/atack.mp3');
+    this.load.audio('sfx_crow_die', 'audio/corvo/corvo die.mp3');
     this.load.image('map1_bg', 'maps/map1/background.png');
     this.load.image('map1_platforms', 'maps/map1/platforms.png');
     this.load.spritesheet('map1_crow', 'maps/map1/Crow.png', {
@@ -495,7 +505,8 @@ export default class GameScene extends Phaser.Scene {
       { x: 1100, y: 300 },
       { x: 600, y: 300 },
     ];
-    for (let i = 0; i < CHARACTERS.length; i++) {
+    const fighterCount = this.isMultiplayer ? 2 : CHARACTERS.length;
+    for (let i = 0; i < fighterCount; i++) {
       const char = CHARACTERS[i];
       const pos = spawnPositions[i];
       const fighter = this.createFighter(char, pos.x, pos.y);
@@ -508,8 +519,16 @@ export default class GameScene extends Phaser.Scene {
       );
     }
 
-    this.player = this.fighters[0].sprite;
-    this.playerFighter = this.fighters[0];
+    this.player = this.fighters[this.localFighterIndex].sprite;
+    this.playerFighter = this.fighters[this.localFighterIndex];
+
+    if (this.isMultiplayer) {
+      this.remoteFighter = this.fighters[this.remoteFighterIndex];
+      const rb = this.remoteFighter.sprite.body;
+      rb.setAllowGravity(false);
+      rb.setImmovable(true);
+      this.network.onState((data) => this.handleNetState(data));
+    }
 
     this.keys = this.input.keyboard.addKeys({
       up: Phaser.Input.Keyboard.KeyCodes.W,
@@ -1264,6 +1283,7 @@ export default class GameScene extends Phaser.Scene {
     const crow = this.crow;
     if (!crow || crow.isDead || !crow.sprite) return;
     crow.isDead = true;
+    this.playSfx('sfx_crow_die', 0.5);
     const sprite = crow.sprite;
     sprite.anims.stop();
     sprite.setFrame(15);
@@ -1606,15 +1626,19 @@ export default class GameScene extends Phaser.Scene {
           const dx = Math.abs(tx - worldX);
           const inGroundZone = ty >= groundTop && ty <= groundBottom;
           if (inGroundZone && dx <= HEAVENS_FURY_STRIKE_HALF_WIDTH) {
-            this.damageFighter(target, HEAVENS_FURY_DAMAGE_FULL);
-            this.triggerPowerFlash(target, POWERS.heavens_fury.orbColor);
+            this.dealHit(target, {
+              damage: HEAVENS_FURY_DAMAGE_FULL,
+              powerFlashColor: POWERS.heavens_fury.orbColor,
+            });
           } else if (
             ty < groundTop &&
             ty >= 0 &&
             dx <= HEAVENS_FURY_BEAM_HALF_WIDTH
           ) {
-            this.damageFighter(target, HEAVENS_FURY_DAMAGE_BEAM);
-            this.triggerPowerFlash(target, POWERS.heavens_fury.orbColor);
+            this.dealHit(target, {
+              damage: HEAVENS_FURY_DAMAGE_BEAM,
+              powerFlashColor: POWERS.heavens_fury.orbColor,
+            });
           }
         }
         const crow = this.crow;
@@ -1633,6 +1657,67 @@ export default class GameScene extends Phaser.Scene {
       }
     });
     sprite.once('animationcomplete', () => sprite.destroy());
+  }
+
+  applyIncomingHit(target, hit) {
+    if (!target || target.isDead) return;
+    if (hit.breakShield && target.shieldCharges > 0) this.removeShield(target);
+    this.damageFighter(target, hit.damage);
+    if (!target.isDead) {
+      if (hit.knockupY) target.sprite.body.setVelocityY(hit.knockupY);
+      if (hit.stun) this.applyStun(target);
+      if (hit.curse) this.applySkullCurse(target);
+    }
+    if (hit.powerFlashColor !== null && hit.powerFlashColor !== undefined) {
+      this.triggerPowerFlash(target, hit.powerFlashColor);
+    }
+  }
+
+  dealHit(target, hit) {
+    if (this.isMultiplayer && target === this.remoteFighter) {
+      this.network.send({ type: 'hit', ...hit });
+      return;
+    }
+    this.applyIncomingHit(target, hit);
+  }
+
+  syncNetwork(time) {
+    if (!this.network || !this.network.isConnected) return;
+    if (!this._lastNetSend) this._lastNetSend = 0;
+    if (time - this._lastNetSend < 33) return;
+    this._lastNetSend = time;
+    const f = this.playerFighter;
+    const sprite = f.sprite;
+    const currentAnim = sprite.anims.currentAnim?.key ?? f.keys.idle;
+    this.network.send({
+      type: 'state',
+      x: sprite.x,
+      y: sprite.y,
+      flipX: sprite.flipX,
+      anim: currentAnim,
+      frame: sprite.anims.currentFrame?.index ?? 0,
+    });
+  }
+
+  handleNetState(data) {
+    if (!data) return;
+    if (data.type === 'hit') {
+      this.applyIncomingHit(this.playerFighter, data);
+      return;
+    }
+    if (data.type !== 'state') return;
+    if (!this.remoteFighter) return;
+    const sprite = this.remoteFighter.sprite;
+    sprite.setPosition(data.x, data.y);
+    sprite.setFlipX(!!data.flipX);
+    const body = sprite.body;
+    body.offset.x = data.flipX
+      ? FRAME_WIDTH - BODY_OFFSET_X - BODY_WIDTH
+      : BODY_OFFSET_X;
+    body.setVelocity(0, 0);
+    if (data.anim && sprite.anims.currentAnim?.key !== data.anim) {
+      sprite.anims.play(data.anim, true);
+    }
   }
 
   setControlledFighter(index) {
@@ -1668,9 +1753,15 @@ export default class GameScene extends Phaser.Scene {
   }
 
   update(time, delta) {
-    if (Phaser.Input.Keyboard.JustDown(this.switchKeys.one)) this.setControlledFighter(0);
-    else if (Phaser.Input.Keyboard.JustDown(this.switchKeys.two)) this.setControlledFighter(1);
-    else if (Phaser.Input.Keyboard.JustDown(this.switchKeys.three)) this.setControlledFighter(2);
+    if (!this.isMultiplayer) {
+      if (Phaser.Input.Keyboard.JustDown(this.switchKeys.one)) this.setControlledFighter(0);
+      else if (Phaser.Input.Keyboard.JustDown(this.switchKeys.two)) this.setControlledFighter(1);
+      else if (Phaser.Input.Keyboard.JustDown(this.switchKeys.three)) this.setControlledFighter(2);
+    }
+
+    if (this.isMultiplayer) {
+      this.syncNetwork(time);
+    }
 
     const fighter = this.playerFighter;
     const body = this.player.body;
@@ -1827,6 +1918,7 @@ export default class GameScene extends Phaser.Scene {
         this.player.setDepth(ATTACKER_DEPTH);
         this.targetsHitThisAttack.clear();
         this.player.anims.play(fighter.currentAttackAnim.animKey);
+        this.playSfx('sfx_attack');
       }
       this.attackQueued = false;
 
@@ -1882,7 +1974,7 @@ export default class GameScene extends Phaser.Scene {
               hbTop < tb.y + tb.height;
             if (hit) {
               this.targetsHitThisAttack.add(target);
-              this.damageFighter(target, ATTACK_DAMAGE);
+              this.dealHit(target, { damage: ATTACK_DAMAGE });
             }
           }
           if (this.isCrowHitByRect(hbLeft, hbRight, hbTop, hbBottom)) {
@@ -1937,9 +2029,11 @@ export default class GameScene extends Phaser.Scene {
           if (hit) {
             p.hasHit = true;
             p.body.setVelocityX(0);
-            if (target.shieldCharges > 0) this.removeShield(target);
-            this.damageFighter(target, SKULL_CURSE_DAMAGE);
-            this.applySkullCurse(target);
+            this.dealHit(target, {
+              damage: SKULL_CURSE_DAMAGE,
+              breakShield: true,
+              curse: true,
+            });
             p.play('skull_curse_hit');
             if (p.auraPulse) p.auraPulse.stop();
             if (p.aura) {
@@ -2025,12 +2119,12 @@ export default class GameScene extends Phaser.Scene {
 
       if (hitTarget) {
         w.hasHit = true;
-        this.damageFighter(hitTarget, WHEEL_DAMAGE);
-        if (!hitTarget.isDead) {
-          hitTarget.sprite.body.setVelocityY(WHEEL_KNOCKUP);
-          this.applyStun(hitTarget);
-        }
-        this.triggerPowerFlash(hitTarget, 0xffffff);
+        this.dealHit(hitTarget, {
+          damage: WHEEL_DAMAGE,
+          stun: true,
+          knockupY: WHEEL_KNOCKUP,
+          powerFlashColor: 0xffffff,
+        });
         this.createWheelExplosion(w.x, w.y);
         if (w.platformCollider) this.physics.world.removeCollider(w.platformCollider);
         if (w.visual) w.visual.destroy();

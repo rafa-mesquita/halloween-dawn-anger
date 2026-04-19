@@ -3,3 +3,6 @@ dist
 .DS_Store
 *.log
 .vite
+cloudflared.exe
+config.yml
+.claude/scheduled_tasks.lock
