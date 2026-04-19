@@ -50,6 +50,8 @@ const WOOD_IDLE_FRAMES = 8;
 const WOOD_CATCH_FRAMES = 7;
 const HP_IDLE_FRAMES = 10;
 const HP_CATCH_FRAMES = 5;
+const SHIELD_IDLE_FRAMES = 10;
+const SHIELD_CATCH_FRAMES = 5;
 const HP_HEAL_AMOUNT = 50;
 
 const HEAVENS_FURY_FRAME_SIZE = 128;
@@ -128,7 +130,7 @@ const POWERS = {
   },
 };
 
-const WOOD_POWER_POOL = ['heavens_fury', 'shield', 'skull_curse', 'wheel'];
+const WOOD_POWER_POOL = ['heavens_fury', 'skull_curse', 'wheel'];
 
 const LOOT_TYPES = {
   wood: {
@@ -145,6 +147,14 @@ const LOOT_TYPES = {
     glowKey: 'glow_green',
     onPickup: (scene, fighter) => {
       fighter.hp = Math.min(MAX_HP, fighter.hp + HP_HEAL_AMOUNT);
+    },
+  },
+  shield: {
+    idleKey: 'shield_idle',
+    catchKey: 'shield_catch',
+    glowKey: 'glow_blue',
+    onPickup: (scene, fighter) => {
+      scene.applyShield(fighter);
     },
   },
 };
@@ -233,6 +243,10 @@ export default class GameScene extends Phaser.Scene {
       frameHeight: LOOT_FRAME_SIZE,
     });
     this.load.spritesheet('hp_sheet', 'sprites/HP/hp effect.png', {
+      frameWidth: LOOT_FRAME_SIZE,
+      frameHeight: LOOT_FRAME_SIZE,
+    });
+    this.load.spritesheet('shield_loot_sheet', 'sprites/Poder 2 (Shield)/shield carch.png', {
       frameWidth: LOOT_FRAME_SIZE,
       frameHeight: LOOT_FRAME_SIZE,
     });
@@ -344,6 +358,9 @@ export default class GameScene extends Phaser.Scene {
     for (const char of CHARACTERS) {
       this.createGlowTexture(char.glowKey, char.glowColor);
     }
+    this.createGlowTexture('glow_blue', [
+      110, 170, 255, 80, 140, 240, 60, 110, 220,
+    ]);
 
     const platformZones = [];
     for (const r of PLATFORM_RECTS) {
@@ -384,6 +401,24 @@ export default class GameScene extends Phaser.Scene {
       frames: this.anims.generateFrameNumbers('hp_sheet', {
         start: HP_IDLE_FRAMES,
         end: HP_IDLE_FRAMES + HP_CATCH_FRAMES - 1,
+      }),
+      frameRate: 14,
+      repeat: 0,
+    });
+    this.anims.create({
+      key: 'shield_idle',
+      frames: this.anims.generateFrameNumbers('shield_loot_sheet', {
+        start: 0,
+        end: SHIELD_IDLE_FRAMES - 1,
+      }),
+      frameRate: 8,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: 'shield_catch',
+      frames: this.anims.generateFrameNumbers('shield_loot_sheet', {
+        start: SHIELD_IDLE_FRAMES,
+        end: SHIELD_IDLE_FRAMES + SHIELD_CATCH_FRAMES - 1,
       }),
       frameRate: 14,
       repeat: 0,
@@ -822,7 +857,13 @@ export default class GameScene extends Phaser.Scene {
 
   spawnLoot(typeKey) {
     if (this.loots.length >= LOOT_MAX_ACTIVE) return;
-    const key = typeKey || (Phaser.Math.FloatBetween(0, 1) < 0.1 ? 'hp' : 'wood');
+    let key = typeKey;
+    if (!key) {
+      const roll = Phaser.Math.FloatBetween(0, 1);
+      if (roll < 0.1) key = 'hp';
+      else if (roll < 0.2) key = 'shield';
+      else key = 'wood';
+    }
     const type = LOOT_TYPES[key];
 
     const margin = 40;
@@ -933,7 +974,10 @@ export default class GameScene extends Phaser.Scene {
     else if (loot.lootType === 'hp') this.playSfx('sfx_cure', 0.6, 0.3);
     const type = LOOT_TYPES[loot.lootType];
     type.onPickup(this, fighter, loot);
-    if (loot.lootType === 'hp' && fighter === this.playerFighter) {
+    if (
+      (loot.lootType === 'hp' || loot.lootType === 'shield') &&
+      fighter === this.playerFighter
+    ) {
       this.resetAttackOrbs();
     }
     if (loot.lifetimeTimer) loot.lifetimeTimer.remove(false);
