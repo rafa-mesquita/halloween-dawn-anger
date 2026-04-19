@@ -67,7 +67,7 @@ const SMITE_FRAMES = 11;
 const SMITE_SCALE = 4;
 
 const HOLY_SHIELD_FRAME_SIZE = 64;
-const HOLY_SHIELD_FRAMES = 11;
+const HOLY_SHIELD_FRAMES = 7;
 const HOLY_SHIELD_SCALE = 1.8;
 const HOLY_SHIELD_HUD_SCALE = 0.14;
 const HOLY_SHIELD_FRAMERATE = 6;
@@ -1086,12 +1086,10 @@ export default class GameScene extends Phaser.Scene {
     const cx = body.x + body.width / 2;
     const cy = body.y + body.height / 2;
 
-    fighter.shieldAnimSprite = this.add.sprite(cx, cy, 'wood_idle', 0)
-      .setScale(HOLY_SHIELD_SCALE * 1.3)
-      .setTint(0x3b82f6)
-      .setAlpha(0.85)
+    fighter.shieldAnimSprite = this.add.sprite(cx, cy, 'holy_shield', 0)
+      .setScale(HOLY_SHIELD_SCALE)
       .setDepth(ATTACKER_DEPTH + 0.5);
-    fighter.shieldAnimSprite.play('wood_idle');
+    fighter.shieldAnimSprite.play('holy_shield');
 
     fighter.shieldGoldSprite = this.add.sprite(
       fighter.sprite.x,
