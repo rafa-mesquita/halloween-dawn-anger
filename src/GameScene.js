@@ -154,9 +154,9 @@ const CHARACTERS = [
 ];
 
 const ATTACK_ANIMS_BASE = {
-  horizontal: { frameCount: 7, activeStart: 2, activeEnd: 6, charFrameOffsetX: 49 },
-  up:         { frameCount: 6, activeStart: 2, activeEnd: 5, charFrameOffsetX: 49 },
-  down:       { frameCount: 6, activeStart: 2, activeEnd: 5, charFrameOffsetX: 67 },
+  horizontal: { frameCount: 7, activeStart: 2, activeEnd: 4, charFrameOffsetX: 49 },
+  up:         { frameCount: 6, activeStart: 2, activeEnd: 3, charFrameOffsetX: 49 },
+  down:       { frameCount: 6, activeStart: 2, activeEnd: 3, charFrameOffsetX: 67 },
 };
 
 function animKeysFor(charId) {
@@ -206,8 +206,16 @@ export default class GameScene extends Phaser.Scene {
     this.load.audio('bgm', 'audio/bgm.mp3');
     this.load.audio('sfx_heavens_fury_cast', 'audio/powers/heavens_fury/Cast.mp3');
     this.load.audio('sfx_heavens_fury_second', 'audio/powers/heavens_fury/Second.mp3');
-    this.load.audio('sfx_attack', 'audio/attacks/atack.mp3');
+    this.load.audio('sfx_swing', 'audio/attacks/Hit.mp3');
+    this.load.audio('sfx_hit', 'audio/attacks/atack.mp3');
     this.load.audio('sfx_crow_die', 'audio/corvo/corvo die.mp3');
+    this.load.audio('sfx_shield_cast', 'audio/powers/shield/cast.mp3');
+    this.load.audio('sfx_shield_break', 'audio/powers/shield/broke shield.mp3');
+    this.load.audio('sfx_skull_cast', 'audio/powers/skull_curse/cast skull curse.mp3');
+    this.load.audio('sfx_skull_hit', 'audio/powers/skull_curse/hit skull.mp3');
+    this.load.audio('sfx_power_pickup', 'audio/power catch/power cath.mp3');
+    this.load.audio('sfx_cure', 'audio/heal novo/93eeb9fc-8eab-44db-aa09-270a2550a130.mp3');
+    this.load.audio('sfx_jump', 'audio/jump/30_Jump_03.wav');
     this.load.image('map1_bg', 'maps/map1/background.png');
     this.load.image('map1_platforms', 'maps/map1/platforms.png');
     this.load.spritesheet('map1_crow', 'maps/map1/Crow.png', {
@@ -905,6 +913,8 @@ export default class GameScene extends Phaser.Scene {
     if (loot.isPickedUp) return;
     loot.isPickedUp = true;
     this.triggerPickupFlash(fighter);
+    if (loot.lootType === 'wood') this.playSfx('sfx_power_pickup', 1, 0.4);
+    else if (loot.lootType === 'hp') this.playSfx('sfx_cure', 0.6, 0.3);
     const type = LOOT_TYPES[loot.lootType];
     type.onPickup(this, fighter, loot);
     if (loot.lifetimeTimer) loot.lifetimeTimer.remove(false);
@@ -1030,6 +1040,7 @@ export default class GameScene extends Phaser.Scene {
       finalAmount = finalAmount * SHIELD_DAMAGE_MULTIPLIER;
       fighter.shieldCharges -= 1;
       if (fighter.shieldCharges <= 0) {
+        this.playSfx('sfx_shield_break');
         this.removeShield(fighter);
       }
     }
@@ -1044,6 +1055,7 @@ export default class GameScene extends Phaser.Scene {
 
   applyShield(fighter) {
     this.removeShield(fighter);
+    this.playSfx('sfx_shield_cast');
     fighter.shieldCharges = SHIELD_CHARGES;
 
     const body = fighter.sprite.body;
@@ -1283,6 +1295,7 @@ export default class GameScene extends Phaser.Scene {
     const crow = this.crow;
     if (!crow || crow.isDead || !crow.sprite) return;
     crow.isDead = true;
+    this.playSfx('sfx_hit');
     this.playSfx('sfx_crow_die', 0.5);
     const sprite = crow.sprite;
     sprite.anims.stop();
@@ -1424,9 +1437,12 @@ export default class GameScene extends Phaser.Scene {
     return best;
   }
 
-  playSfx(key, volumeMultiplier = 1) {
+  playSfx(key, volumeMultiplier = 1, seek = 0) {
     if (!this.cache.audio.exists(key)) return;
-    this.sound.play(key, { volume: this.masterVolume * this.sfxScale * volumeMultiplier });
+    this.sound.play(key, {
+      volume: this.masterVolume * this.sfxScale * volumeMultiplier,
+      seek,
+    });
   }
 
   firePower(fighter, worldX, worldY) {
@@ -1462,11 +1478,17 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
-  fireSkullCurse(fighter, pointerWorldX) {
+  fireSkullCurse(fighter, pointerWorldX, pointerWorldY) {
+    this.playSfx('sfx_skull_cast', 1.6);
     const body = fighter.sprite.body;
     const startX = body.x + body.width / 2;
     const startY = body.y + body.height / 2;
-    const dir = pointerWorldX >= startX ? 1 : -1;
+    const dx = pointerWorldX - startX;
+    const dy = (pointerWorldY ?? startY) - startY;
+    const angle = Math.atan2(dy, dx);
+    const dir = Math.cos(angle) >= 0 ? 1 : -1;
+    const vx = Math.cos(angle) * SKULL_CURSE_SPEED;
+    const vy = Math.sin(angle) * SKULL_CURSE_SPEED;
 
     const aura = this.add.image(startX, startY, 'glow_purple')
       .setBlendMode(Phaser.BlendModes.ADD)
@@ -1487,9 +1509,10 @@ export default class GameScene extends Phaser.Scene {
     projectile.setScale(SKULL_CURSE_SCALE);
     projectile.setDepth(ATTACKER_DEPTH);
     projectile.setFlipX(dir < 0);
+    projectile.setRotation(dir < 0 ? angle - Math.PI : angle);
     projectile.body.allowGravity = false;
     projectile.body.setSize(SKULL_CURSE_BODY_W, SKULL_CURSE_BODY_H, true);
-    projectile.body.setVelocityX(SKULL_CURSE_SPEED * dir);
+    projectile.body.setVelocity(vx, vy);
     projectile.setCollideWorldBounds(false);
     projectile.ownerFighter = fighter;
     projectile.hasHit = false;
@@ -1540,6 +1563,13 @@ export default class GameScene extends Phaser.Scene {
         .setBlendMode(Phaser.BlendModes.ADD);
       target.curseVfxSprite.play('skull_curse_vfx');
     }
+    if (!target.curseHitSound && this.cache.audio.exists('sfx_skull_hit')) {
+      target.curseHitSound = this.sound.add('sfx_skull_hit', {
+        loop: true,
+        volume: this.masterVolume * this.sfxScale,
+      });
+      target.curseHitSound.play();
+    }
   }
 
   removeSkullCurse(target) {
@@ -1559,6 +1589,11 @@ export default class GameScene extends Phaser.Scene {
     if (target.curseVfxSprite) {
       target.curseVfxSprite.destroy();
       target.curseVfxSprite = null;
+    }
+    if (target.curseHitSound) {
+      target.curseHitSound.stop();
+      target.curseHitSound.destroy();
+      target.curseHitSound = null;
     }
   }
 
@@ -1661,7 +1696,10 @@ export default class GameScene extends Phaser.Scene {
 
   applyIncomingHit(target, hit) {
     if (!target || target.isDead) return;
-    if (hit.breakShield && target.shieldCharges > 0) this.removeShield(target);
+    if (hit.breakShield && target.shieldCharges > 0) {
+      this.playSfx('sfx_shield_break');
+      this.removeShield(target);
+    }
     this.damageFighter(target, hit.damage);
     if (!target.isDead) {
       if (hit.knockupY) target.sprite.body.setVelocityY(hit.knockupY);
@@ -1674,6 +1712,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   dealHit(target, hit) {
+    if (hit.playHitSfx) this.playSfx('sfx_hit');
     if (this.isMultiplayer && target === this.remoteFighter) {
       this.network.send({ type: 'hit', ...hit });
       return;
@@ -1702,6 +1741,7 @@ export default class GameScene extends Phaser.Scene {
   handleNetState(data) {
     if (!data) return;
     if (data.type === 'hit') {
+      if (data.playHitSfx) this.playSfx('sfx_hit');
       this.applyIncomingHit(this.playerFighter, data);
       return;
     }
@@ -1823,6 +1863,7 @@ export default class GameScene extends Phaser.Scene {
       ) {
         const isSecondJump = this.jumpsRemaining < MAX_JUMPS;
         body.setVelocityY(isSecondJump ? -DOUBLE_JUMP_VELOCITY : -JUMP_VELOCITY);
+        this.playSfx('sfx_jump', 2.5);
         this.jumpsRemaining -= 1;
         if (isSecondJump) this.didDoubleJump = true;
         this.lastJumpTime = time;
@@ -1854,7 +1895,7 @@ export default class GameScene extends Phaser.Scene {
         } else if (power === 'skull_curse') {
           fighter.specialPower = null;
           const pointer = this.input.activePointer;
-          this.fireSkullCurse(fighter, pointer.worldX);
+          this.fireSkullCurse(fighter, pointer.worldX, pointer.worldY);
         } else if (power === 'wheel') {
           fighter.specialPower = null;
           const pointer = this.input.activePointer;
@@ -1918,7 +1959,7 @@ export default class GameScene extends Phaser.Scene {
         this.player.setDepth(ATTACKER_DEPTH);
         this.targetsHitThisAttack.clear();
         this.player.anims.play(fighter.currentAttackAnim.animKey);
-        this.playSfx('sfx_attack');
+        this.playSfx('sfx_swing');
       }
       this.attackQueued = false;
 
@@ -1974,7 +2015,7 @@ export default class GameScene extends Phaser.Scene {
               hbTop < tb.y + tb.height;
             if (hit) {
               this.targetsHitThisAttack.add(target);
-              this.dealHit(target, { damage: ATTACK_DAMAGE });
+              this.dealHit(target, { damage: ATTACK_DAMAGE, playHitSfx: true });
             }
           }
           if (this.isCrowHitByRect(hbLeft, hbRight, hbTop, hbBottom)) {
