@@ -1687,7 +1687,8 @@ export default class GameScene extends Phaser.Scene {
           const inGroundZone = ty >= groundTop && ty <= groundBottom;
           if (inGroundZone && dx <= HEAVENS_FURY_STRIKE_HALF_WIDTH) {
             this.dealHit(target, {
-              damage: HEAVENS_FURY_DAMAGE_FULL,
+              damage: MAX_HP,
+              ignoreShield: true,
               powerFlashColor: POWERS.heavens_fury.orbColor,
             });
           } else if (
