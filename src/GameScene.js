@@ -20,6 +20,7 @@ const BODY_OFFSET_Y = 55;
 
 const ATTACK_HITBOX_WIDTH = 130;
 const ATTACK_HITBOX_HEIGHT = 100;
+const VERTICAL_ATTACK_REACH = 240;
 
 const MAX_ATTACK_ORBS = 4;
 const ORB_FULL_RESET_MS = 4000;
@@ -218,6 +219,7 @@ export default class GameScene extends Phaser.Scene {
     this.load.audio('bgm', 'audio/bgm.mp3');
     this.load.audio('sfx_heavens_fury_cast', 'audio/powers/heavens_fury/Cast.mp3');
     this.load.audio('sfx_heavens_fury_second', 'audio/powers/heavens_fury/Second.mp3');
+    this.load.audio('sfx_heavens_fury_belezam', 'audio/powers/heavens_fury/belezam.mp3');
     this.load.audio('sfx_swing', 'audio/attacks/Hit.mp3');
     this.load.audio('sfx_hit', 'audio/attacks/atack.mp3');
     this.load.audio('sfx_crow_die', 'audio/corvo/corvo die.mp3');
@@ -1553,6 +1555,7 @@ export default class GameScene extends Phaser.Scene {
     const beamHeight = Math.max(0, surfaceY);
 
     this.playSfx('sfx_heavens_fury_cast');
+    this.playSfx('sfx_heavens_fury_belezam');
 
     const telegraph = this.add.sprite(worldX, surfaceY, 'smite', 0)
       .setOrigin(0.5, 1)
@@ -2161,17 +2164,20 @@ export default class GameScene extends Phaser.Scene {
               ? 0
               : (this.player.flipX ? -frameOffsetDelta : frameOffsetDelta);
           const bodyCenterX = rawBodyCenterX + visualCenterShift;
-          const distance =
-            (BODY_WIDTH * SPRITE_SCALE) / 2 + ATTACK_HITBOX_WIDTH / 2;
+
+          const isVertical = Math.abs(Math.cos(this.attackAngle)) < 0.5;
+          const physW = isVertical ? ATTACK_HITBOX_HEIGHT : ATTACK_HITBOX_WIDTH;
+          const physH = isVertical ? VERTICAL_ATTACK_REACH : ATTACK_HITBOX_HEIGHT;
+          const bodyHalfAlongAttack = isVertical
+            ? (BODY_HEIGHT * SPRITE_SCALE) / 2
+            : (BODY_WIDTH * SPRITE_SCALE) / 2;
+          const reachAlongAttack = isVertical ? physH / 2 : physW / 2;
+          const distance = bodyHalfAlongAttack + reachAlongAttack;
           this.attackHitbox.setPosition(
             bodyCenterX + Math.cos(this.attackAngle) * distance,
             bodyCenterY + Math.sin(this.attackAngle) * distance
           );
           this.attackHitbox.rotation = this.attackAngle;
-
-          const isVertical = Math.abs(Math.cos(this.attackAngle)) < 0.5;
-          const physW = isVertical ? ATTACK_HITBOX_HEIGHT : ATTACK_HITBOX_WIDTH;
-          const physH = isVertical ? ATTACK_HITBOX_WIDTH : ATTACK_HITBOX_HEIGHT;
           if (
             this.attackHitbox.body.width !== physW ||
             this.attackHitbox.body.height !== physH
