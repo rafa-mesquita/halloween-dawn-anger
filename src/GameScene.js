@@ -1893,7 +1893,10 @@ export default class GameScene extends Phaser.Scene {
         this.player.setFlipX(desiredFlip);
       }
 
-      const effectiveFrameOffset = fighter.isAttacking
+      const isHorizontalAttack =
+        fighter.isAttacking &&
+        fighter.currentAttackAnim === fighter.keys.attackHorizontal;
+      const effectiveFrameOffset = isHorizontalAttack
         ? fighter.currentAttackAnim.charFrameOffsetX
         : BODY_OFFSET_X;
       const offsetX = this.player.flipX
@@ -2037,6 +2040,11 @@ export default class GameScene extends Phaser.Scene {
         this.targetsHitThisAttack.clear();
         this.player.anims.play(fighter.currentAttackAnim.animKey);
         this.playSfx('sfx_swing');
+
+        if (isHorizontalDir) {
+          const lungeDir = direction === 'left' ? -1 : 1;
+          this.player.x += lungeDir * 8;
+        }
       }
       this.attackQueued = false;
 
