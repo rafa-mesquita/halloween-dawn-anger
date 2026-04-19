@@ -972,6 +972,7 @@ export default class GameScene extends Phaser.Scene {
     this.triggerPickupFlash(fighter);
     if (loot.lootType === 'wood') this.playSfx('sfx_power_pickup', 1, 0.4);
     else if (loot.lootType === 'hp') this.playSfx('sfx_cure', 0.6, 0.3);
+    else if (loot.lootType === 'shield') this.playSfx('sfx_shield_break');
     const type = LOOT_TYPES[loot.lootType];
     type.onPickup(this, fighter, loot);
     if (
