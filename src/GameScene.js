@@ -2,8 +2,8 @@ import Phaser from 'phaser';
 import { MAP_WIDTH, MAP_HEIGHT, PLATFORM_RECTS } from './map1.js';
 
 const MOVE_SPEED = 420;
-const JUMP_VELOCITY = 780;
-const DOUBLE_JUMP_VELOCITY = 600;
+const JUMP_VELOCITY = 700;
+const DOUBLE_JUMP_VELOCITY = 540;
 const WHEEL_STUN_HITS = 3;
 const MAX_JUMPS = 2;
 const FALL_GRAVITY_MULTIPLIER = 2.8;
