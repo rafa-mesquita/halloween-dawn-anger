@@ -2,8 +2,9 @@ import Phaser from 'phaser';
 import { MAP_WIDTH, MAP_HEIGHT, PLATFORM_RECTS } from './map1.js';
 
 const MOVE_SPEED = 420;
-const JUMP_VELOCITY = 560;
-const DOUBLE_JUMP_VELOCITY = 400;
+const JUMP_VELOCITY = 720;
+const DOUBLE_JUMP_VELOCITY = 540;
+const WHEEL_STUN_HITS = 3;
 const MAX_JUMPS = 2;
 const FALL_GRAVITY_MULTIPLIER = 2.8;
 const DOUBLE_JUMP_FALL_MULTIPLIER = 3.8;
@@ -134,7 +135,7 @@ const LOOT_TYPES = {
     catchKey: 'wood_catch',
     glowKey: 'glow_orange',
     onPickup: (scene, fighter, loot) => {
-      fighter.specialPower = loot.power;
+      if (fighter.specialPowers.length < 2) fighter.specialPowers.push(loot.power);
     },
   },
   hp: {
@@ -354,6 +355,7 @@ export default class GameScene extends Phaser.Scene {
       const pbody = fallingObj.body;
       const tbody = platformObj.body;
       if (pbody.velocity.y < 0) return false;
+      if (fallingObj.dropThroughUntil && this.time.now < fallingObj.dropThroughUntil) return false;
       const prevBottom = pbody.prev.y + pbody.height;
       return prevBottom <= tbody.y + 4;
     };
@@ -614,7 +616,7 @@ export default class GameScene extends Phaser.Scene {
 
     const powerButtons = document.querySelectorAll('.dev-power-btn');
     const refreshPowerButtons = () => {
-      const current = this.playerFighter?.specialPower ?? 'none';
+      const current = this.playerFighter?.specialPowers?.[0] ?? 'none';
       powerButtons.forEach((btn) => {
         btn.classList.toggle('active', btn.dataset.power === current);
       });
@@ -623,7 +625,8 @@ export default class GameScene extends Phaser.Scene {
       btn.addEventListener('click', () => {
         if (!this.playerFighter) return;
         const selected = btn.dataset.power;
-        this.playerFighter.specialPower = selected === 'none' ? null : selected;
+        if (selected === 'none') this.playerFighter.specialPowers = [];
+        else this.playerFighter.specialPowers = [selected];
         refreshPowerButtons();
       });
     });
@@ -745,7 +748,19 @@ export default class GameScene extends Phaser.Scene {
 
     this.wheelProjectiles = [];
 
-    const activeShieldX = specialOrbCenterX + 50;
+    const secondarySlotX = specialOrbCenterX + SPECIAL_ORB_RADIUS + 10;
+    this.specialSlot2Sprite = this.add.circle(
+      secondarySlotX,
+      orbsY,
+      SPECIAL_ORB_RADIUS * 0.6,
+      0xffffff
+    )
+      .setStrokeStyle(2, 0x0f172a)
+      .setDepth(22)
+      .setScrollFactor(0)
+      .setVisible(false);
+
+    const activeShieldX = secondarySlotX + SPECIAL_ORB_RADIUS + 30;
     this.activeShieldSprite = this.add.image(
       activeShieldX,
       orbsY,
@@ -805,8 +820,7 @@ export default class GameScene extends Phaser.Scene {
 
   spawnLoot(typeKey) {
     if (this.loots.length >= LOOT_MAX_ACTIVE) return;
-    const typeKeys = Object.keys(LOOT_TYPES);
-    const key = typeKey || Phaser.Math.RND.pick(typeKeys);
+    const key = typeKey || (Phaser.Math.FloatBetween(0, 1) < 0.1 ? 'hp' : 'wood');
     const type = LOOT_TYPES[key];
 
     const margin = 40;
@@ -998,7 +1012,7 @@ export default class GameScene extends Phaser.Scene {
       isAttacking: false,
       attackSpriteShift: 0,
       currentAttackAnim: keys.attackHorizontal,
-      specialPower: null,
+      specialPowers: [],
       shieldCharges: 0,
       shieldAnimSprite: null,
       shieldGoldSprite: null,
@@ -1049,7 +1063,8 @@ export default class GameScene extends Phaser.Scene {
     if (fighter.hp <= 0) {
       this.killFighter(fighter);
     } else if (fighter.isStunned) {
-      this.removeStun(fighter);
+      fighter.stunHitsRemaining = (fighter.stunHitsRemaining ?? 1) - 1;
+      if (fighter.stunHitsRemaining <= 0) this.removeStun(fighter);
     }
   }
 
@@ -1062,10 +1077,12 @@ export default class GameScene extends Phaser.Scene {
     const cx = body.x + body.width / 2;
     const cy = body.y + body.height / 2;
 
-    fighter.shieldAnimSprite = this.add.sprite(cx, cy, 'holy_shield', 0)
-      .setScale(HOLY_SHIELD_SCALE)
+    fighter.shieldAnimSprite = this.add.sprite(cx, cy, 'hp_sheet', 0)
+      .setScale(HOLY_SHIELD_SCALE * 1.3)
+      .setTint(0x3b82f6)
+      .setAlpha(0.85)
       .setDepth(ATTACKER_DEPTH + 0.5);
-    fighter.shieldAnimSprite.play('holy_shield');
+    fighter.shieldAnimSprite.play('hp_idle');
 
     fighter.shieldGoldSprite = this.add.sprite(
       fighter.sprite.x,
@@ -1212,6 +1229,7 @@ export default class GameScene extends Phaser.Scene {
 
   applyStun(fighter) {
     fighter.isStunned = true;
+    fighter.stunHitsRemaining = WHEEL_STUN_HITS;
     if (fighter.stunTimer) fighter.stunTimer.remove(false);
     fighter.sprite.body.setVelocityX(0);
     if (!fighter.stunVfxSprite) {
@@ -1359,7 +1377,7 @@ export default class GameScene extends Phaser.Scene {
     if (fighter.isDead) return;
     fighter.isDead = true;
     fighter.lives = Math.max(0, fighter.lives - 1);
-    fighter.specialPower = null;
+    fighter.specialPowers = [];
     this.removeShield(fighter);
     this.removeSkullCurse(fighter);
     this.removeStun(fighter);
@@ -1446,8 +1464,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   firePower(fighter, worldX, worldY) {
-    const powerKey = fighter.specialPower;
-    fighter.specialPower = null;
+    const powerKey = fighter.specialPowers[0];
     const surfaceY = this.findSurfaceBelow(worldX, worldY);
     const beamHeight = Math.max(0, surfaceY);
 
@@ -1651,6 +1668,7 @@ export default class GameScene extends Phaser.Scene {
         frame.index - 1 <= HEAVENS_FURY_IMPACT_FRAME_END
       ) {
         sprite.damageDealt = true;
+        if (!this.isAuthoritativeOwner(fighter)) return;
         const groundTop = surfaceY - HEAVENS_FURY_GROUND_ZONE_HEIGHT;
         const groundBottom = surfaceY + 40;
         for (const target of this.fighters) {
@@ -1720,6 +1738,15 @@ export default class GameScene extends Phaser.Scene {
     this.applyIncomingHit(target, hit);
   }
 
+  isAuthoritativeOwner(fighter) {
+    return !this.isMultiplayer || fighter === this.playerFighter;
+  }
+
+  sendPowerCast(power, params) {
+    if (!this.network || !this.network.isConnected) return;
+    this.network.send({ type: 'power_cast', power, ...params });
+  }
+
   syncNetwork(time) {
     if (!this.network || !this.network.isConnected) return;
     if (!this._lastNetSend) this._lastNetSend = 0;
@@ -1730,11 +1757,13 @@ export default class GameScene extends Phaser.Scene {
     const currentAnim = sprite.anims.currentAnim?.key ?? f.keys.idle;
     this.network.send({
       type: 'state',
-      x: sprite.x,
+      x: sprite.x - (f.attackSpriteShift || 0),
       y: sprite.y,
       flipX: sprite.flipX,
       anim: currentAnim,
       frame: sprite.anims.currentFrame?.index ?? 0,
+      hp: f.hp,
+      shielded: f.shieldCharges > 0,
     });
   }
 
@@ -1743,6 +1772,19 @@ export default class GameScene extends Phaser.Scene {
     if (data.type === 'hit') {
       if (data.playHitSfx) this.playSfx('sfx_hit');
       this.applyIncomingHit(this.playerFighter, data);
+      return;
+    }
+    if (data.type === 'power_cast') {
+      if (!this.remoteFighter) return;
+      if (data.power === 'heavens_fury') {
+        this.firePower(this.remoteFighter, data.worldX, data.worldY);
+      } else if (data.power === 'shield') {
+        this.applyShield(this.remoteFighter);
+      } else if (data.power === 'skull_curse') {
+        this.fireSkullCurse(this.remoteFighter, data.worldX, data.worldY);
+      } else if (data.power === 'wheel') {
+        this.fireWheel(this.remoteFighter, data.worldX);
+      }
       return;
     }
     if (data.type !== 'state') return;
@@ -1757,6 +1799,13 @@ export default class GameScene extends Phaser.Scene {
     body.setVelocity(0, 0);
     if (data.anim && sprite.anims.currentAnim?.key !== data.anim) {
       sprite.anims.play(data.anim, true);
+    }
+    if (typeof data.hp === 'number') {
+      this.remoteFighter.hp = data.hp;
+    }
+    const hasShieldVisual = !!this.remoteFighter.shieldAnimSprite;
+    if (data.shielded === false && hasShieldVisual) {
+      this.removeShield(this.remoteFighter);
     }
   }
 
@@ -1873,6 +1922,14 @@ export default class GameScene extends Phaser.Scene {
 
       if (slamPressed && !body.blocked.down) {
         body.setVelocityY(SLAM_VELOCITY);
+      } else if (slamPressed && body.blocked.down) {
+        if (this._lastDownPress && time - this._lastDownPress < 300) {
+          this.player.dropThroughUntil = time + 220;
+          body.setVelocityY(40);
+          this._lastDownPress = 0;
+        } else {
+          this._lastDownPress = time;
+        }
       }
 
       if (body.velocity.y > 0) {
@@ -1884,22 +1941,25 @@ export default class GameScene extends Phaser.Scene {
         body.setGravityY(0);
       }
 
-      if (this.powerQueued && !fighter.isAttacking && fighter.specialPower) {
-        const power = fighter.specialPower;
+      if (this.powerQueued && !fighter.isAttacking && fighter.specialPowers.length > 0) {
+        const power = fighter.specialPowers[0];
+        const pointer = this.input.activePointer;
         if (power === 'heavens_fury') {
-          const pointer = this.input.activePointer;
           this.firePower(fighter, pointer.worldX, pointer.worldY);
+          fighter.specialPowers.shift();
+          this.sendPowerCast('heavens_fury', { worldX: pointer.worldX, worldY: pointer.worldY });
         } else if (power === 'shield') {
-          fighter.specialPower = null;
+          fighter.specialPowers.shift();
           this.applyShield(fighter);
+          this.sendPowerCast('shield', {});
         } else if (power === 'skull_curse') {
-          fighter.specialPower = null;
-          const pointer = this.input.activePointer;
+          fighter.specialPowers.shift();
           this.fireSkullCurse(fighter, pointer.worldX, pointer.worldY);
+          this.sendPowerCast('skull_curse', { worldX: pointer.worldX, worldY: pointer.worldY });
         } else if (power === 'wheel') {
-          fighter.specialPower = null;
-          const pointer = this.input.activePointer;
+          fighter.specialPowers.shift();
           this.fireWheel(fighter, pointer.worldX);
+          this.sendPowerCast('wheel', { worldX: pointer.worldX });
         }
       }
       this.powerQueued = false;
@@ -2003,22 +2063,44 @@ export default class GameScene extends Phaser.Scene {
           const hbTop = this.attackHitbox.y - physH / 2;
           const hbBottom = this.attackHitbox.y + physH / 2;
 
+          const isHorizontal = !isVertical;
+          const backHbW = isHorizontal ? ATTACK_HITBOX_WIDTH * 0.45 : 0;
+          const backHbH = isHorizontal ? ATTACK_HITBOX_HEIGHT * 0.7 : 0;
+          const backDist = isHorizontal
+            ? (BODY_WIDTH * SPRITE_SCALE) / 2 + backHbW / 2
+            : 0;
+          const backX = bodyCenterX - Math.cos(this.attackAngle) * backDist;
+          const backY = bodyCenterY - Math.sin(this.attackAngle) * backDist;
+          const backLeft = backX - backHbW / 2;
+          const backRight = backX + backHbW / 2;
+          const backTop = backY - backHbH / 2;
+          const backBottom = backY + backHbH / 2;
+
           for (const target of this.fighters) {
             if (target === fighter) continue;
             if (this.targetsHitThisAttack.has(target)) continue;
             if (target.isInvulnerable || target.isDead) continue;
             const tb = target.sprite.body;
-            const hit =
+            const frontHit =
               hbRight > tb.x &&
               hbLeft < tb.x + tb.width &&
               hbBottom > tb.y &&
               hbTop < tb.y + tb.height;
-            if (hit) {
+            const backHit =
+              isHorizontal &&
+              backRight > tb.x &&
+              backLeft < tb.x + tb.width &&
+              backBottom > tb.y &&
+              backTop < tb.y + tb.height;
+            if (frontHit || backHit) {
               this.targetsHitThisAttack.add(target);
               this.dealHit(target, { damage: ATTACK_DAMAGE, playHitSfx: true });
             }
           }
-          if (this.isCrowHitByRect(hbLeft, hbRight, hbTop, hbBottom)) {
+          if (
+            this.isCrowHitByRect(hbLeft, hbRight, hbTop, hbBottom) ||
+            (isHorizontal && this.isCrowHitByRect(backLeft, backRight, backTop, backBottom))
+          ) {
             this.killCrow();
           }
         }
@@ -2058,6 +2140,7 @@ export default class GameScene extends Phaser.Scene {
         const pRight = pb.x + pb.width;
         const pTop = pb.y;
         const pBottom = pb.y + pb.height;
+        if (!this.isAuthoritativeOwner(p.ownerFighter)) continue;
         for (const target of this.fighters) {
           if (target === p.ownerFighter) continue;
           if (target.isDead || target.isInvulnerable) continue;
@@ -2142,6 +2225,8 @@ export default class GameScene extends Phaser.Scene {
       const wTop = wb.y;
       const wBottom = wb.y + wb.height;
 
+      if (!this.isAuthoritativeOwner(w.ownerFighter)) continue;
+
       let hitTarget = null;
       for (const target of this.fighters) {
         if (target === w.ownerFighter) continue;
@@ -2199,10 +2284,12 @@ export default class GameScene extends Phaser.Scene {
       this.resetAt = null;
     }
 
-    const hasHeavensFury = fighter.specialPower === 'heavens_fury';
-    const hasShield = fighter.specialPower === 'shield';
-    const hasSkullCurse = fighter.specialPower === 'skull_curse';
-    const hasWheel = fighter.specialPower === 'wheel';
+    const slot0 = fighter.specialPowers[0] ?? null;
+    const slot1 = fighter.specialPowers[1] ?? null;
+    const hasHeavensFury = slot0 === 'heavens_fury';
+    const hasShield = slot0 === 'shield';
+    const hasSkullCurse = slot0 === 'skull_curse';
+    const hasWheel = slot0 === 'wheel';
     for (let i = 0; i < this.attackOrbs.length; i++) {
       const available = this.attackOrbs[i];
       const sprite = this.orbSprites[i];
@@ -2236,6 +2323,17 @@ export default class GameScene extends Phaser.Scene {
     } else if (!hasWheel && !this.specialWheelPulse.paused) {
       this.specialWheelPulse.pause();
       this.specialWheelSprite.setScale(1);
+    }
+    if (slot1) {
+      const slot1Color =
+        slot1 === 'heavens_fury' ? 0xfde047
+        : slot1 === 'shield' ? 0x3b82f6
+        : slot1 === 'skull_curse' ? 0xa855f7
+        : 0xffffff;
+      this.specialSlot2Sprite.fillColor = slot1Color;
+      this.specialSlot2Sprite.setVisible(true);
+    } else {
+      this.specialSlot2Sprite.setVisible(false);
     }
     if (this.refreshDevPowerButtons) this.refreshDevPowerButtons();
 
