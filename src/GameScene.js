@@ -65,7 +65,7 @@ const HEAVENS_FURY_DAMAGE_FULL = 80;
 const HEAVENS_FURY_DAMAGE_BEAM = 33;
 const HEAVENS_FURY_IMPACT_FRAME_START = 3;
 const HEAVENS_FURY_IMPACT_FRAME_END = 6;
-const HEAVENS_FURY_TELEGRAPH_MS = 1500;
+const HEAVENS_FURY_TELEGRAPH_MS = 1300;
 const SMITE_FRAME_SIZE = 64;
 const SMITE_FRAMES = 11;
 const SMITE_SCALE = 4;
@@ -1747,11 +1747,38 @@ export default class GameScene extends Phaser.Scene {
   despawnLoot(loot, opts) {
     if (!loot.active || loot.isPickedUp) return;
     const fromNetwork = !!(opts && opts.fromNetwork);
+    const reason = opts && opts.reason;
     if (!fromNetwork && this.isMultiplayer && this.network && this.network.isHost) {
-      this.sendLootNetMsg({ type: 'loot_despawn', id: loot.netId });
+      this.sendLootNetMsg({ type: 'loot_despawn', id: loot.netId, reason });
     }
     if (loot.whitePulse) loot.whitePulse.stop();
     if (loot.beamPulse) loot.beamPulse.stop();
+    if (reason === 'shatter') {
+      loot.isPickedUp = true;
+      loot.body.enable = false;
+      if (loot.glowPulse) loot.glowPulse.stop();
+      this.tweens.add({
+        targets: [loot.glow, loot.tintOverlay, loot.beam].filter(Boolean),
+        alpha: 0,
+        duration: 200,
+      });
+      if (loot.catchScale !== undefined) loot.setScale(loot.catchScale);
+      loot.setTintFill(0xffffff);
+      loot.clearTint();
+      const catchKey = loot.catchKey;
+      if (catchKey && this.anims.exists(catchKey)) {
+        loot.anims.play(catchKey);
+        loot.once(`animationcomplete-${catchKey}`, () => this.removeLoot(loot));
+      } else {
+        this.tweens.add({
+          targets: loot,
+          alpha: 0,
+          duration: 250,
+          onComplete: () => this.removeLoot(loot),
+        });
+      }
+      return;
+    }
     this.tweens.add({
       targets: [loot, loot.glow, loot.tintOverlay, loot.beam].filter(Boolean),
       alpha: 0,
@@ -2920,7 +2947,7 @@ export default class GameScene extends Phaser.Scene {
               lootsToKill.push(l);
             }
           }
-          for (const l of lootsToKill) this.despawnLoot(l);
+          for (const l of lootsToKill) this.despawnLoot(l, { reason: 'shatter' });
         }
       }
     });
@@ -3331,7 +3358,7 @@ export default class GameScene extends Phaser.Scene {
     if (data.type === 'loot_despawn') {
       const loot = this.findLootByNetId(data.id);
       if (!loot) return;
-      this.despawnLoot(loot, { fromNetwork: true });
+      this.despawnLoot(loot, { fromNetwork: true, reason: data.reason });
       return;
     }
     if (data.type === 'power_cast') {
