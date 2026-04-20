@@ -1957,12 +1957,27 @@ export default class GameScene extends Phaser.Scene {
         .setOrigin(0.5, 0)
         .setBlendMode(Phaser.BlendModes.ADD)
         .setDepth(DEFAULT_SPRITE_DEPTH + 0.6)
-        .setDisplaySize(70, Math.max(120, y + 20))
+        .setDisplaySize(70, Math.max(120, y + 80))
         .setAlpha(0.85);
       loot.beam = beam;
       loot.beamPulse = this.tweens.add({
         targets: beam,
         alpha: 0.45,
+        duration: 800,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+      const footGlow = this.add.image(x, y + 30, 'eye_beam')
+        .setOrigin(0.5, 0.5)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(DEFAULT_SPRITE_DEPTH - 0.4)
+        .setDisplaySize(110, 70)
+        .setAlpha(0.7);
+      loot.footGlow = footGlow;
+      loot.footGlowPulse = this.tweens.add({
+        targets: footGlow,
+        alpha: 0.4,
         duration: 800,
         yoyo: true,
         repeat: -1,
@@ -2002,7 +2017,7 @@ export default class GameScene extends Phaser.Scene {
       loot.body.enable = false;
       if (loot.glowPulse) loot.glowPulse.stop();
       this.tweens.add({
-        targets: [loot.glow, loot.tintOverlay, loot.beam].filter(Boolean),
+        targets: [loot.glow, loot.tintOverlay, loot.beam, loot.footGlow].filter(Boolean),
         alpha: 0,
         duration: 200,
       });
@@ -2022,7 +2037,7 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
     this.tweens.add({
-      targets: [loot, loot.glow, loot.tintOverlay, loot.beam].filter(Boolean),
+      targets: [loot, loot.glow, loot.tintOverlay, loot.beam, loot.footGlow].filter(Boolean),
       alpha: 0,
       duration: 400,
       onComplete: () => {
@@ -2064,7 +2079,7 @@ export default class GameScene extends Phaser.Scene {
     if (loot.whitePulse) loot.whitePulse.stop();
     if (loot.beamPulse) loot.beamPulse.stop();
     this.tweens.add({
-      targets: [loot.glow, loot.tintOverlay, loot.beam].filter(Boolean),
+      targets: [loot.glow, loot.tintOverlay, loot.beam, loot.footGlow].filter(Boolean),
       alpha: 0,
       duration: 200,
     });
@@ -2082,9 +2097,11 @@ export default class GameScene extends Phaser.Scene {
     if (loot.glowPulse) loot.glowPulse.stop();
     if (loot.whitePulse) loot.whitePulse.stop();
     if (loot.beamPulse) loot.beamPulse.stop();
+    if (loot.footGlowPulse) loot.footGlowPulse.stop();
     if (loot.glow) loot.glow.destroy();
     if (loot.tintOverlay) loot.tintOverlay.destroy();
     if (loot.beam) loot.beam.destroy();
+    if (loot.footGlow) loot.footGlow.destroy();
     loot.destroy();
   }
 
@@ -3924,6 +3941,7 @@ export default class GameScene extends Phaser.Scene {
       eyeDashing: f.isEye && this.time.now < (f.eyeDashUntil || 0),
       eyeRemainingMs: f.isEye ? Math.max(0, (f.eyeTransformUntil || 0) - this.time.now) : 0,
       frozen: !!f.isFrozen,
+      slamming: !!f.isSlamming,
     });
   }
 
@@ -4061,6 +4079,9 @@ export default class GameScene extends Phaser.Scene {
     if (typeof data.frozen === 'boolean') {
       if (data.frozen && !remote.isFrozen) this.applyFreeze(remote);
       else if (!data.frozen && remote.isFrozen) this.removeFreeze(remote);
+    }
+    if (typeof data.slamming === 'boolean') {
+      remote.isSlamming = data.slamming;
     }
     if (typeof data.cursed === 'boolean') {
       const isCursed = (remote.curseMultiplier || 1) > 1;
@@ -4425,6 +4446,10 @@ export default class GameScene extends Phaser.Scene {
       ) {
         this.jumpsRemaining = MAX_JUMPS;
         this.didDoubleJump = false;
+        fighter.isSlamming = false;
+      }
+      if (fighter.isSlamming && body.velocity.y <= 0) {
+        fighter.isSlamming = false;
       }
 
       const jumpPressed =
@@ -4457,6 +4482,7 @@ export default class GameScene extends Phaser.Scene {
 
       if (slamPressed && !body.blocked.down) {
         body.setVelocityY(SLAM_VELOCITY * (fighter.curseSlowed ? SKULL_CURSE_SLOW_FACTOR : 1));
+        fighter.isSlamming = true;
       } else if (slamPressed && body.blocked.down) {
         if (this._lastDownPress && time - this._lastDownPress < 300) {
           this.player.dropThroughUntil = time + 220;
@@ -4874,8 +4900,9 @@ export default class GameScene extends Phaser.Scene {
         if (loot.tintOverlay) loot.tintOverlay.setPosition(loot.x, loot.y);
         if (loot.beam) {
           loot.beam.setPosition(loot.x, 0);
-          loot.beam.setDisplaySize(70, Math.max(120, loot.y + 20));
+          loot.beam.setDisplaySize(70, Math.max(120, loot.y + 80));
         }
+        if (loot.footGlow) loot.footGlow.setPosition(loot.x, loot.y + 30);
       }
       if (loot.isPickedUp) continue;
       if (this.isMultiplayer) {
@@ -5113,6 +5140,41 @@ export default class GameScene extends Phaser.Scene {
           icon.setVisible(true);
         } else {
           icon.setVisible(false);
+        }
+      }
+
+      if (f.isSlamming && !f.isDead && !f.isEye) {
+        if (!f.slamTrailNextSpawn || this.time.now >= f.slamTrailNextSpawn) {
+          f.slamTrailNextSpawn = this.time.now + 28;
+          const sil = this.add.sprite(
+            f.sprite.x,
+            f.sprite.y,
+            f.sprite.texture.key,
+            f.sprite.frame.name,
+          )
+            .setScale(f.sprite.scaleX)
+            .setFlipX(f.sprite.flipX)
+            .setTintFill(f.char.tintColor)
+            .setAlpha(0.55)
+            .setDepth(DEFAULT_SPRITE_DEPTH - 0.5);
+          this.tweens.add({
+            targets: sil,
+            alpha: 0,
+            duration: 260,
+            onComplete: () => sil.destroy(),
+          });
+          const tx = fbody.x + fbody.width / 2;
+          const ty = fbody.y + fbody.height / 2;
+          const streak = this.add.circle(tx, ty, 10, f.char.tintColor, 0.7)
+            .setDepth(DEFAULT_SPRITE_DEPTH - 1)
+            .setBlendMode(Phaser.BlendModes.ADD);
+          this.tweens.add({
+            targets: streak,
+            alpha: 0,
+            scale: 0.3,
+            duration: 420,
+            onComplete: () => streak.destroy(),
+          });
         }
       }
 
