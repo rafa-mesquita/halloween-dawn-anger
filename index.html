@@ -163,6 +163,107 @@
         font-size: 13px;
         user-select: all;
       }
+      #lobby .players-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        background: rgba(30, 30, 40, 0.7);
+        padding: 10px 14px;
+        border-radius: 6px;
+        border: 1px solid #444;
+        min-width: 260px;
+      }
+      #lobby .player-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 13px;
+        color: #eee;
+      }
+      #lobby .player-row .tag {
+        color: #999;
+        font-size: 11px;
+      }
+      #lobby button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      #lobby .picker {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+      }
+      #lobby .picker-label {
+        color: #bbb;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      #lobby .picker-tiles {
+        display: flex;
+        gap: 8px;
+      }
+      .char-tile {
+        background: rgba(30, 30, 40, 0.9);
+        border: 2px solid #555;
+        border-radius: 6px;
+        padding: 4px;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+      }
+      .char-tile:hover {
+        border-color: #888;
+      }
+      .char-tile.selected {
+        border-color: #ff9646;
+        background: rgba(80, 50, 20, 0.9);
+      }
+      .char-preview {
+        width: 192px;
+        height: 128px;
+        background-size: 2304px 256px;
+        background-repeat: no-repeat;
+        image-rendering: pixelated;
+        animation: idle-anim 0.6s steps(6) infinite;
+      }
+      @keyframes idle-anim {
+        from { background-position: -18px -72px; }
+        to { background-position: -2322px -72px; }
+      }
+      .char-tile .char-name {
+        color: #ddd;
+        font-size: 13px;
+        font-weight: bold;
+        margin-top: 4px;
+      }
+      .player-row {
+        padding: 6px 0;
+        border-bottom: 1px solid #333;
+      }
+      .player-row:last-child {
+        border-bottom: none;
+      }
+      .player-row .char-mini {
+        width: 96px;
+        height: 64px;
+        background-size: 1152px 128px;
+        background-repeat: no-repeat;
+        image-rendering: pixelated;
+        animation: idle-anim-mini 0.6s steps(6) infinite;
+      }
+      @keyframes idle-anim-mini {
+        from { background-position: -9px -36px; }
+        to { background-position: -1161px -36px; }
+      }
+      .char-tile.selected {
+        border-color: #ff9646;
+        background: rgba(80, 50, 20, 0.9);
+        box-shadow: 0 0 12px rgba(255, 150, 70, 0.5);
+      }
     </style>
   </head>
   <body>
@@ -178,6 +279,12 @@
         <div class="id-display" id="host-id">gerando...</div>
         <button id="btn-copy-id" type="button">Copiar código</button>
         <p class="muted" id="host-status">Aguardando conexão...</p>
+        <div class="picker">
+          <div class="picker-label">Seu personagem</div>
+          <div class="picker-tiles" id="host-picker"></div>
+        </div>
+        <div class="players-list" id="host-players"></div>
+        <button id="btn-start-match" type="button" disabled>Iniciar partida (1/4)</button>
         <button id="btn-host-back" type="button">Voltar</button>
       </div>
       <div id="lobby-join" class="panel">
@@ -186,6 +293,15 @@
         <button id="btn-connect" type="button">Conectar</button>
         <p class="muted" id="join-status"></p>
         <button id="btn-join-back" type="button">Voltar</button>
+      </div>
+      <div id="lobby-waiting" class="panel">
+        <p class="muted">Conectado. Aguardando o host iniciar a partida...</p>
+        <div class="picker">
+          <div class="picker-label">Seu personagem</div>
+          <div class="picker-tiles" id="waiting-picker"></div>
+        </div>
+        <div class="players-list" id="waiting-players"></div>
+        <button id="btn-waiting-back" type="button">Sair</button>
       </div>
     </div>
     <div id="game">

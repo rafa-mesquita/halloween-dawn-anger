@@ -164,7 +164,9 @@ const CHARACTERS = [
   { id: 'p1', folder: '', glowKey: 'glow_orange', glowColor: [255, 150, 70, 255, 130, 55, 255, 110, 40], tintColor: 0xff9646 },
   { id: 'p2', folder: 'Player 2/', glowKey: 'glow_purple', glowColor: [180, 100, 255, 160, 80, 230, 140, 60, 210], tintColor: 0xb464ff },
   { id: 'p3', folder: 'Player 3/', glowKey: 'glow_green', glowColor: [110, 230, 120, 80, 210, 100, 60, 190, 80], tintColor: 0x6ee678 },
+  { id: 'p4', folder: 'Player 4/', glowKey: 'glow_red', glowColor: [255, 90, 90, 230, 60, 60, 210, 40, 40], tintColor: 0xff5a5a },
 ];
+const SINGLE_PLAYER_CHARACTER_COUNT = 3;
 
 const ATTACK_ANIMS_BASE = {
   horizontal: { frameCount: 7, activeStart: 2, activeEnd: 4, charFrameOffsetX: 49 },
@@ -200,9 +202,15 @@ export default class GameScene extends Phaser.Scene {
   init(data) {
     this.mode = data?.mode ?? 'single';
     this.network = data?.network ?? null;
-    this.localFighterIndex = this.mode === 'client' ? 1 : 0;
-    this.remoteFighterIndex = this.mode === 'client' ? 0 : 1;
     this.isMultiplayer = this.mode === 'host' || this.mode === 'client';
+    const matchInfo = data?.matchInfo ?? null;
+    if (this.isMultiplayer && matchInfo) {
+      this.matchPlayers = matchInfo.players;
+      this.myIndex = matchInfo.myIndex;
+    } else {
+      this.matchPlayers = null;
+      this.myIndex = 0;
+    }
   }
 
   preload() {
@@ -227,6 +235,10 @@ export default class GameScene extends Phaser.Scene {
     this.load.audio('sfx_shield_break', 'audio/powers/shield/broke shield.mp3');
     this.load.audio('sfx_skull_cast', 'audio/powers/skull_curse/cast skull curse.mp3');
     this.load.audio('sfx_skull_hit', 'audio/powers/skull_curse/hit skull.mp3');
+    this.load.audio('sfx_wheel_hit', 'audio/powers/wheel/Hit.mp3');
+    this.load.audio('sfx_wheel_hit2', 'audio/powers/wheel/hit2.mp3');
+    this.load.audio('sfx_wheel_air', 'audio/powers/wheel/Moviment_Air.mp3');
+    this.load.audio('sfx_wheel_ground', 'audio/powers/wheel/Moviment_ground.mp3');
     this.load.audio('sfx_power_pickup', 'audio/power catch/power cath.mp3');
     this.load.audio('sfx_cure', 'audio/heal novo/93eeb9fc-8eab-44db-aa09-270a2550a130.mp3');
     this.load.audio('sfx_jump', 'audio/jump/30_Jump_03.wav');
@@ -548,17 +560,32 @@ export default class GameScene extends Phaser.Scene {
     }
 
     this.fighters = [];
+    this.fightersByIndex = {};
     const spawnPositions = [
       { x: 200, y: 100 },
+      { x: 1400, y: 100 },
+      { x: 500, y: 300 },
       { x: 1100, y: 300 },
-      { x: 600, y: 300 },
     ];
-    const fighterCount = this.isMultiplayer ? 2 : CHARACTERS.length;
-    for (let i = 0; i < fighterCount; i++) {
-      const char = CHARACTERS[i];
-      const pos = spawnPositions[i];
-      const fighter = this.createFighter(char, pos.x, pos.y);
+    let playerConfigs;
+    if (this.isMultiplayer && this.matchPlayers) {
+      playerConfigs = this.matchPlayers.map((p, i) => ({
+        index: p.index,
+        char: CHARACTERS.find((c) => c.id === p.charId) ?? CHARACTERS[i],
+        spawn: spawnPositions[i] ?? spawnPositions[0],
+      }));
+    } else {
+      playerConfigs = CHARACTERS.slice(0, SINGLE_PLAYER_CHARACTER_COUNT).map((char, i) => ({
+        index: i,
+        char,
+        spawn: spawnPositions[i] ?? spawnPositions[0],
+      }));
+    }
+    for (const cfg of playerConfigs) {
+      const fighter = this.createFighter(cfg.char, cfg.spawn.x, cfg.spawn.y);
+      fighter.ownerIndex = cfg.index;
       this.fighters.push(fighter);
+      this.fightersByIndex[cfg.index] = fighter;
       this.physics.add.collider(
         fighter.sprite,
         platformZones,
@@ -567,14 +594,18 @@ export default class GameScene extends Phaser.Scene {
       );
     }
 
-    this.player = this.fighters[this.localFighterIndex].sprite;
-    this.playerFighter = this.fighters[this.localFighterIndex];
+    this.playerFighter = this.isMultiplayer
+      ? this.fightersByIndex[this.myIndex]
+      : this.fighters[0];
+    this.player = this.playerFighter.sprite;
 
     if (this.isMultiplayer) {
-      this.remoteFighter = this.fighters[this.remoteFighterIndex];
-      const rb = this.remoteFighter.sprite.body;
-      rb.setAllowGravity(false);
-      rb.setImmovable(true);
+      for (const f of this.fighters) {
+        if (f === this.playerFighter) continue;
+        const rb = f.sprite.body;
+        rb.setAllowGravity(false);
+        rb.setImmovable(true);
+      }
       this.network.onState((data) => this.handleNetState(data));
     }
 
@@ -1242,6 +1273,9 @@ export default class GameScene extends Phaser.Scene {
     phys.ownerFighter = fighter;
     phys.hasHit = false;
     phys.direction = dir;
+    phys.airSound = null;
+    phys.groundSound = null;
+    phys.hasTouchedGround = false;
 
     phys.platformCollider = this.physics.add.collider(
       phys,
@@ -1251,6 +1285,47 @@ export default class GameScene extends Phaser.Scene {
     );
 
     this.wheelProjectiles.push(phys);
+  }
+
+  updateWheelLoopSound(w, onGround) {
+    if (onGround && !w.hasTouchedGround) {
+      w.hasTouchedGround = true;
+      if (w.airSound) {
+        if (w.airSound.isPlaying) w.airSound.stop();
+        w.airSound.destroy();
+        w.airSound = null;
+      }
+    }
+    if (w.hasTouchedGround) {
+      if (!w.groundSound && this.cache.audio.exists('sfx_wheel_ground')) {
+        w.groundSound = this.sound.add('sfx_wheel_ground', {
+          loop: true,
+          volume: this.masterVolume * this.sfxScale,
+        });
+      }
+      if (w.groundSound && !w.groundSound.isPlaying) w.groundSound.play({ seek: 1 });
+    } else {
+      if (!w.airSound && this.cache.audio.exists('sfx_wheel_air')) {
+        w.airSound = this.sound.add('sfx_wheel_air', {
+          loop: true,
+          volume: this.masterVolume * this.sfxScale,
+        });
+      }
+      if (w.airSound && !w.airSound.isPlaying) w.airSound.play();
+    }
+  }
+
+  stopWheelSounds(w) {
+    if (w.airSound) {
+      if (w.airSound.isPlaying) w.airSound.stop();
+      w.airSound.destroy();
+      w.airSound = null;
+    }
+    if (w.groundSound) {
+      if (w.groundSound.isPlaying) w.groundSound.stop();
+      w.groundSound.destroy();
+      w.groundSound = null;
+    }
   }
 
   createWheelExplosion(x, y) {
@@ -1463,6 +1538,9 @@ export default class GameScene extends Phaser.Scene {
     }
 
     if (this.isMultiplayer && fighter.lives <= 0) {
+      if (fighter === this.playerFighter) {
+        this.showSpectatorBanner();
+      }
       this.checkMatchOver();
       return;
     }
@@ -1472,11 +1550,52 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
+  applyRemoteDeath(fighter) {
+    fighter.isDead = true;
+    this.removeShield(fighter);
+    this.removeSkullCurse(fighter);
+    this.removeStun(fighter);
+    this.spawnDeathMarker(fighter);
+    fighter.sprite.setVisible(false);
+    fighter.sprite.body.setVelocity(0, 0);
+    fighter.hpBarBg.setVisible(false);
+    fighter.hpBarFill.setVisible(false);
+    fighter.glow.setVisible(false);
+    fighter.flashSprite.setAlpha(0);
+    fighter.hitFlashSprite.setAlpha(0);
+    fighter.pickupFlashSprite.setAlpha(0);
+    this.tweens.killTweensOf(fighter.flashSprite);
+    this.tweens.killTweensOf(fighter.hitFlashSprite);
+    this.tweens.killTweensOf(fighter.pickupFlashSprite);
+  }
+
+  showSpectatorBanner() {
+    if (this.spectatorBanner || this.matchOver) return;
+    const cam = this.cameras.main;
+    this.spectatorBanner = this.add.text(
+      cam.width / 2,
+      40,
+      'Você foi eliminado — Espectador',
+      {
+        font: 'bold 22px sans-serif',
+        color: '#ef4444',
+        stroke: '#000000',
+        strokeThickness: 4,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        padding: { x: 12, y: 6 },
+      }
+    ).setOrigin(0.5, 0).setScrollFactor(0).setDepth(99);
+  }
+
   checkMatchOver() {
     if (!this.isMultiplayer || this.matchOver) return;
     const alive = this.fighters.filter((f) => f.lives > 0);
     if (alive.length > 1) return;
     this.matchOver = true;
+    if (this.spectatorBanner) {
+      this.spectatorBanner.destroy();
+      this.spectatorBanner = null;
+    }
     const winner = alive[0] ?? null;
     const isLocalWinner = winner === this.playerFighter;
     const label = winner
@@ -1828,8 +1947,8 @@ export default class GameScene extends Phaser.Scene {
 
   dealHit(target, hit) {
     if (hit.playHitSfx) this.playSfx('sfx_hit');
-    if (this.isMultiplayer && target === this.remoteFighter) {
-      this.network.send({ type: 'hit', ...hit });
+    if (this.isMultiplayer && target !== this.playerFighter) {
+      this.network.send({ type: 'hit', targetIndex: target.ownerIndex, ...hit });
       return;
     }
     this.applyIncomingHit(target, hit);
@@ -1841,7 +1960,7 @@ export default class GameScene extends Phaser.Scene {
 
   sendPowerCast(power, params) {
     if (!this.network || !this.network.isConnected) return;
-    this.network.send({ type: 'power_cast', power, ...params });
+    this.network.send({ type: 'power_cast', casterIndex: this.myIndex, power, ...params });
   }
 
   syncNetwork(time) {
@@ -1854,6 +1973,7 @@ export default class GameScene extends Phaser.Scene {
     const currentAnim = sprite.anims.currentAnim?.key ?? f.keys.idle;
     this.network.send({
       type: 'state',
+      index: this.myIndex,
       x: sprite.x - (f.attackSpriteShift || 0),
       y: sprite.y,
       flipX: sprite.flipX,
@@ -1868,46 +1988,66 @@ export default class GameScene extends Phaser.Scene {
   handleNetState(data) {
     if (!data) return;
     if (data.type === 'hit') {
+      if (data.targetIndex !== this.myIndex) return;
       if (data.playHitSfx) this.playSfx('sfx_hit');
       this.applyIncomingHit(this.playerFighter, data);
       return;
     }
     if (data.type === 'power_cast') {
-      if (!this.remoteFighter) return;
+      if (data.casterIndex === this.myIndex) return;
+      const caster = this.fightersByIndex[data.casterIndex];
+      if (!caster) return;
       if (data.power === 'heavens_fury') {
-        this.firePower(this.remoteFighter, data.worldX, data.worldY);
+        this.firePower(caster, data.worldX, data.worldY);
       } else if (data.power === 'shield') {
-        this.applyShield(this.remoteFighter);
+        this.applyShield(caster);
       } else if (data.power === 'skull_curse') {
-        this.fireSkullCurse(this.remoteFighter, data.worldX, data.worldY);
+        this.fireSkullCurse(caster, data.worldX, data.worldY);
       } else if (data.power === 'wheel') {
-        this.fireWheel(this.remoteFighter, data.worldX);
+        this.fireWheel(caster, data.worldX);
       }
       return;
     }
     if (data.type !== 'state') return;
-    if (!this.remoteFighter) return;
-    const sprite = this.remoteFighter.sprite;
+    const remote = this.fightersByIndex[data.index];
+    if (!remote || remote === this.playerFighter) return;
+    const sprite = remote.sprite;
     sprite.setPosition(data.x, data.y);
     sprite.setFlipX(!!data.flipX);
     const body = sprite.body;
+    let effectiveOffset = BODY_OFFSET_X;
+    if (data.anim === remote.keys.attackDown.animKey) {
+      effectiveOffset = remote.keys.attackDown.charFrameOffsetX;
+      const charShift = (effectiveOffset - BODY_OFFSET_X) * SPRITE_SCALE;
+      sprite.x += data.flipX ? charShift : -charShift;
+    }
     body.offset.x = data.flipX
-      ? FRAME_WIDTH - BODY_OFFSET_X - BODY_WIDTH
-      : BODY_OFFSET_X;
+      ? FRAME_WIDTH - effectiveOffset - BODY_WIDTH
+      : effectiveOffset;
     body.setVelocity(0, 0);
     if (data.anim && sprite.anims.currentAnim?.key !== data.anim) {
       sprite.anims.play(data.anim, true);
     }
     if (typeof data.hp === 'number') {
-      this.remoteFighter.hp = data.hp;
+      remote.hp = data.hp;
     }
     if (typeof data.lives === 'number') {
-      this.remoteFighter.lives = data.lives;
+      const prevLives = remote.lives;
+      remote.lives = data.lives;
+      if (data.lives <= 0 && !remote.isDead) {
+        this.applyRemoteDeath(remote);
+      } else if (data.lives > 0 && remote.isDead && prevLives <= 0) {
+        remote.isDead = false;
+        remote.sprite.setVisible(true);
+        remote.hpBarBg.setVisible(true);
+        remote.hpBarFill.setVisible(true);
+        remote.glow.setVisible(true);
+      }
       this.checkMatchOver();
     }
-    const hasShieldVisual = !!this.remoteFighter.shieldAnimSprite;
+    const hasShieldVisual = !!remote.shieldAnimSprite;
     if (data.shielded === false && hasShieldVisual) {
-      this.removeShield(this.remoteFighter);
+      this.removeShield(remote);
     }
   }
 
@@ -1982,8 +2122,15 @@ export default class GameScene extends Phaser.Scene {
       if (desiredFlip !== this.player.flipX) {
         const flipCompensation =
           (FRAME_WIDTH - 2 * BODY_OFFSET_X - BODY_WIDTH) * SPRITE_SCALE;
+        if (fighter.isAttacking) {
+          this.player.x -= fighter.attackSpriteShift;
+        }
         this.player.x += desiredFlip ? -flipCompensation : flipCompensation;
         this.player.setFlipX(desiredFlip);
+        if (fighter.isAttacking) {
+          fighter.attackSpriteShift = -fighter.attackSpriteShift;
+          this.player.x += fighter.attackSpriteShift;
+        }
       }
 
       const effectiveFrameOffset = fighter.isAttacking
@@ -2311,6 +2458,7 @@ export default class GameScene extends Phaser.Scene {
     for (let i = this.wheelProjectiles.length - 1; i >= 0; i--) {
       const w = this.wheelProjectiles[i];
       if (!w.active) {
+        this.stopWheelSounds(w);
         if (w.visual) w.visual.destroy();
         this.wheelProjectiles.splice(i, 1);
         continue;
@@ -2335,10 +2483,12 @@ export default class GameScene extends Phaser.Scene {
         if (w.visual.anims.currentAnim?.key !== desiredAnim) {
           w.visual.play(desiredAnim);
         }
+        this.updateWheelLoopSound(w, onGround);
       }
       if (w.hasHit) continue;
 
       if (w.y > MAP_HEIGHT + 80) {
+        this.stopWheelSounds(w);
         if (w.platformCollider) this.physics.world.removeCollider(w.platformCollider);
         if (w.visual) w.visual.destroy();
         w.destroy();
@@ -2378,6 +2528,9 @@ export default class GameScene extends Phaser.Scene {
           knockupY: WHEEL_KNOCKUP,
           powerFlashColor: 0xffffff,
         });
+        this.playSfx('sfx_wheel_hit', 0.5, 0.3);
+        this.playSfx('sfx_wheel_hit2', 1, 1.3);
+        this.stopWheelSounds(w);
         this.createWheelExplosion(w.x, w.y);
         if (w.platformCollider) this.physics.world.removeCollider(w.platformCollider);
         if (w.visual) w.visual.destroy();
