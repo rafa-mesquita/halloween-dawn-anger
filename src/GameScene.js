@@ -609,6 +609,28 @@ export default class GameScene extends Phaser.Scene {
         rb.setImmovable(true);
       }
       this.network.onState((data) => this.handleNetState(data));
+
+      this._onVisibilityChange = () => {
+        const f = this.playerFighter;
+        if (!f || f.isDead) return;
+        if (document.hidden) {
+          f._awayFromTab = true;
+          f.isInvulnerable = true;
+          const b = f.sprite.body;
+          b.setVelocity(0, 0);
+          b.setAllowGravity(false);
+          this.attackQueued = false;
+          this.powerQueued = false;
+        } else if (f._awayFromTab) {
+          f._awayFromTab = false;
+          f.isInvulnerable = false;
+          f.sprite.body.setAllowGravity(true);
+        }
+      };
+      document.addEventListener('visibilitychange', this._onVisibilityChange);
+      this.events.once('shutdown', () => {
+        document.removeEventListener('visibilitychange', this._onVisibilityChange);
+      });
     }
 
     this.keys = this.input.keyboard.addKeys({
@@ -879,7 +901,11 @@ export default class GameScene extends Phaser.Scene {
     ).setScrollFactor(0).setDepth(20);
 
     this.loots = [];
-    this.scheduleNextLootSpawn(Phaser.Math.Between(1500, 3000));
+    this._lootIdCounter = 0;
+    this._isLootAuthority = !this.isMultiplayer || (this.network && this.network.isHost);
+    if (this._isLootAuthority) {
+      this.scheduleNextLootSpawn(Phaser.Math.Between(1500, 3000));
+    }
   }
 
   scheduleNextLootSpawn(delayMs) {
@@ -892,6 +918,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   spawnLoot(typeKey) {
+    if (!this._isLootAuthority) return;
     if (this.loots.length >= LOOT_MAX_ACTIVE) return;
     let key = typeKey;
     if (!key) {
@@ -900,7 +927,6 @@ export default class GameScene extends Phaser.Scene {
       else if (roll < 0.2) key = 'shield';
       else key = 'wood';
     }
-    const type = LOOT_TYPES[key];
 
     const margin = 40;
     const minClearance = 60;
@@ -929,6 +955,18 @@ export default class GameScene extends Phaser.Scene {
     }
     if (!found) return;
 
+    const power = key === 'wood' ? Phaser.Math.RND.pick(WOOD_POWER_POOL) : null;
+    const id = ++this._lootIdCounter;
+    this.createLootAt({ id, lootType: key, power, x, y });
+
+    if (this.isMultiplayer && this.network && this.network.isHost) {
+      this.network.send({ type: 'loot_spawn', id, lootType: key, power, x, y });
+    }
+  }
+
+  createLootAt({ id, lootType, power, x, y }) {
+    const type = LOOT_TYPES[lootType];
+
     const glow = this.add.image(x, y, type.glowKey)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(DEFAULT_SPRITE_DEPTH - 1)
@@ -946,14 +984,15 @@ export default class GameScene extends Phaser.Scene {
     const loot = this.physics.add.sprite(x, y, type.idleKey, 0);
     loot.setScale(LOOT_SCALE);
     loot.setDepth(DEFAULT_SPRITE_DEPTH);
-    loot.lootType = key;
+    loot.netId = id;
+    loot.lootType = lootType;
     loot.glow = glow;
     loot.glowPulse = glowPulse;
 
     let overlayTint = 0xffffff;
-    if (key === 'wood') {
-      loot.power = Phaser.Math.RND.pick(WOOD_POWER_POOL);
-      overlayTint = POWERS[loot.power].orbColor;
+    if (lootType === 'wood' && power) {
+      loot.power = power;
+      overlayTint = POWERS[power].orbColor;
     }
 
     const tintOverlay = this.add.sprite(x, y, type.idleKey, 0)
@@ -983,14 +1022,25 @@ export default class GameScene extends Phaser.Scene {
     this.physics.add.collider(loot, this.platformZones, null, this.oneWayProcessCallback);
 
     loot.isPickedUp = false;
-    const lifetimeMs = Phaser.Math.Between(LOOT_LIFETIME_MIN_MS, LOOT_LIFETIME_MAX_MS);
-    loot.lifetimeTimer = this.time.delayedCall(lifetimeMs, () => this.despawnLoot(loot));
+    if (this._isLootAuthority) {
+      const lifetimeMs = Phaser.Math.Between(LOOT_LIFETIME_MIN_MS, LOOT_LIFETIME_MAX_MS);
+      loot.lifetimeTimer = this.time.delayedCall(lifetimeMs, () => this.despawnLoot(loot));
+    }
 
     this.loots.push(loot);
+    return loot;
   }
 
-  despawnLoot(loot) {
+  findLootByNetId(id) {
+    return this.loots.find((l) => l.netId === id) || null;
+  }
+
+  despawnLoot(loot, opts) {
     if (!loot.active || loot.isPickedUp) return;
+    const fromNetwork = !!(opts && opts.fromNetwork);
+    if (!fromNetwork && this.isMultiplayer && this.network && this.network.isHost) {
+      this.network.send({ type: 'loot_despawn', id: loot.netId });
+    }
     if (loot.whitePulse) loot.whitePulse.stop();
     this.tweens.add({
       targets: [loot, loot.glow, loot.tintOverlay].filter(Boolean),
@@ -1002,7 +1052,7 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
-  pickupLoot(loot, fighter) {
+  pickupLoot(loot, fighter, opts) {
     if (loot.isPickedUp) return;
     loot.isPickedUp = true;
     this.triggerPickupFlash(fighter);
@@ -1010,12 +1060,23 @@ export default class GameScene extends Phaser.Scene {
     else if (loot.lootType === 'hp') this.playSfx('sfx_cure', 0.6, 0.3);
     else if (loot.lootType === 'shield') this.playSfx('sfx_shield_break');
     const type = LOOT_TYPES[loot.lootType];
-    type.onPickup(this, fighter, loot);
+    const isRemotePick = !!(opts && opts.fromNetwork);
+    if (!isRemotePick) {
+      type.onPickup(this, fighter, loot);
+    }
     if (
+      !isRemotePick &&
       (loot.lootType === 'hp' || loot.lootType === 'shield') &&
       fighter === this.playerFighter
     ) {
       this.resetAttackOrbs();
+    }
+    if (this.isMultiplayer && !isRemotePick && fighter === this.playerFighter) {
+      this.network.send({
+        type: 'loot_pickup',
+        id: loot.netId,
+        pickerIndex: this.myIndex,
+      });
     }
     if (loot.lifetimeTimer) loot.lifetimeTimer.remove(false);
     loot.body.enable = false;
@@ -1994,7 +2055,10 @@ export default class GameScene extends Phaser.Scene {
       frame: sprite.anims.currentFrame?.index ?? 0,
       hp: f.hp,
       lives: f.lives,
+      isDead: f.isDead,
       shielded: f.shieldCharges > 0,
+      stunned: f.isStunned,
+      cursed: (f.curseMultiplier || 1) > 1,
       powers: f.specialPowers.slice(),
     });
   }
@@ -2002,9 +2066,44 @@ export default class GameScene extends Phaser.Scene {
   handleNetState(data) {
     if (!data) return;
     if (data.type === 'hit') {
-      if (data.targetIndex !== this.myIndex) return;
       if (data.playHitSfx) this.playSfx('sfx_hit');
-      this.applyIncomingHit(this.playerFighter, data);
+      if (data.targetIndex === this.myIndex) {
+        this.applyIncomingHit(this.playerFighter, data);
+      } else {
+        const remote = this.fightersByIndex[data.targetIndex];
+        if (remote && !remote.isDead) {
+          this.triggerHitFlash(remote);
+          if (data.powerFlashColor !== null && data.powerFlashColor !== undefined) {
+            this.triggerPowerFlash(remote, data.powerFlashColor);
+          }
+        }
+      }
+      return;
+    }
+    if (data.type === 'loot_spawn') {
+      if (this._isLootAuthority) return;
+      if (this.findLootByNetId(data.id)) return;
+      this.createLootAt({
+        id: data.id,
+        lootType: data.lootType,
+        power: data.power,
+        x: data.x,
+        y: data.y,
+      });
+      return;
+    }
+    if (data.type === 'loot_pickup') {
+      const loot = this.findLootByNetId(data.id);
+      if (!loot || loot.isPickedUp) return;
+      const picker = this.fightersByIndex[data.pickerIndex];
+      if (!picker) return;
+      this.pickupLoot(loot, picker, { fromNetwork: true });
+      return;
+    }
+    if (data.type === 'loot_despawn') {
+      const loot = this.findLootByNetId(data.id);
+      if (!loot) return;
+      this.despawnLoot(loot, { fromNetwork: true });
       return;
     }
     if (data.type === 'power_cast') {
@@ -2048,18 +2147,40 @@ export default class GameScene extends Phaser.Scene {
     if (Array.isArray(data.powers)) {
       remote.specialPowers = data.powers.slice();
     }
-    if (typeof data.lives === 'number') {
-      const prevLives = remote.lives;
-      remote.lives = data.lives;
-      if (data.lives <= 0 && !remote.isDead) {
-        this.applyRemoteDeath(remote);
-      } else if (data.lives > 0 && remote.isDead && prevLives <= 0) {
+    if (typeof data.stunned === 'boolean') {
+      if (data.stunned && !remote.isStunned) this.applyStun(remote);
+      else if (!data.stunned && remote.isStunned) this.removeStun(remote);
+    }
+    if (typeof data.cursed === 'boolean') {
+      const isCursed = (remote.curseMultiplier || 1) > 1;
+      if (data.cursed && !isCursed) this.applySkullCurse(remote);
+      else if (!data.cursed && isCursed) this.removeSkullCurse(remote);
+    }
+    if (typeof data.isDead === 'boolean') {
+      if (data.isDead && !remote.isDead) {
+        remote.isDead = true;
+        this.removeShield(remote);
+        this.removeSkullCurse(remote);
+        this.removeStun(remote);
+        this.spawnDeathMarker(remote);
+        sprite.setVisible(false);
+        remote.hpBarBg.setVisible(false);
+        remote.hpBarFill.setVisible(false);
+        for (const icon of remote.powerIcons) icon.setVisible(false);
+        remote.glow.setVisible(false);
+        remote.flashSprite.setAlpha(0);
+        remote.hitFlashSprite.setAlpha(0);
+        remote.pickupFlashSprite.setAlpha(0);
+      } else if (!data.isDead && remote.isDead) {
         remote.isDead = false;
-        remote.sprite.setVisible(true);
+        sprite.setVisible(true);
         remote.hpBarBg.setVisible(true);
         remote.hpBarFill.setVisible(true);
         remote.glow.setVisible(true);
       }
+    }
+    if (typeof data.lives === 'number') {
+      remote.lives = data.lives;
       this.checkMatchOver();
     }
     const hasShieldVisual = !!remote.shieldAnimSprite;
@@ -2576,6 +2697,13 @@ export default class GameScene extends Phaser.Scene {
         if (loot.tintOverlay) loot.tintOverlay.setPosition(loot.x, loot.y);
       }
       if (loot.isPickedUp) continue;
+      if (this.isMultiplayer) {
+        const f = this.playerFighter;
+        if (f && !f.isDead && this.physics.overlap(loot, f.sprite)) {
+          this.pickupLoot(loot, f);
+        }
+        continue;
+      }
       for (const f of this.fighters) {
         if (f.isDead) continue;
         if (this.physics.overlap(loot, f.sprite)) {
