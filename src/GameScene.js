@@ -346,6 +346,7 @@ export default class GameScene extends Phaser.Scene {
     this.load.audio('sfx_cure', 'audio/heal novo/93eeb9fc-8eab-44db-aa09-270a2550a130.mp3');
     this.load.audio('sfx_jump', 'audio/jump/30_Jump_03.wav');
     this.load.image('map1_bg', 'maps/map1/background.png');
+    this.load.image('self_arrow', 'sprites/seta/seta.png');
     this.load.image('map1_platforms', 'maps/map1/platforms.png');
     this.load.spritesheet('map1_crow', 'maps/map1/Crow.png', {
       frameWidth: 48,
@@ -1183,9 +1184,11 @@ export default class GameScene extends Phaser.Scene {
       : this.fighters[0];
     this.player = this.playerFighter.sprite;
 
-    this.selfArrow = this.add.triangle(0, 0, 0, 0, 16, 0, 8, 12, 0xfde047)
-      .setStrokeStyle(2, 0x000000, 0.9)
+    this.selfArrow = this.add.image(0, 0, 'self_arrow')
+      .setOrigin(0.5, 1)
+      .setScale(0.35)
       .setDepth(24);
+    this._selfArrowBaseScale = 0.35;
 
     if (this.isMultiplayer) {
       for (const f of this.fighters) {
@@ -3208,9 +3211,14 @@ export default class GameScene extends Phaser.Scene {
     }
     this.selfArrow.setVisible(true);
     const body = f.sprite.body;
-    const bob = Math.sin(this.time.now / 180) * 3;
-    this.selfArrow.x = body.x + body.width / 2 - 8;
-    this.selfArrow.y = body.y - 30 + bob;
+    const now = this.time.now;
+    const bob = Math.sin(now / 220) * 4;
+    const pulse = 1 + Math.sin(now / 260) * 0.08;
+    const extraLift = f.isEye ? 42 : 0;
+    const baseLift = 52;
+    this.selfArrow.x = body.x + body.width / 2;
+    this.selfArrow.y = body.y - baseLift - extraLift + bob;
+    this.selfArrow.setScale(this._selfArrowBaseScale * pulse);
   }
 
   updateEyeHud(time) {
