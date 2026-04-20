@@ -2467,6 +2467,8 @@ export default class GameScene extends Phaser.Scene {
 
   killFighter(fighter) {
     if (fighter.isDead) return;
+    if (fighter.isEye) this.revertFromEye(fighter);
+    if (fighter.isFrozen) this.removeFreeze(fighter);
     fighter.isDead = true;
     fighter.lives = Math.max(0, fighter.lives - 1);
     fighter.specialPowers = [];
@@ -2969,7 +2971,12 @@ export default class GameScene extends Phaser.Scene {
     target.isFrozen = true;
     target.frozenUntil = this.time.now + ICE_FREEZE_DURATION_MS;
     target.iceSlowActive = false;
-    target.sprite.body.setVelocity(0, 0);
+    const body = target.sprite.body;
+    body.setVelocity(0, 0);
+    if (target.isEye) {
+      body.allowGravity = true;
+      body.setGravityY(this.physics.world.gravity.y);
+    }
     if (target === this.playerFighter) {
       target.isAttacking = false;
       this.attackHitbox.body.enable = false;
@@ -3931,6 +3938,7 @@ export default class GameScene extends Phaser.Scene {
       if (
         !f.isDead &&
         f.isEye &&
+        !f.isFrozen &&
         f !== fighter &&
         time >= f.eyeDashUntil
       ) {
@@ -3952,7 +3960,7 @@ export default class GameScene extends Phaser.Scene {
     this.updateIceBeams(time);
     this.updateFrozenStates(time);
 
-    if (!fighter.isDead && fighter.isEye) {
+    if (!fighter.isDead && fighter.isEye && !fighter.isFrozen) {
       const inDash = time < fighter.eyeDashUntil;
 
       if (
