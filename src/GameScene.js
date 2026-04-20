@@ -3035,24 +3035,6 @@ export default class GameScene extends Phaser.Scene {
       lastTickAt: 0,
       lastParticleAt: 0,
     };
-    beam.castGlow = this.add.image(cx, cy, 'glow_blue')
-      .setBlendMode(Phaser.BlendModes.ADD)
-      .setDepth(ATTACKER_DEPTH + 0.1)
-      .setScale(0.2)
-      .setAlpha(0.9);
-    this.tweens.add({
-      targets: beam.castGlow,
-      scale: 0.75,
-      alpha: 1,
-      duration: ICE_BEAM_CAST_MS,
-      ease: 'Sine.easeOut',
-    });
-
-    beam.castFxSprite = this.add.sprite(cx, cy, 'ice_spell_cast', 2)
-      .setScale(3.2)
-      .setDepth(fighter.sprite.depth + 0.2);
-    beam.castFxSprite.play('ice_spell_cast');
-
     this.iceBeams = this.iceBeams || [];
     this.iceBeams.push(beam);
   }
