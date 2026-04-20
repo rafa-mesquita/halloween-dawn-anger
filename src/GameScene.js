@@ -3041,7 +3041,6 @@ export default class GameScene extends Phaser.Scene {
       .setScale(3.2)
       .setDepth(fighter.sprite.depth + 0.2)
       .setBlendMode(Phaser.BlendModes.ADD);
-    beam.castFxSprite.play('ice_cast_fx');
 
     this.iceBeams = this.iceBeams || [];
     this.iceBeams.push(beam);
