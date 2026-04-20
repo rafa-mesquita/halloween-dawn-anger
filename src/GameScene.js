@@ -131,6 +131,32 @@ const FIRE_STORM_WAVES = 2;
 const FIRE_STORM_WAVE_DELAY_MS = 1100;
 const FIRE_STORM_FRAMERATE = 20;
 
+const EYE_LOOT_IDLE_FRAME = 64;
+const EYE_LOOT_IDLE_FRAMES = 8;
+const EYE_LOOT_CATCH_FRAMES = 7;
+const EYE_LOOT_IDLE_SCALE = 1.0;
+const EYE_LOOT_CATCH_SCALE = 2.0;
+
+const EYE_FRAME_SIZE = 150;
+const EYE_SCALE = 3.2;
+const EYE_BODY_W = 50;
+const EYE_BODY_H = 40;
+const EYE_LIFE_ICON_RADIUS = 7;
+const EYE_LIFE_ICON_SPACING = 18;
+const EYE_HITS_BASE = 2;
+const EYE_HITS_SHIELD_LOOT_BONUS = 2;
+const EYE_HITS_HARD_CAP = 4;
+const EYE_MOVE_SPEED = 500;
+const EYE_DASH_SPEED = 850;
+const EYE_DASH_DURATION_MS = 320;
+const EYE_DASH_COOLDOWN_MS = 3000;
+const EYE_DASH_COMBO_WINDOW_MS = 700;
+const EYE_ATTACK_COOLDOWN_MS = 3000;
+const EYE_ATTACK_HITBOX_FORWARD = 40;
+const EYE_ATTACK_HITBOX_PADDING = 6;
+const EYE_DASH_BAR_WIDTH = 36;
+const EYE_DASH_BAR_HEIGHT = 4;
+
 const POWERS = {
   heavens_fury: {
     animKey: 'heavens_fury',
@@ -149,6 +175,10 @@ const POWERS = {
   fire_storm: {
     orbColor: 0xff3b30,
     lootGlowKey: 'glow_red',
+  },
+  eye: {
+    orbColor: 0x78350f,
+    lootGlowKey: 'glow_brown',
   },
 };
 
@@ -169,7 +199,13 @@ const LOOT_TYPES = {
     catchKey: 'hp_catch',
     glowKey: 'glow_green',
     onPickup: (scene, fighter) => {
-      fighter.hp = Math.min(MAX_HP, fighter.hp + HP_HEAL_AMOUNT);
+      if (fighter.isEye) {
+        fighter.eyeHitsRemaining = Math.min(EYE_HITS_BASE, fighter.eyeHitsRemaining + 1);
+        fighter.eyeDashCooldownUntil = 0;
+        fighter.eyeAttackCooldownUntil = 0;
+      } else {
+        fighter.hp = Math.min(MAX_HP, fighter.hp + HP_HEAL_AMOUNT);
+      }
     },
   },
   shield: {
@@ -177,8 +213,24 @@ const LOOT_TYPES = {
     catchKey: 'shield_catch',
     glowKey: 'glow_blue',
     onPickup: (_scene, fighter) => {
-      if (fighter.specialPowers.length < 2) fighter.specialPowers.push('shield');
-      else fighter.specialPowers[1] = 'shield';
+      if (fighter.isEye) {
+        fighter.eyeHitsRemaining = Math.min(EYE_HITS_HARD_CAP, fighter.eyeHitsRemaining + EYE_HITS_SHIELD_LOOT_BONUS);
+      } else if (fighter.specialPowers.length < 2) {
+        fighter.specialPowers.push('shield');
+      } else {
+        fighter.specialPowers[1] = 'shield';
+      }
+    },
+  },
+  eye: {
+    idleKey: 'eye_loot_idle',
+    catchKey: 'eye_loot_catch',
+    glowKey: 'glow_brown',
+    idleFrameSize: EYE_LOOT_IDLE_FRAME,
+    idleScale: EYE_LOOT_IDLE_SCALE,
+    catchScale: EYE_LOOT_CATCH_SCALE,
+    onPickup: (scene, fighter) => {
+      scene.transformToEye(fighter);
     },
   },
 };
@@ -326,6 +378,34 @@ export default class GameScene extends Phaser.Scene {
       frameWidth: FIRE_STORM_HIT_FRAME_SIZE,
       frameHeight: FIRE_STORM_HIT_FRAME_SIZE,
     });
+    this.load.spritesheet('eye_loot_idle', 'sprites/Poder 6 (transform Flying Eye)/Loot power 6.png', {
+      frameWidth: EYE_LOOT_IDLE_FRAME,
+      frameHeight: EYE_LOOT_IDLE_FRAME,
+    });
+    this.load.spritesheet('eye_loot_catch', 'sprites/Poder 6 (transform Flying Eye)/Loot Catch power 6.png', {
+      frameWidth: LOOT_FRAME_SIZE,
+      frameHeight: LOOT_FRAME_SIZE,
+    });
+    this.load.spritesheet('eye_flight', 'sprites/Poder 6 (transform Flying Eye)/Flight.png', {
+      frameWidth: 150,
+      frameHeight: 150,
+    });
+    this.load.spritesheet('eye_attack', 'sprites/Poder 6 (transform Flying Eye)/Attack.png', {
+      frameWidth: 150,
+      frameHeight: 150,
+    });
+    this.load.spritesheet('eye_take_hit', 'sprites/Poder 6 (transform Flying Eye)/Take Hit.png', {
+      frameWidth: 150,
+      frameHeight: 150,
+    });
+    this.load.spritesheet('eye_death', 'sprites/Poder 6 (transform Flying Eye)/Death.png', {
+      frameWidth: 150,
+      frameHeight: 150,
+    });
+    this.load.spritesheet('eye_bite_effect', 'sprites/Poder 6 (transform Flying Eye)/eye bite effect.png', {
+      frameWidth: 64,
+      frameHeight: 64,
+    });
   }
 
   createRainEffect() {
@@ -366,6 +446,27 @@ export default class GameScene extends Phaser.Scene {
     tex.refresh();
   }
 
+  createLightBeamTexture(key, rgb) {
+    const w = 96;
+    const h = 512;
+    const tex = this.textures.createCanvas(key, w, h);
+    const ctx = tex.getContext();
+    const vGrad = ctx.createLinearGradient(0, 0, 0, h);
+    vGrad.addColorStop(0, `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0)`);
+    vGrad.addColorStop(0.85, `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.55)`);
+    vGrad.addColorStop(1, `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.85)`);
+    ctx.fillStyle = vGrad;
+    ctx.fillRect(0, 0, w, h);
+    const hGrad = ctx.createLinearGradient(0, 0, w, 0);
+    hGrad.addColorStop(0, 'rgba(0,0,0,0)');
+    hGrad.addColorStop(0.5, 'rgba(255,255,255,1)');
+    hGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.fillStyle = hGrad;
+    ctx.fillRect(0, 0, w, h);
+    tex.refresh();
+  }
+
   create() {
     this.physics.world.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
     this.physics.world.setBoundsCollision(true, true, false, false);
@@ -375,6 +476,11 @@ export default class GameScene extends Phaser.Scene {
       .setOrigin(0, 0)
       .setScrollFactor(0.3, 0.6)
       .setDepth(-10);
+
+    this.add.rectangle(0, 0, MAP_WIDTH, MAP_HEIGHT, 0x000000, 0.35)
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(-9);
 
     this.add.image(0, 0, 'map1_platforms')
       .setOrigin(0, 0)
@@ -408,6 +514,10 @@ export default class GameScene extends Phaser.Scene {
     this.createGlowTexture('glow_blue', [
       110, 170, 255, 80, 140, 240, 60, 110, 220,
     ]);
+    this.createGlowTexture('glow_brown', [
+      170, 110, 60, 130, 80, 40, 90, 55, 25,
+    ]);
+    this.createLightBeamTexture('eye_beam', [240, 200, 110]);
 
     const platformZones = [];
     for (const r of PLATFORM_RECTS) {
@@ -417,6 +527,7 @@ export default class GameScene extends Phaser.Scene {
     }
     this.platformZones = platformZones;
     this.oneWayProcessCallback = (fallingObj, platformObj) => {
+      if (fallingObj.isEye) return false;
       const pbody = fallingObj.body;
       const tbody = platformObj.body;
       if (pbody.velocity.y < 0) return false;
@@ -531,6 +642,48 @@ export default class GameScene extends Phaser.Scene {
         end: FIRE_STORM_HIT_FRAMES - 1,
       }),
       frameRate: FIRE_STORM_HIT_FRAMERATE,
+      repeat: 0,
+    });
+    this.anims.create({
+      key: 'eye_loot_idle',
+      frames: this.anims.generateFrameNumbers('eye_loot_idle', { start: 0, end: EYE_LOOT_IDLE_FRAMES - 1 }),
+      frameRate: 8,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: 'eye_loot_catch',
+      frames: this.anims.generateFrameNumbers('eye_loot_catch', { start: 0, end: EYE_LOOT_CATCH_FRAMES - 1 }),
+      frameRate: 10,
+      repeat: 0,
+    });
+    this.anims.create({
+      key: 'eye_flight',
+      frames: this.anims.generateFrameNumbers('eye_flight', { start: 0, end: 7 }),
+      frameRate: 12,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: 'eye_attack',
+      frames: this.anims.generateFrameNumbers('eye_attack', { start: 0, end: 7 }),
+      frameRate: 10,
+      repeat: 0,
+    });
+    this.anims.create({
+      key: 'eye_take_hit',
+      frames: this.anims.generateFrameNumbers('eye_take_hit', { start: 0, end: 3 }),
+      frameRate: 14,
+      repeat: 0,
+    });
+    this.anims.create({
+      key: 'eye_death',
+      frames: this.anims.generateFrameNumbers('eye_death', { start: 0, end: 3 }),
+      frameRate: 8,
+      repeat: 0,
+    });
+    this.anims.create({
+      key: 'eye_bite_effect',
+      frames: this.anims.generateFrameNumbers('eye_bite_effect', { start: 0, end: 6 }),
+      frameRate: 18,
       repeat: 0,
     });
     this.anims.create({
@@ -776,6 +929,16 @@ export default class GameScene extends Phaser.Scene {
     this.refreshDevPowerButtons = refreshPowerButtons;
     refreshPowerButtons();
 
+    const eyeToggleBtn = document.getElementById('dev-eye-toggle');
+    if (eyeToggleBtn) {
+      eyeToggleBtn.addEventListener('click', () => {
+        const f = this.playerFighter;
+        if (!f) return;
+        if (f.isEye) this.revertFromEye(f);
+        else this.transformToEye(f);
+      });
+    }
+
     const volumeSlider = document.getElementById('volume-slider');
     const volumeValue = document.getElementById('volume-value');
     if (volumeSlider) {
@@ -974,6 +1137,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.loots = [];
     this._lootIdCounter = 0;
+    this._eyeActive = false;
     this._isLootAuthority = !this.isMultiplayer || (this.network && this.network.isHost);
     if (this._isLootAuthority) {
       this.scheduleNextLootSpawn(Phaser.Math.Between(1500, 3000));
@@ -994,10 +1158,15 @@ export default class GameScene extends Phaser.Scene {
     if (this.loots.length >= LOOT_MAX_ACTIVE) return;
     let key = typeKey;
     if (!key) {
+      const eyeAlreadyOnMap = this.loots.some((l) => l.lootType === 'eye');
+      const eyeBlocked = this._eyeActive || eyeAlreadyOnMap;
       const roll = Phaser.Math.FloatBetween(0, 1);
       if (roll < 0.1) key = 'hp';
       else if (roll < 0.2) key = 'shield';
+      else if (roll < 0.35 && !eyeBlocked) key = 'eye';
       else key = 'wood';
+    } else if (key === 'eye' && this._eyeActive) {
+      return;
     }
 
     const margin = 40;
@@ -1032,14 +1201,23 @@ export default class GameScene extends Phaser.Scene {
     this.createLootAt({ id, lootType: key, power, x, y });
 
     if (this.isMultiplayer && this.network && this.network.isHost) {
-      this.network.send({ type: 'loot_spawn', id, lootType: key, power, x, y });
+      this.sendLootNetMsg({ type: 'loot_spawn', id, lootType: key, power, x, y });
     }
+  }
+
+  sendLootNetMsg(msg) {
+    if (!this.network) return;
+    this.network.send(msg);
+    this.time.delayedCall(220, () => { if (this.network) this.network.send(msg); });
+    this.time.delayedCall(550, () => { if (this.network) this.network.send(msg); });
   }
 
   createLootAt({ id, lootType, power, x, y }) {
     const type = LOOT_TYPES[lootType];
     const glowKey =
       (lootType === 'wood' && power && POWERS[power]?.lootGlowKey) || type.glowKey;
+    const idleFrameSize = type.idleFrameSize ?? LOOT_FRAME_SIZE;
+    const idleScale = type.idleScale ?? LOOT_SCALE;
 
     const glow = this.add.image(x, y, glowKey)
       .setBlendMode(Phaser.BlendModes.ADD)
@@ -1056,7 +1234,7 @@ export default class GameScene extends Phaser.Scene {
     });
 
     const loot = this.physics.add.sprite(x, y, type.idleKey, 0);
-    loot.setScale(LOOT_SCALE);
+    loot.setScale(idleScale);
     loot.setDepth(DEFAULT_SPRITE_DEPTH);
     loot.netId = id;
     loot.lootType = lootType;
@@ -1070,7 +1248,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     const tintOverlay = this.add.sprite(x, y, type.idleKey, 0)
-      .setScale(LOOT_SCALE)
+      .setScale(idleScale)
       .setDepth(DEFAULT_SPRITE_DEPTH + 0.5)
       .setTintFill(overlayTint)
       .setAlpha(0);
@@ -1087,9 +1265,27 @@ export default class GameScene extends Phaser.Scene {
     loot.whitePulse = whitePulse;
     loot.body.setSize(LOOT_BODY_SIZE, LOOT_BODY_SIZE);
     loot.body.setOffset(
-      (LOOT_FRAME_SIZE - LOOT_BODY_SIZE) / 2,
-      (LOOT_FRAME_SIZE - LOOT_BODY_SIZE) / 2
+      (idleFrameSize - LOOT_BODY_SIZE) / 2,
+      (idleFrameSize - LOOT_BODY_SIZE) / 2
     );
+
+    if (lootType === 'eye') {
+      const beam = this.add.image(x, 0, 'eye_beam')
+        .setOrigin(0.5, 0)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(DEFAULT_SPRITE_DEPTH + 0.6)
+        .setDisplaySize(70, Math.max(120, y + 20))
+        .setAlpha(0.85);
+      loot.beam = beam;
+      loot.beamPulse = this.tweens.add({
+        targets: beam,
+        alpha: 0.45,
+        duration: 800,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
     loot.setCollideWorldBounds(true);
     loot.anims.play(type.idleKey);
 
@@ -1113,11 +1309,12 @@ export default class GameScene extends Phaser.Scene {
     if (!loot.active || loot.isPickedUp) return;
     const fromNetwork = !!(opts && opts.fromNetwork);
     if (!fromNetwork && this.isMultiplayer && this.network && this.network.isHost) {
-      this.network.send({ type: 'loot_despawn', id: loot.netId });
+      this.sendLootNetMsg({ type: 'loot_despawn', id: loot.netId });
     }
     if (loot.whitePulse) loot.whitePulse.stop();
+    if (loot.beamPulse) loot.beamPulse.stop();
     this.tweens.add({
-      targets: [loot, loot.glow, loot.tintOverlay].filter(Boolean),
+      targets: [loot, loot.glow, loot.tintOverlay, loot.beam].filter(Boolean),
       alpha: 0,
       duration: 400,
       onComplete: () => {
@@ -1133,6 +1330,7 @@ export default class GameScene extends Phaser.Scene {
     if (loot.lootType === 'wood') this.playSfx('sfx_power_pickup', 1, 0.4);
     else if (loot.lootType === 'hp') this.playSfx('sfx_cure', 0.6, 0.3);
     else if (loot.lootType === 'shield') this.playSfx('sfx_shield_break');
+    else if (loot.lootType === 'eye') this.playSfx('sfx_power_pickup', 1, 0.4);
     const type = LOOT_TYPES[loot.lootType];
     const isRemotePick = !!(opts && opts.fromNetwork);
     if (!isRemotePick) {
@@ -1146,7 +1344,7 @@ export default class GameScene extends Phaser.Scene {
       this.resetAttackOrbs();
     }
     if (this.isMultiplayer && !isRemotePick && fighter === this.playerFighter) {
-      this.network.send({
+      this.sendLootNetMsg({
         type: 'loot_pickup',
         id: loot.netId,
         pickerIndex: this.myIndex,
@@ -1156,11 +1354,13 @@ export default class GameScene extends Phaser.Scene {
     loot.body.enable = false;
     if (loot.glowPulse) loot.glowPulse.stop();
     if (loot.whitePulse) loot.whitePulse.stop();
+    if (loot.beamPulse) loot.beamPulse.stop();
     this.tweens.add({
-      targets: [loot.glow, loot.tintOverlay].filter(Boolean),
+      targets: [loot.glow, loot.tintOverlay, loot.beam].filter(Boolean),
       alpha: 0,
       duration: 200,
     });
+    if (type.catchScale !== undefined) loot.setScale(type.catchScale);
     loot.anims.play(type.catchKey);
     loot.once(`animationcomplete-${type.catchKey}`, () => {
       this.removeLoot(loot);
@@ -1172,8 +1372,10 @@ export default class GameScene extends Phaser.Scene {
     if (idx !== -1) this.loots.splice(idx, 1);
     if (loot.glowPulse) loot.glowPulse.stop();
     if (loot.whitePulse) loot.whitePulse.stop();
+    if (loot.beamPulse) loot.beamPulse.stop();
     if (loot.glow) loot.glow.destroy();
     if (loot.tintOverlay) loot.tintOverlay.destroy();
+    if (loot.beam) loot.beam.destroy();
     loot.destroy();
   }
 
@@ -1222,6 +1424,35 @@ export default class GameScene extends Phaser.Scene {
         .setVisible(false)
     );
 
+    const eyeLifeIcons = [0, 1, 2, 3].map(() => {
+      const c = this.add.container(0, 0);
+      const outer = this.add.circle(0, 0, EYE_LIFE_ICON_RADIUS, 0xffffff)
+        .setStrokeStyle(1.5, 0x1e1408);
+      const inner = this.add.circle(0, 0, EYE_LIFE_ICON_RADIUS * 0.55, 0x78350f);
+      const pupil = this.add.circle(0, 0, EYE_LIFE_ICON_RADIUS * 0.25, 0x000000);
+      c.add([outer, inner, pupil]);
+      c.setDepth(17);
+      c.setVisible(false);
+      return c;
+    });
+
+    const eyeDashBarBg = this.add.rectangle(0, 0, EYE_DASH_BAR_WIDTH, EYE_DASH_BAR_HEIGHT, 0x000000, 0.6)
+      .setStrokeStyle(1, 0x1e1408)
+      .setDepth(17)
+      .setVisible(false);
+    const eyeDashBarFill = this.add.rectangle(0, 0, EYE_DASH_BAR_WIDTH - 2, EYE_DASH_BAR_HEIGHT - 2, 0x38bdf8)
+      .setOrigin(0, 0.5)
+      .setDepth(18)
+      .setVisible(false);
+    const eyeAttackBarBg = this.add.rectangle(0, 0, EYE_DASH_BAR_WIDTH, EYE_DASH_BAR_HEIGHT, 0x000000, 0.6)
+      .setStrokeStyle(1, 0x1e1408)
+      .setDepth(17)
+      .setVisible(false);
+    const eyeAttackBarFill = this.add.rectangle(0, 0, EYE_DASH_BAR_WIDTH - 2, EYE_DASH_BAR_HEIGHT - 2, 0xfacc15)
+      .setOrigin(0, 0.5)
+      .setDepth(18)
+      .setVisible(false);
+
     const fighter = {
       char,
       sprite,
@@ -1257,6 +1488,20 @@ export default class GameScene extends Phaser.Scene {
       stunPulseTween: null,
       stunVfxSprite: null,
       stunShakeTween: null,
+      isEye: false,
+      eyeHitsRemaining: 0,
+      eyeFacing: 1,
+      eyeDashCooldownUntil: 0,
+      eyeDashUntil: 0,
+      eyeOriginalState: null,
+      eyeLifeIcons,
+      eyeDashBarBg,
+      eyeDashBarFill,
+      eyeAttackBarBg,
+      eyeAttackBarFill,
+      eyeDashDirX: 1,
+      eyeDashDirY: 0,
+      eyeAttackCooldownUntil: 0,
     };
 
     for (const atkCfg of [keys.attackHorizontal, keys.attackUp, keys.attackDown]) {
@@ -1272,6 +1517,18 @@ export default class GameScene extends Phaser.Scene {
         fighter.attackSpriteShift = 0;
       });
     }
+    sprite.on('animationcomplete-eye_attack', () => {
+      fighter.isAttacking = false;
+      if (fighter === this.playerFighter) {
+        this.attackHitbox.body.enable = false;
+        this.attackHitbox.setVisible(false);
+        this.targetsHitThisAttack.clear();
+      }
+      if (fighter.isEye) sprite.anims.play('eye_flight', true);
+    });
+    sprite.on('animationcomplete-eye_take_hit', () => {
+      if (fighter.isEye && !fighter.isAttacking) sprite.anims.play('eye_flight', true);
+    });
 
     return fighter;
   }
@@ -1514,7 +1771,7 @@ export default class GameScene extends Phaser.Scene {
       const fb = fighter.sprite.body;
       fighter.stunVfxSprite = this.add.sprite(
         fb.x + fb.width / 2,
-        fb.y - 4,
+        fb.y + 14,
         'stun_vfx',
         0
       )
@@ -1759,10 +2016,28 @@ export default class GameScene extends Phaser.Scene {
       stroke: '#000000',
       strokeThickness: 6,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
-    this.add.text(cam.width / 2, cam.height / 2 + 60, 'Atualize a página para jogar de novo', {
-      font: '20px sans-serif',
+    const btnX = cam.width / 2;
+    const btnY = cam.height / 2 + 90;
+    const btnW = 240;
+    const btnH = 56;
+    const btnBg = this.add.rectangle(btnX, btnY, btnW, btnH, 0x22c55e, 1)
+      .setStrokeStyle(3, 0x0f5132)
+      .setScrollFactor(0)
+      .setDepth(101)
+      .setInteractive({ useHandCursor: true });
+    const btnLabel = this.add.text(btnX, btnY, 'Jogar novamente', {
+      font: 'bold 22px sans-serif',
       color: '#ffffff',
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(102);
+    btnBg.on('pointerover', () => btnBg.setFillStyle(0x16a34a));
+    btnBg.on('pointerout', () => btnBg.setFillStyle(0x22c55e));
+    btnBg.on('pointerdown', () => {
+      btnBg.disableInteractive();
+      btnLabel.setText('Recarregando...');
+      window.location.reload();
+    });
   }
 
   respawnFighter(fighter) {
@@ -2161,6 +2436,7 @@ export default class GameScene extends Phaser.Scene {
             this.dealHit(target, {
               damage: MAX_HP,
               ignoreShield: true,
+              heavensFury: true,
               powerFlashColor: POWERS.heavens_fury.orbColor,
             });
           } else if (
@@ -2171,6 +2447,7 @@ export default class GameScene extends Phaser.Scene {
             this.dealHit(target, {
               damage: MAX_HP * 0.8,
               ignoreShield: true,
+              heavensFury: true,
               powerFlashColor: POWERS.heavens_fury.orbColor,
             });
           }
@@ -2193,8 +2470,209 @@ export default class GameScene extends Phaser.Scene {
     sprite.once('animationcomplete', () => sprite.destroy());
   }
 
+  castQueuedPower(fighter) {
+    const power = fighter.specialPowers[0];
+    const pointer = this.input.activePointer;
+    if (power === 'heavens_fury') {
+      this.firePower(fighter, pointer.worldX, pointer.worldY);
+      fighter.specialPowers.shift();
+      this.sendPowerCast('heavens_fury', { worldX: pointer.worldX, worldY: pointer.worldY });
+    } else if (power === 'shield') {
+      fighter.specialPowers.shift();
+      if (fighter.isEye) {
+        fighter.eyeHitsRemaining = Math.min(EYE_HITS_HARD_CAP, fighter.eyeHitsRemaining + EYE_HITS_SHIELD_LOOT_BONUS);
+      } else {
+        this.applyShield(fighter);
+        this.resetAttackOrbs();
+      }
+      this.sendPowerCast('shield', {});
+    } else if (power === 'skull_curse') {
+      fighter.specialPowers.shift();
+      this.fireSkullCurse(fighter, pointer.worldX, pointer.worldY);
+      this.sendPowerCast('skull_curse', { worldX: pointer.worldX, worldY: pointer.worldY });
+    } else if (power === 'wheel') {
+      fighter.specialPowers.shift();
+      this.fireWheel(fighter, pointer.worldX);
+      this.sendPowerCast('wheel', { worldX: pointer.worldX });
+    } else if (power === 'fire_storm') {
+      fighter.specialPowers.shift();
+      this.fireFireStorm(fighter);
+      this.sendPowerCast('fire_storm', {});
+    }
+  }
+
+  spawnDoubleJumpEffect(fighter) {
+    const sprite = fighter.sprite;
+    const body = sprite.body;
+    const cx = body.x + body.width / 2;
+    const cy = body.y + body.height;
+    const tint = fighter.char.tintColor;
+
+    const ring = this.add.ellipse(cx, cy, 40, 16, tint, 0.8)
+      .setDepth(DEFAULT_SPRITE_DEPTH - 1)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.tweens.add({
+      targets: ring,
+      scaleX: 3.2,
+      scaleY: 2.2,
+      alpha: 0,
+      duration: 420,
+      ease: 'Cubic.easeOut',
+      onComplete: () => ring.destroy(),
+    });
+
+    for (let i = 0; i < 6; i++) {
+      const angle = Math.PI + (Math.PI * (i + 0.5)) / 6;
+      const dist = 18;
+      const px = cx + Math.cos(angle) * dist;
+      const py = cy + Math.sin(angle) * dist * 0.4;
+      const puff = this.add.circle(px, py, 6, tint, 0.9)
+        .setDepth(DEFAULT_SPRITE_DEPTH - 1)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      this.tweens.add({
+        targets: puff,
+        x: px + Math.cos(angle) * 40,
+        y: py + Math.sin(angle) * 20,
+        scale: 0.2,
+        alpha: 0,
+        duration: 380,
+        ease: 'Cubic.easeOut',
+        onComplete: () => puff.destroy(),
+      });
+    }
+
+    const sil = this.add.sprite(sprite.x, sprite.y, sprite.texture.key, sprite.frame.name)
+      .setScale(sprite.scaleX)
+      .setFlipX(sprite.flipX)
+      .setTintFill(tint)
+      .setAlpha(0.55)
+      .setDepth(DEFAULT_SPRITE_DEPTH - 0.5);
+    this.tweens.add({
+      targets: sil,
+      alpha: 0,
+      duration: 320,
+      onComplete: () => sil.destroy(),
+    });
+  }
+
+  spawnEyeBiteEffect(fighter) {
+    const sprite = fighter.sprite;
+    const body = sprite.body;
+    const cx = body.x + body.width / 2 + fighter.eyeFacing * (body.width / 2 + 10);
+    const cy = body.y + body.height / 2;
+    const vfx = this.add.sprite(cx, cy, 'eye_bite_effect', 0)
+      .setScale(2.4)
+      .setDepth(ATTACKER_DEPTH + 1)
+      .setFlipX(fighter.eyeFacing < 0);
+    vfx.play('eye_bite_effect');
+    vfx.once('animationcomplete-eye_bite_effect', () => vfx.destroy());
+  }
+
+  transformToEye(fighter) {
+    if (!fighter || fighter.isDead || fighter.isEye) return;
+    this._eyeActive = true;
+    fighter.isEye = true;
+    this.removeShield(fighter);
+    fighter.eyeHitsRemaining = EYE_HITS_BASE;
+    fighter.specialPowers = [];
+    fighter.eyeFacing = fighter.sprite.flipX ? -1 : 1;
+    fighter.eyeDashCooldownUntil = 0;
+    fighter.eyeDashUntil = 0;
+    fighter.eyeAttackCooldownUntil = 0;
+
+    const sprite = fighter.sprite;
+    const body = sprite.body;
+    fighter.eyeOriginalState = {
+      textureKey: sprite.texture.key,
+      frameName: sprite.frame.name,
+      scale: sprite.scaleX,
+      bodyW: body.sourceWidth,
+      bodyH: body.sourceHeight,
+      bodyOffsetX: body.offset.x,
+      bodyOffsetY: body.offset.y,
+      gravityY: body.gravity.y,
+      allowGravity: body.allowGravity,
+      isAttacking: fighter.isAttacking,
+      attackSpriteShift: fighter.attackSpriteShift,
+    };
+
+    if (fighter.isAttacking && fighter === this.playerFighter) {
+      fighter.isAttacking = false;
+      this.attackHitbox.body.enable = false;
+      this.attackHitbox.setVisible(false);
+      this.targetsHitThisAttack.clear();
+      sprite.x -= fighter.attackSpriteShift;
+      fighter.attackSpriteShift = 0;
+    }
+
+    const wantBodyCenterX = body.x + body.width / 2;
+    const wantBodyCenterY = body.y + body.height / 2;
+
+    sprite.setTexture('eye_flight', 0);
+    sprite.setScale(EYE_SCALE);
+    sprite.anims.play('eye_flight', true);
+    body.allowGravity = false;
+    body.setGravityY(0);
+    body.setVelocity(0, 0);
+    sprite.isEye = true;
+    body.setSize(EYE_BODY_W, EYE_BODY_H);
+    const eyeOffsetX = (EYE_FRAME_SIZE - EYE_BODY_W) / 2;
+    const eyeOffsetY = (EYE_FRAME_SIZE - EYE_BODY_H) / 2;
+    body.setOffset(eyeOffsetX, eyeOffsetY);
+    sprite.x = wantBodyCenterX + sprite.scaleX * (sprite.displayOriginX - eyeOffsetX - EYE_BODY_W / 2);
+    sprite.y = wantBodyCenterY + sprite.scaleY * (sprite.displayOriginY - eyeOffsetY - EYE_BODY_H / 2);
+    sprite.setFlipX(fighter.eyeFacing < 0);
+
+    if (fighter.hpBarBg) fighter.hpBarBg.setVisible(false);
+    if (fighter.hpBarFill) fighter.hpBarFill.setVisible(false);
+
+    this.triggerPickupFlash(fighter);
+  }
+
+  revertFromEye(fighter, opts) {
+    if (!fighter || !fighter.isEye) return;
+    const killAlso = !!(opts && opts.killAlso);
+    const orig = fighter.eyeOriginalState;
+    const sprite = fighter.sprite;
+    const body = sprite.body;
+
+    if (orig) {
+      const wantBodyCenterX = body.x + body.width / 2;
+      const wantBodyCenterY = body.y + body.height / 2;
+
+      sprite.setTexture(orig.textureKey, orig.frameName);
+      sprite.setScale(orig.scale);
+      body.setSize(orig.bodyW, orig.bodyH);
+      body.setOffset(orig.bodyOffsetX, orig.bodyOffsetY);
+      body.allowGravity = orig.allowGravity;
+      body.setGravityY(orig.gravityY);
+      body.setVelocity(0, 0);
+      sprite.isEye = false;
+      sprite.x = wantBodyCenterX + sprite.scaleX * (sprite.displayOriginX - orig.bodyOffsetX - orig.bodyW / 2);
+      sprite.y = wantBodyCenterY + sprite.scaleY * (sprite.displayOriginY - orig.bodyOffsetY - orig.bodyH / 2);
+      sprite.anims.play(`${fighter.char.id}_idle`, true);
+    }
+
+    fighter.isEye = false;
+    fighter.eyeOriginalState = null;
+    fighter.eyeHitsRemaining = 0;
+    this._eyeActive = this.fighters.some((f) => f.isEye);
+
+    if (!killAlso) {
+      if (fighter.hpBarBg) fighter.hpBarBg.setVisible(true);
+      if (fighter.hpBarFill) fighter.hpBarFill.setVisible(true);
+      this.triggerHitFlash(fighter);
+    } else {
+      this.killFighter(fighter);
+    }
+  }
+
   applyIncomingHit(target, hit) {
     if (!target || target.isDead) return;
+    if (target.isEye) {
+      this.applyEyeHit(target, hit);
+      return;
+    }
     if (hit.breakShield && target.shieldCharges > 0) {
       this.playSfx('sfx_shield_break');
       this.removeShield(target);
@@ -2215,6 +2693,33 @@ export default class GameScene extends Phaser.Scene {
     }
     if (hit.powerFlashColor !== null && hit.powerFlashColor !== undefined) {
       this.triggerPowerFlash(target, hit.powerFlashColor);
+    }
+  }
+
+  applyEyeHit(target, hit) {
+    if (hit.powerFlashColor !== null && hit.powerFlashColor !== undefined) {
+      this.triggerPowerFlash(target, hit.powerFlashColor);
+    }
+    if (hit.heavensFury) {
+      this.revertFromEye(target, { killAlso: true });
+      return;
+    }
+    if (hit.curse) {
+      this.revertFromEye(target);
+      this.applySkullCurse(target);
+      return;
+    }
+    if (hit.stun) {
+      this.applyStun(target);
+      this.triggerHitFlash(target);
+      return;
+    }
+    target.eyeHitsRemaining = Math.max(0, target.eyeHitsRemaining - 1);
+    this.triggerHitFlash(target);
+    if (target.eyeHitsRemaining <= 0) {
+      this.revertFromEye(target);
+    } else {
+      target.sprite.anims.play('eye_take_hit', true);
     }
   }
 
@@ -2265,6 +2770,10 @@ export default class GameScene extends Phaser.Scene {
       stunned: f.isStunned,
       cursed: (f.curseMultiplier || 1) > 1,
       powers: f.specialPowers.slice(),
+      isEye: !!f.isEye,
+      eyeHits: f.eyeHitsRemaining || 0,
+      eyeFacing: f.eyeFacing || 1,
+      eyeDashing: f.isEye && this.time.now < (f.eyeDashUntil || 0),
     });
   }
 
@@ -2322,7 +2831,7 @@ export default class GameScene extends Phaser.Scene {
       if (data.power === 'heavens_fury') {
         this.firePower(caster, data.worldX, data.worldY);
       } else if (data.power === 'shield') {
-        this.applyShield(caster);
+        if (!caster.isEye) this.applyShield(caster);
       } else if (data.power === 'skull_curse') {
         this.fireSkullCurse(caster, data.worldX, data.worldY);
       } else if (data.power === 'wheel') {
@@ -2335,19 +2844,39 @@ export default class GameScene extends Phaser.Scene {
     if (data.type !== 'state') return;
     const remote = this.fightersByIndex[data.index];
     if (!remote || remote === this.playerFighter) return;
+
+    if (typeof data.isEye === 'boolean') {
+      if (data.isEye && !remote.isEye && !remote.isDead) {
+        this.transformToEye(remote);
+      } else if (!data.isEye && remote.isEye) {
+        this.revertFromEye(remote);
+      }
+    }
+    if (typeof data.eyeHits === 'number') {
+      remote.eyeHitsRemaining = data.eyeHits;
+    }
+    if (typeof data.eyeFacing === 'number') {
+      remote.eyeFacing = data.eyeFacing;
+    }
+    if (typeof data.eyeDashing === 'boolean') {
+      remote.isEyeDashingRemote = data.eyeDashing;
+    }
+
     const sprite = remote.sprite;
     sprite.setPosition(data.x, data.y);
     sprite.setFlipX(!!data.flipX);
     const body = sprite.body;
-    let effectiveOffset = BODY_OFFSET_X;
-    if (data.anim === remote.keys.attackDown.animKey) {
-      effectiveOffset = remote.keys.attackDown.charFrameOffsetX;
-      const charShift = (effectiveOffset - BODY_OFFSET_X) * SPRITE_SCALE;
-      sprite.x += data.flipX ? charShift : -charShift;
+    if (!remote.isEye) {
+      let effectiveOffset = BODY_OFFSET_X;
+      if (data.anim === remote.keys.attackDown.animKey) {
+        effectiveOffset = remote.keys.attackDown.charFrameOffsetX;
+        const charShift = (effectiveOffset - BODY_OFFSET_X) * SPRITE_SCALE;
+        sprite.x += data.flipX ? charShift : -charShift;
+      }
+      body.offset.x = data.flipX
+        ? FRAME_WIDTH - effectiveOffset - BODY_WIDTH
+        : effectiveOffset;
     }
-    body.offset.x = data.flipX
-      ? FRAME_WIDTH - effectiveOffset - BODY_WIDTH
-      : effectiveOffset;
     body.setVelocity(0, 0);
     if (data.anim && sprite.anims.currentAnim?.key !== data.anim) {
       sprite.anims.play(data.anim, true);
@@ -2406,17 +2935,19 @@ export default class GameScene extends Phaser.Scene {
 
     const prev = this.playerFighter;
     if (prev) {
-      if (prev.isAttacking) {
+      if (prev.isAttacking && !prev.isEye) {
         prev.sprite.x -= prev.attackSpriteShift;
         prev.attackSpriteShift = 0;
         prev.isAttacking = false;
         prev.sprite.setDepth(DEFAULT_SPRITE_DEPTH);
       }
       prev.sprite.body.setVelocityX(0);
-      prev.sprite.body.offset.x = prev.sprite.flipX
-        ? FRAME_WIDTH - BODY_OFFSET_X - BODY_WIDTH
-        : BODY_OFFSET_X;
-      prev.sprite.anims.play(prev.keys.idle, true);
+      if (!prev.isEye) {
+        prev.sprite.body.offset.x = prev.sprite.flipX
+          ? FRAME_WIDTH - BODY_OFFSET_X - BODY_WIDTH
+          : BODY_OFFSET_X;
+        prev.sprite.anims.play(prev.keys.idle, true);
+      }
     }
 
     this.attackHitbox.body.enable = false;
@@ -2450,9 +2981,200 @@ export default class GameScene extends Phaser.Scene {
       if (!f.isDead && f.sprite.y > MAP_HEIGHT + 100) {
         this.killFighter(f);
       }
+      if (
+        !f.isDead &&
+        f.isEye &&
+        f !== fighter &&
+        time >= f.eyeDashUntil
+      ) {
+        f.sprite.body.setVelocity(0, 0);
+      }
     }
 
-    if (!fighter.isDead && !fighter.isStunned) {
+    if (!fighter.isDead && fighter.isEye) {
+      const inDash = time < fighter.eyeDashUntil;
+
+      if (
+        !fighter.isStunned &&
+        Phaser.Input.Keyboard.JustDown(this.keys.swapPowers) &&
+        fighter.specialPowers.length >= 2
+      ) {
+        const [a, b] = fighter.specialPowers;
+        fighter.specialPowers[0] = b;
+        fighter.specialPowers[1] = a;
+      }
+
+      let inputX = 0;
+      let inputY = 0;
+      if (!fighter.isStunned) {
+        if (this.keys.left.isDown) inputX -= 1;
+        if (this.keys.right.isDown) inputX += 1;
+        if (this.keys.up.isDown) inputY -= 1;
+        if (this.keys.down.isDown) inputY += 1;
+      }
+
+      const canDash =
+        !inDash &&
+        !fighter.isStunned &&
+        time >= fighter.eyeDashCooldownUntil &&
+        Phaser.Input.Keyboard.JustDown(this.keys.space);
+
+      if (canDash) {
+        let dx = inputX;
+        let dy = inputY;
+        if (dx === 0 && dy === 0) {
+          dx = fighter.eyeFacing;
+        }
+        const mag = Math.sqrt(dx * dx + dy * dy);
+        dx /= mag;
+        dy /= mag;
+        fighter.eyeDashDirX = dx;
+        fighter.eyeDashDirY = dy;
+        fighter.eyeDashUntil = time + EYE_DASH_DURATION_MS;
+        fighter.eyeDashCooldownUntil = time + EYE_DASH_COOLDOWN_MS;
+        body.setVelocity(EYE_DASH_SPEED * dx, EYE_DASH_SPEED * dy);
+        if (dx < 0) {
+          fighter.eyeFacing = -1;
+          this.player.setFlipX(true);
+        } else if (dx > 0) {
+          fighter.eyeFacing = 1;
+          this.player.setFlipX(false);
+        }
+      } else if (inDash) {
+        body.setVelocity(
+          EYE_DASH_SPEED * fighter.eyeDashDirX,
+          EYE_DASH_SPEED * fighter.eyeDashDirY
+        );
+      } else {
+        let vx = inputX;
+        let vy = inputY;
+        if (vx !== 0 && vy !== 0) {
+          const inv = 1 / Math.sqrt(2);
+          vx *= inv;
+          vy *= inv;
+        }
+        body.setVelocity(vx * EYE_MOVE_SPEED, vy * EYE_MOVE_SPEED);
+        if (vx < 0) {
+          fighter.eyeFacing = -1;
+          this.player.setFlipX(true);
+        } else if (vx > 0) {
+          fighter.eyeFacing = 1;
+          this.player.setFlipX(false);
+        }
+      }
+
+      const halfBodyH = (EYE_BODY_H * EYE_SCALE) / 2;
+      if (this.player.y < halfBodyH) {
+        this.player.y = halfBodyH;
+        if (body.velocity.y < 0) body.setVelocityY(0);
+      } else if (this.player.y > MAP_HEIGHT - halfBodyH) {
+        this.player.y = MAP_HEIGHT - halfBodyH;
+        if (body.velocity.y > 0) body.setVelocityY(0);
+      }
+
+      if (
+        this.attackQueued &&
+        !fighter.isAttacking &&
+        !fighter.isStunned &&
+        time >= fighter.eyeAttackCooldownUntil
+      ) {
+        fighter.isAttacking = true;
+        fighter.eyeAttackCooldownUntil = time + EYE_ATTACK_COOLDOWN_MS;
+        fighter.eyeBiteVfxFired = false;
+        this.targetsHitThisAttack.clear();
+        this.player.anims.play('eye_attack', true);
+        this.playSfx('sfx_swing');
+      }
+      this.attackQueued = false;
+
+      if (fighter.isAttacking && this.player.anims.currentAnim?.key === 'eye_attack') {
+        const frameIdx = this.player.anims.currentFrame
+          ? this.player.anims.currentFrame.index - 1
+          : 0;
+        const active = frameIdx >= 5 && frameIdx <= 7;
+        if (active && !fighter.eyeBiteVfxFired) {
+          fighter.eyeBiteVfxFired = true;
+          this.spawnEyeBiteEffect(fighter);
+        }
+        this.attackHitbox.body.enable = active;
+        this.attackHitbox.setVisible(active);
+
+        if (active) {
+          const bodyCenterX = body.x + body.width / 2;
+          const bodyCenterY = body.y + body.height / 2;
+          const dashComboHitbox =
+            fighter.eyeDashUntil > 0 &&
+            time < fighter.eyeDashUntil + EYE_DASH_COMBO_WINDOW_MS;
+          const dashBonus = dashComboHitbox ? 50 : 0;
+          const physW = body.width + EYE_ATTACK_HITBOX_FORWARD + EYE_ATTACK_HITBOX_PADDING + dashBonus * 2;
+          const physH = body.height + EYE_ATTACK_HITBOX_PADDING * 2 + dashBonus;
+          const hitboxX = bodyCenterX + fighter.eyeFacing * (EYE_ATTACK_HITBOX_FORWARD / 2);
+          const hitboxY = bodyCenterY;
+          this.attackHitbox.setRotation(0);
+          this.attackHitbox.setPosition(hitboxX, hitboxY);
+          if (
+            this.attackHitbox.displayWidth !== physW ||
+            this.attackHitbox.displayHeight !== physH
+          ) {
+            this.attackHitbox.setSize(physW, physH);
+            this.attackHitbox.body.setSize(physW, physH, true);
+          }
+          this.attackHitbox.body.reset(hitboxX, hitboxY);
+
+          const hbLeft = hitboxX - physW / 2;
+          const hbRight = hitboxX + physW / 2;
+          const hbTop = hitboxY - physH / 2;
+          const hbBottom = hitboxY + physH / 2;
+          for (const target of this.fighters) {
+            if (target === fighter) continue;
+            if (this.targetsHitThisAttack.has(target)) continue;
+            if (target.isInvulnerable || target.isDead) continue;
+            const tb = target.sprite.body;
+            if (
+              hbRight > tb.x &&
+              hbLeft < tb.x + tb.width &&
+              hbBottom > tb.y &&
+              hbTop < tb.y + tb.height
+            ) {
+              this.targetsHitThisAttack.add(target);
+              const isCursed = target.curseMultiplier > 1;
+              const dashCombo =
+                fighter.eyeDashUntil > 0 &&
+                time < fighter.eyeDashUntil + EYE_DASH_COMBO_WINDOW_MS;
+              let dmg = Math.round(MAX_HP * 0.5);
+              let ignoreShield = false;
+              if (dashCombo && isCursed) {
+                dmg = MAX_HP * 2;
+                ignoreShield = true;
+              } else if (dashCombo) {
+                dmg = Math.round(MAX_HP * 0.75);
+                ignoreShield = true;
+              }
+              this.dealHit(target, {
+                damage: dmg,
+                ignoreShield,
+                playHitSfx: true,
+                knockbackX: fighter.eyeFacing * 160,
+                knockupY: -100,
+              });
+            }
+          }
+          if (this.isCrowHitByRect(hbLeft, hbRight, hbTop, hbBottom)) {
+            this.killCrow();
+          }
+        }
+      } else if (
+        this.player.anims.currentAnim?.key !== 'eye_flight' &&
+        this.player.anims.currentAnim?.key !== 'eye_take_hit'
+      ) {
+        this.player.anims.play('eye_flight', true);
+      }
+
+      if (this.powerQueued && fighter.specialPowers.length > 0 && !fighter.isStunned) {
+        this.castQueuedPower(fighter);
+      }
+      this.powerQueued = false;
+    } else if (!fighter.isDead && !fighter.isStunned) {
       if (
         Phaser.Input.Keyboard.JustDown(this.keys.swapPowers) &&
         fighter.specialPowers.length >= 2
@@ -2525,7 +3247,10 @@ export default class GameScene extends Phaser.Scene {
         );
         this.playSfx('sfx_jump', 2.5);
         this.jumpsRemaining -= 1;
-        if (isSecondJump) this.didDoubleJump = true;
+        if (isSecondJump) {
+          this.didDoubleJump = true;
+          this.spawnDoubleJumpEffect(fighter);
+        }
         this.lastJumpTime = time;
       }
 
@@ -2553,30 +3278,7 @@ export default class GameScene extends Phaser.Scene {
       }
 
       if (this.powerQueued && !fighter.isAttacking && fighter.specialPowers.length > 0) {
-        const power = fighter.specialPowers[0];
-        const pointer = this.input.activePointer;
-        if (power === 'heavens_fury') {
-          this.firePower(fighter, pointer.worldX, pointer.worldY);
-          fighter.specialPowers.shift();
-          this.sendPowerCast('heavens_fury', { worldX: pointer.worldX, worldY: pointer.worldY });
-        } else if (power === 'shield') {
-          fighter.specialPowers.shift();
-          this.applyShield(fighter);
-          this.resetAttackOrbs();
-          this.sendPowerCast('shield', {});
-        } else if (power === 'skull_curse') {
-          fighter.specialPowers.shift();
-          this.fireSkullCurse(fighter, pointer.worldX, pointer.worldY);
-          this.sendPowerCast('skull_curse', { worldX: pointer.worldX, worldY: pointer.worldY });
-        } else if (power === 'wheel') {
-          fighter.specialPowers.shift();
-          this.fireWheel(fighter, pointer.worldX);
-          this.sendPowerCast('wheel', { worldX: pointer.worldX });
-        } else if (power === 'fire_storm') {
-          fighter.specialPowers.shift();
-          this.fireFireStorm(fighter);
-          this.sendPowerCast('fire_storm', {});
-        }
+        this.castQueuedPower(fighter);
       }
       this.powerQueued = false;
 
@@ -2971,6 +3673,10 @@ export default class GameScene extends Phaser.Scene {
       if (!loot.isPickedUp) {
         if (loot.glow) loot.glow.setPosition(loot.x, loot.y);
         if (loot.tintOverlay) loot.tintOverlay.setPosition(loot.x, loot.y);
+        if (loot.beam) {
+          loot.beam.setPosition(loot.x, 0);
+          loot.beam.setDisplaySize(70, Math.max(120, loot.y + 20));
+        }
       }
       if (loot.isPickedUp) continue;
       if (this.isMultiplayer) {
@@ -3124,7 +3830,7 @@ export default class GameScene extends Phaser.Scene {
         const fb = f.sprite.body;
         f.stunVfxSprite.setPosition(
           fb.x + fb.width / 2,
-          fb.y - 4
+          fb.y + 14
         );
       }
       if (f.curseVfxSprite) {
@@ -3141,12 +3847,61 @@ export default class GameScene extends Phaser.Scene {
       const pct = f.hp / MAX_HP;
       const barY = fbody.y - 14;
       const barX = fbody.x + fbody.width / 2;
-      f.hpBarBg.setPosition(barX, barY);
-      f.hpBarFill.setPosition(barX - (f.hpBarWidth - 2) / 2, barY);
-      f.hpBarFill.width = (f.hpBarWidth - 2) * pct;
-      f.hpBarFill.fillColor = pct > 0.5 ? 0x22c55e : pct > 0.25 ? 0xeab308 : 0xef4444;
+      if (f.isEye) {
+        f.hpBarBg.setVisible(false);
+        f.hpBarFill.setVisible(false);
+        const total = f.eyeHitsRemaining;
+        for (let i = 0; i < f.eyeLifeIcons.length; i++) {
+          const icon = f.eyeLifeIcons[i];
+          if (i < total) {
+            const offset = (i - (total - 1) / 2) * EYE_LIFE_ICON_SPACING;
+            icon.setPosition(barX + offset, barY);
+            icon.setVisible(true);
+          } else {
+            icon.setVisible(false);
+          }
+        }
 
-      const iconY = barY - 10;
+        const dashBarY = barY - 9;
+        const remaining = Math.max(0, f.eyeDashCooldownUntil - this.time.now);
+        const ready = remaining <= 0;
+        const pctDash = ready ? 1 : 1 - remaining / EYE_DASH_COOLDOWN_MS;
+        f.eyeDashBarBg.setVisible(true);
+        f.eyeDashBarFill.setVisible(true);
+        f.eyeDashBarBg.setPosition(barX, dashBarY);
+        f.eyeDashBarFill.setPosition(barX - (EYE_DASH_BAR_WIDTH - 2) / 2, dashBarY);
+        f.eyeDashBarFill.width = (EYE_DASH_BAR_WIDTH - 2) * pctDash;
+        f.eyeDashBarFill.fillColor = ready ? 0x38bdf8 : 0x64748b;
+
+        const atkBarY = dashBarY - (EYE_DASH_BAR_HEIGHT + 2);
+        const remainingAtk = Math.max(0, f.eyeAttackCooldownUntil - this.time.now);
+        const readyAtk = remainingAtk <= 0;
+        const pctAtk = readyAtk ? 1 : 1 - remainingAtk / EYE_ATTACK_COOLDOWN_MS;
+        f.eyeAttackBarBg.setVisible(true);
+        f.eyeAttackBarFill.setVisible(true);
+        f.eyeAttackBarBg.setPosition(barX, atkBarY);
+        f.eyeAttackBarFill.setPosition(barX - (EYE_DASH_BAR_WIDTH - 2) / 2, atkBarY);
+        f.eyeAttackBarFill.width = (EYE_DASH_BAR_WIDTH - 2) * pctAtk;
+        f.eyeAttackBarFill.fillColor = readyAtk ? 0xfacc15 : 0x64748b;
+      } else {
+        for (const icon of f.eyeLifeIcons) icon.setVisible(false);
+        f.eyeDashBarBg.setVisible(false);
+        f.eyeDashBarFill.setVisible(false);
+        f.eyeAttackBarBg.setVisible(false);
+        f.eyeAttackBarFill.setVisible(false);
+        if (!f.isDead) {
+          f.hpBarBg.setVisible(true);
+          f.hpBarFill.setVisible(true);
+        }
+        f.hpBarBg.setPosition(barX, barY);
+        f.hpBarFill.setPosition(barX - (f.hpBarWidth - 2) / 2, barY);
+        f.hpBarFill.width = (f.hpBarWidth - 2) * pct;
+        f.hpBarFill.fillColor = pct > 0.5 ? 0x22c55e : pct > 0.25 ? 0xeab308 : 0xef4444;
+      }
+
+      const iconY = f.isEye
+        ? barY - 9 - (EYE_DASH_BAR_HEIGHT + 2) - EYE_DASH_BAR_HEIGHT - 8
+        : barY - 10;
       const iconSpacing = 10;
       const powers = f.specialPowers;
       for (let i = 0; i < f.powerIcons.length; i++) {
@@ -3159,6 +3914,50 @@ export default class GameScene extends Phaser.Scene {
           icon.setVisible(true);
         } else {
           icon.setVisible(false);
+        }
+      }
+
+      if (f.isEye && !f.isDead) {
+        const inDash = this.time.now < (f.eyeDashUntil || 0) || !!f.isEyeDashingRemote;
+        const interval = inDash ? 25 : 50;
+        if (!f.eyeTrailNextSpawn || this.time.now >= f.eyeTrailNextSpawn) {
+          f.eyeTrailNextSpawn = this.time.now + interval;
+          const tx = fbody.x + fbody.width / 2;
+          const ty = fbody.y + fbody.height / 2;
+          const radius = inDash ? 16 : 10;
+          const alpha = inDash ? 0.85 : 0.7;
+          const trail = this.add.circle(tx, ty, radius, f.char.tintColor, alpha)
+            .setDepth(DEFAULT_SPRITE_DEPTH - 1)
+            .setBlendMode(Phaser.BlendModes.ADD);
+          this.tweens.add({
+            targets: trail,
+            alpha: 0,
+            scale: 0.3,
+            duration: inDash ? 550 : 450,
+            onComplete: () => trail.destroy(),
+          });
+        }
+        if (inDash) {
+          if (!f.eyeSilhouetteNextSpawn || this.time.now >= f.eyeSilhouetteNextSpawn) {
+            f.eyeSilhouetteNextSpawn = this.time.now + 35;
+            const sil = this.add.sprite(
+              f.sprite.x,
+              f.sprite.y,
+              f.sprite.texture.key,
+              f.sprite.frame.name
+            )
+              .setScale(f.sprite.scaleX)
+              .setFlipX(f.sprite.flipX)
+              .setTintFill(f.char.tintColor)
+              .setAlpha(0.6)
+              .setDepth(DEFAULT_SPRITE_DEPTH - 0.5);
+            this.tweens.add({
+              targets: sil,
+              alpha: 0,
+              duration: 320,
+              onComplete: () => sil.destroy(),
+            });
+          }
         }
       }
     }

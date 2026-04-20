@@ -29,7 +29,16 @@
       "Bash(cloudflared --version)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
       "Bash(./cloudflared.exe tunnel *)",
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Bash(ffmpeg -version)",
+      "Bash(node -e \"const {PNG}=require\\('pngjs'\\); const fs=require\\('fs'\\); ['public/sprites/player_idle.png','public/sprites/Player 2/player_idle.png','public/sprites/Player 3/player_idle.png','public/sprites/Player 4/player_idle.png'].forEach\\(p=>{try{const d=fs.readFileSync\\(p\\);const png=PNG.sync.read\\(d\\);console.log\\(p,png.width,'x',png.height,'frames:',png.width/192\\);}catch\\(e\\){console.log\\(p,'err',e.message\\)}}\\)\")",
+      "Bash(node -e \"const fs=require\\('fs'\\); ['public/sprites/player_idle.png','public/sprites/Player 2/player_idle.png','public/sprites/Player 3/player_idle.png','public/sprites/Player 4/player_idle.png'].forEach\\(p=>{const b=fs.readFileSync\\(p\\);const w=b.readUInt32BE\\(16\\);const h=b.readUInt32BE\\(20\\);console.log\\(p,w+'x'+h,'frames:',w/192\\);}\\)\")",
+      "Bash(node --check \"src/GameScene.js\")",
+      "Bash(node --check \"c:/Users/rafam/Desktop/Rpositórios Github - claude/Pessoal/Chaotic Game/src/GameScene.js\")",
+      "Bash(node -e \"const fs=require\\('fs'\\); const buf=fs.readFileSync\\('c:/Users/rafam/Desktop/Rpositórios Github - claude/Pessoal/Chaotic Game/public/sprites/Poder 5 \\(fire storm\\)/hit.png'\\); console.log\\(buf.readUInt32BE\\(16\\), 'x', buf.readUInt32BE\\(20\\)\\);\")",
+      "Bash(file *.png)",
+      "Read(//c/c/Users/rafam/Desktop/Rpositórios Github - claude/Pessoal/Chaotic Game/public/sprites/**)",
+      "Read(//c/c/Users/rafam/Desktop/Rpositórios Github - claude/Pessoal/Chaotic Game/**)"
     ]
   }
 }
