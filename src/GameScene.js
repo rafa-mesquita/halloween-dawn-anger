@@ -3027,21 +3027,9 @@ export default class GameScene extends Phaser.Scene {
       castGlow: null,
       castSfx,
       castFxSprite: null,
-      emitter: null,
       lastTickAt: 0,
       lastParticleAt: 0,
     };
-    beam.emitter = this.add.particles(0, 0, 'ice_particles', {
-      lifespan: 420,
-      speed: { min: 20, max: 60 },
-      angle: { min: 0, max: 360 },
-      scale: { start: 1.1, end: 0.2 },
-      alpha: { start: 0.95, end: 0 },
-      blendMode: Phaser.BlendModes.ADD,
-      frequency: -1,
-      emitting: false,
-    });
-    beam.emitter.setDepth(ATTACKER_DEPTH + 0.3);
     const sbInit = fighter.sprite.body;
     const fxX = sbInit.x + sbInit.width / 2;
     const fxY = sbInit.y + sbInit.height / 2;
@@ -3088,9 +3076,7 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  spawnIceBeamParticle(beam, x, y) {
-    if (beam.emitter) beam.emitter.emitParticleAt(x, y, 1);
-  }
+  spawnIceBeamParticle(_beam, _x, _y) {}
 
   iceBeamComputeEnd(cx, cy, angle) {
     const far = 2400;
@@ -3284,16 +3270,12 @@ export default class GameScene extends Phaser.Scene {
       b.currentAngle = Phaser.Math.Angle.Wrap(b.currentAngle + diff * ICE_BEAM_FOLLOW_STRENGTH);
       const end = this.iceBeamComputeEnd(cx, cy, b.currentAngle);
 
-      if (this.hitboxesVisible) {
-        const g = b.graphics;
-        g.clear();
-        g.lineStyle(ICE_BEAM_HIT_RADIUS * 2, 0xff3344, 0.22);
-        g.lineBetween(cx, cy, end.x, end.y);
-        g.lineStyle(1, 0xff3344, 0.9);
-        g.lineBetween(cx, cy, end.x, end.y);
-      } else if (b.graphics) {
-        b.graphics.clear();
-      }
+      const activeElapsed = time - b.activeStartTime;
+      let intensity = 1;
+      if (activeElapsed < 150) intensity = activeElapsed / 150;
+      const remaining = ICE_BEAM_DURATION_MS - activeElapsed;
+      if (remaining < 250) intensity *= remaining / 250;
+      this.drawIceBeam(b, cx, cy, end.x, end.y, intensity);
 
       if (time - b.lastParticleAt > 140) {
         b.lastParticleAt = time;
@@ -3317,7 +3299,6 @@ export default class GameScene extends Phaser.Scene {
     if (b.graphics) b.graphics.destroy();
     if (b.castGlow) b.castGlow.destroy();
     if (b.castFxSprite) b.castFxSprite.destroy();
-    if (b.emitter) b.emitter.destroy();
     if (b.castSfx) {
       if (b.castSfx.isPlaying) b.castSfx.stop();
     }
