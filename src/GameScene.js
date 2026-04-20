@@ -159,7 +159,7 @@ const ICE_BEAM_DURATION_MS = 3000;
 const ICE_BEAM_TICK_MS = 100;
 const ICE_BEAM_FOLLOW_STRENGTH = 0.035;
 const ICE_BEAM_THICKNESS = 22;
-const ICE_BEAM_HIT_RADIUS = 32;
+const ICE_BEAM_HIT_RADIUS = 42;
 const ICE_SLOW_DURATION_MS = 700;
 const ICE_FREEZE_DURATION_MS = 4000;
 const ICE_HITS_TO_FREEZE = 10;
@@ -3110,10 +3110,22 @@ export default class GameScene extends Phaser.Scene {
       if (target === caster) continue;
       if (target.isDead || target.isInvulnerable) continue;
       const tb = target.sprite.body;
-      const tx = tb.x + tb.width / 2;
-      const ty = tb.y + tb.height / 2;
-      const dist = pointToSegmentDistance(tx, ty, cx, cy, endX, endY);
-      if (dist <= ICE_BEAM_HIT_RADIUS) {
+      const dx = tb.x + tb.width / 2;
+      const samples = [
+        [dx, tb.y + 2],
+        [dx, tb.y + tb.height / 2],
+        [dx, tb.y + tb.height - 2],
+        [tb.x + 2, tb.y + tb.height / 2],
+        [tb.x + tb.width - 2, tb.y + tb.height / 2],
+      ];
+      let hit = false;
+      for (const [sx, sy] of samples) {
+        if (pointToSegmentDistance(sx, sy, cx, cy, endX, endY) <= ICE_BEAM_HIT_RADIUS) {
+          hit = true;
+          break;
+        }
+      }
+      if (hit) {
         this.dealHit(target, {
           damage: 0,
           ignoreShield: true,
