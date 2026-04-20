@@ -3005,15 +3005,9 @@ export default class GameScene extends Phaser.Scene {
   }
 
   fireIceBeam(fighter, worldX, worldY) {
-    const totalMs = ICE_BEAM_CAST_MS + ICE_BEAM_DURATION_MS;
-    const castSfx = this.sound.add('sfx_ice_cast', {
-      volume: this.masterVolume * this.sfxScale * 0.9,
-    });
-    castSfx.play();
-    this.time.delayedCall(totalMs, () => {
-      if (castSfx && castSfx.isPlaying) castSfx.stop();
-      castSfx.destroy();
-    });
+    const sb = fighter.sprite.body;
+    const cx = sb.x + sb.width / 2;
+    const cy = sb.y + sb.height / 2;
     const beam = {
       caster: fighter,
       beamId: `ice_${fighter.ownerIndex ?? 0}_${this.time.now}_${Math.floor(Math.random() * 1e6)}`,
@@ -3022,40 +3016,14 @@ export default class GameScene extends Phaser.Scene {
       state: 'casting',
       aimX: worldX,
       aimY: worldY,
-      currentAngle: 0,
+      currentAngle: Math.atan2(worldY - cy, worldX - cx),
       graphics: this.add.graphics().setDepth(ATTACKER_DEPTH + 0.2),
       castGlow: null,
-      castSfx,
+      castSfx: null,
       castFxSprite: null,
       lastTickAt: 0,
       lastParticleAt: 0,
     };
-    const sbInit = fighter.sprite.body;
-    const fxX = sbInit.x + sbInit.width / 2;
-    const fxY = sbInit.y + sbInit.height / 2;
-    beam.castFxSprite = this.add.sprite(fxX, fxY, 'ice_cast_fx', 0)
-      .setScale(3.2)
-      .setDepth(fighter.sprite.depth + 0.2)
-      .setBlendMode(Phaser.BlendModes.ADD);
-    beam.castFxSprite.play('ice_cast_fx');
-    const sb = fighter.sprite.body;
-    const cx = sb.x + sb.width / 2;
-    const cy = sb.y + sb.height / 2;
-    beam.currentAngle = Math.atan2(worldY - cy, worldX - cx);
-
-    beam.castGlow = this.add.image(cx, cy, 'glow_blue')
-      .setBlendMode(Phaser.BlendModes.ADD)
-      .setDepth(ATTACKER_DEPTH + 0.1)
-      .setScale(0.2)
-      .setAlpha(0.9);
-    this.tweens.add({
-      targets: beam.castGlow,
-      scale: 0.75,
-      alpha: 1,
-      duration: ICE_BEAM_CAST_MS,
-      ease: 'Sine.easeOut',
-    });
-
     this.iceBeams = this.iceBeams || [];
     this.iceBeams.push(beam);
   }
