@@ -3000,6 +3000,13 @@ export default class GameScene extends Phaser.Scene {
     target.iceSlowFactor =
       ICE_SLOW_FACTOR_START - progress * (ICE_SLOW_FACTOR_START - ICE_SLOW_FACTOR_MIN);
     target.iceSlowActive = true;
+    if (target.iceTickCount % 3 === 0 && target.shieldCharges > 0) {
+      target.shieldCharges -= 1;
+      if (target.shieldCharges <= 0) {
+        this.playSfx('sfx_shield_break');
+        this.removeShield(target);
+      }
+    }
     if (target.iceTickCount >= ICE_HITS_TO_FREEZE) {
       this.applyFreeze(target);
     }
