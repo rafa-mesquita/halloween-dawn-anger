@@ -153,6 +153,18 @@ const EYE_DASH_COOLDOWN_MS = 3000;
 const EYE_DASH_COMBO_WINDOW_MS = 700;
 const EYE_ATTACK_COOLDOWN_MS = 3000;
 const EYE_TRANSFORM_DURATION_MS = 20000;
+
+const ICE_BEAM_CAST_MS = 800;
+const ICE_BEAM_DURATION_MS = 3000;
+const ICE_BEAM_TICK_MS = 100;
+const ICE_BEAM_FOLLOW_STRENGTH = 0.12;
+const ICE_BEAM_THICKNESS = 22;
+const ICE_BEAM_HIT_RADIUS = 32;
+const ICE_SLOW_DURATION_MS = 700;
+const ICE_FREEZE_DURATION_MS = 4000;
+const ICE_HITS_TO_FREEZE = 7;
+const ICE_SLOW_FACTOR_START = 0.55;
+const ICE_SLOW_FACTOR_MIN = 0.15;
 const EYE_ATTACK_HITBOX_FORWARD = 40;
 const EYE_ATTACK_HITBOX_PADDING = 6;
 const EYE_DASH_BAR_WIDTH = 36;
@@ -192,6 +204,10 @@ const POWERS = {
     lootCatchScale: 2.2,
     lootTintFill: 0xffffff,
   },
+  ice_beam: {
+    orbColor: 0x7dd3fc,
+    lootGlowKey: 'glow_blue',
+  },
   fire_storm: {
     orbColor: 0xff3b30,
     lootGlowKey: 'glow_orange',
@@ -207,7 +223,7 @@ const POWERS = {
   },
 };
 
-const WOOD_POWER_POOL = ['heavens_fury', 'skull_curse', 'wheel', 'fire_storm'];
+const WOOD_POWER_POOL = ['heavens_fury', 'skull_curse', 'wheel', 'fire_storm', 'ice_beam'];
 
 const LOOT_TYPES = {
   wood: {
@@ -273,6 +289,24 @@ const ATTACK_ANIMS_BASE = {
   up:         { frameCount: 6, activeStart: 2, activeEnd: 3, charFrameOffsetX: 49 },
   down:       { frameCount: 6, activeStart: 2, activeEnd: 3, charFrameOffsetX: 67 },
 };
+
+function pointToSegmentDistance(px, py, ax, ay, bx, by) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) {
+    const ex = px - ax;
+    const ey = py - ay;
+    return Math.sqrt(ex * ex + ey * ey);
+  }
+  let t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  const cx = ax + dx * t;
+  const cy = ay + dy * t;
+  const ex = px - cx;
+  const ey = py - cy;
+  return Math.sqrt(ex * ex + ey * ey);
+}
 
 function animKeysFor(charId) {
   const atk = (variant, suffix) => ({
@@ -410,6 +444,18 @@ export default class GameScene extends Phaser.Scene {
       frameHeight: 64,
     });
     this.load.spritesheet('wheel_loot_idle', 'sprites/Poder 4 (Wheel)/Wheel loot.png', {
+      frameWidth: 32,
+      frameHeight: 32,
+    });
+    this.load.spritesheet('ice_beam_hit', 'sprites/Power 7 (ice beam)/Ice VFX 1 Hit.png', {
+      frameWidth: 32,
+      frameHeight: 32,
+    });
+    this.load.spritesheet('ice_particles', 'sprites/Power 7 (ice beam)/particulas ice beam.png', {
+      frameWidth: 32,
+      frameHeight: 32,
+    });
+    this.load.spritesheet('player_frozen', 'sprites/Power 7 (ice beam)/Player congelado.png', {
       frameWidth: 32,
       frameHeight: 32,
     });
@@ -910,6 +956,24 @@ export default class GameScene extends Phaser.Scene {
       frames: this.anims.generateFrameNumbers('wheel_loot_idle', { start: 0, end: 8 }),
       frameRate: 10,
       repeat: -1,
+    });
+    this.anims.create({
+      key: 'ice_beam_hit',
+      frames: this.anims.generateFrameNumbers('ice_beam_hit', { start: 0, end: 11 }),
+      frameRate: 16,
+      repeat: 0,
+    });
+    this.anims.create({
+      key: 'ice_particles',
+      frames: this.anims.generateFrameNumbers('ice_particles', { start: 0, end: 4 }),
+      frameRate: 10,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: 'player_frozen',
+      frames: this.anims.generateFrameNumbers('player_frozen', { start: 0, end: 7 }),
+      frameRate: 14,
+      repeat: 0,
     });
     this.anims.create({
       key: 'fire_storm_loot_catch',
@@ -2771,6 +2835,270 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  fireIceBeam(fighter, worldX, worldY) {
+    this.playSfx('sfx_heavens_fury_cast', 0.6);
+    const beam = {
+      caster: fighter,
+      startTime: this.time.now,
+      activeStartTime: 0,
+      state: 'casting',
+      aimX: worldX,
+      aimY: worldY,
+      currentAngle: 0,
+      graphics: this.add.graphics().setDepth(ATTACKER_DEPTH + 0.2),
+      castGlow: null,
+      lastTickAt: 0,
+      lastParticleAt: 0,
+    };
+    const sb = fighter.sprite.body;
+    const cx = sb.x + sb.width / 2;
+    const cy = sb.y + sb.height / 2;
+    beam.currentAngle = Math.atan2(worldY - cy, worldX - cx);
+
+    beam.castGlow = this.add.image(cx, cy, 'glow_blue')
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(ATTACKER_DEPTH + 0.1)
+      .setScale(0.2)
+      .setAlpha(0.9);
+    this.tweens.add({
+      targets: beam.castGlow,
+      scale: 0.75,
+      alpha: 1,
+      duration: ICE_BEAM_CAST_MS,
+      ease: 'Sine.easeOut',
+    });
+
+    this.iceBeams = this.iceBeams || [];
+    this.iceBeams.push(beam);
+  }
+
+  drawIceBeam(beam, cx, cy, endX, endY, intensity) {
+    const g = beam.graphics;
+    g.clear();
+    const thickness = ICE_BEAM_THICKNESS * intensity;
+    g.lineStyle(thickness + 12, 0x7dd3fc, 0.25);
+    g.lineBetween(cx, cy, endX, endY);
+    g.lineStyle(thickness + 4, 0xbae6fd, 0.55);
+    g.lineBetween(cx, cy, endX, endY);
+    g.lineStyle(thickness, 0xe0f2fe, 0.85);
+    g.lineBetween(cx, cy, endX, endY);
+    g.lineStyle(Math.max(2, thickness * 0.35), 0xffffff, 1);
+    g.lineBetween(cx, cy, endX, endY);
+  }
+
+  spawnIceBeamParticle(x, y, angle) {
+    const p = this.add.sprite(x, y, 'ice_particles', 0)
+      .setDepth(ATTACKER_DEPTH + 0.3)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setScale(Phaser.Math.FloatBetween(0.8, 1.3));
+    p.play('ice_particles');
+    const perp = angle + Math.PI / 2 * (Math.random() < 0.5 ? 1 : -1);
+    const dx = Math.cos(perp) * Phaser.Math.Between(12, 28);
+    const dy = Math.sin(perp) * Phaser.Math.Between(12, 28);
+    this.tweens.add({
+      targets: p,
+      x: x + dx,
+      y: y + dy,
+      alpha: 0,
+      scale: 0.2,
+      duration: 500,
+      ease: 'Sine.easeOut',
+      onComplete: () => p.destroy(),
+    });
+  }
+
+  iceBeamComputeEnd(cx, cy, angle) {
+    const far = 2400;
+    return { x: cx + Math.cos(angle) * far, y: cy + Math.sin(angle) * far };
+  }
+
+  iceBeamTick(beam, cx, cy, endX, endY) {
+    const caster = beam.caster;
+    for (const target of this.fighters) {
+      if (target === caster) continue;
+      if (target.isDead || target.isInvulnerable) continue;
+      const tb = target.sprite.body;
+      const tx = tb.x + tb.width / 2;
+      const ty = tb.y + tb.height / 2;
+      const dist = pointToSegmentDistance(tx, ty, cx, cy, endX, endY);
+      if (dist <= ICE_BEAM_HIT_RADIUS) {
+        this.dealHit(target, {
+          damage: 0,
+          ignoreShield: true,
+          iceTick: true,
+          playHitSfx: false,
+          powerFlashColor: null,
+        });
+        if (target === this.playerFighter) this.spawnIceBeamHitVfx(tx, ty);
+      }
+    }
+  }
+
+  spawnIceBeamHitVfx(x, y) {
+    const vfx = this.add.sprite(x, y, 'ice_beam_hit', 0)
+      .setDepth(ATTACKER_DEPTH + 0.4)
+      .setScale(2.2)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    vfx.play('ice_beam_hit');
+    vfx.once('animationcomplete-ice_beam_hit', () => vfx.destroy());
+  }
+
+  applyIceTick(target) {
+    const now = this.time.now;
+    if (target.isDead) return;
+    if (target.isFrozen) {
+      target.frozenUntil = now + ICE_FREEZE_DURATION_MS;
+      return;
+    }
+    target.iceTickCount = (target.iceTickCount || 0) + 1;
+    target.iceLastTickAt = now;
+    target.iceSlowUntil = now + ICE_SLOW_DURATION_MS;
+    const progress = Math.min(1, target.iceTickCount / ICE_HITS_TO_FREEZE);
+    target.iceSlowFactor =
+      ICE_SLOW_FACTOR_START - progress * (ICE_SLOW_FACTOR_START - ICE_SLOW_FACTOR_MIN);
+    target.iceSlowActive = true;
+    if (target.iceTickCount >= ICE_HITS_TO_FREEZE) {
+      this.applyFreeze(target);
+    }
+    if (target !== this.playerFighter) {
+      const tb = target.sprite.body;
+      this.spawnIceBeamHitVfx(tb.x + tb.width / 2, tb.y + tb.height / 2);
+    }
+  }
+
+  applyFreeze(target) {
+    if (target.isFrozen || target.isDead) return;
+    target.isFrozen = true;
+    target.frozenUntil = this.time.now + ICE_FREEZE_DURATION_MS;
+    target.iceSlowActive = false;
+    target.sprite.body.setVelocity(0, 0);
+    if (target === this.playerFighter) {
+      target.isAttacking = false;
+      this.attackHitbox.body.enable = false;
+      this.attackHitbox.setVisible(false);
+      this.targetsHitThisAttack.clear();
+      this.attackQueued = false;
+      this.powerQueued = false;
+    }
+    target.sprite.setTint(0xbae6fd);
+    const tb = target.sprite.body;
+    const cx = tb.x + tb.width / 2;
+    const cy = tb.y + tb.height / 2;
+    if (target.frozenOverlay) target.frozenOverlay.destroy();
+    target.frozenOverlay = this.add.sprite(cx, cy, 'player_frozen', 0)
+      .setDepth(target.sprite.depth + 0.1)
+      .setScale(3.0)
+      .setBlendMode(Phaser.BlendModes.NORMAL);
+    target.frozenOverlay.play('player_frozen');
+  }
+
+  removeFreeze(target) {
+    if (!target.isFrozen) return;
+    target.isFrozen = false;
+    target.frozenUntil = 0;
+    target.iceTickCount = 0;
+    target.iceSlowActive = false;
+    target.sprite.clearTint();
+    if (target.frozenOverlay) {
+      target.frozenOverlay.destroy();
+      target.frozenOverlay = null;
+    }
+  }
+
+  updateIceBeams(time) {
+    if (!this.iceBeams || this.iceBeams.length === 0) return;
+    for (let i = this.iceBeams.length - 1; i >= 0; i--) {
+      const b = this.iceBeams[i];
+      const caster = b.caster;
+      if (!caster || caster.isDead) {
+        this.cleanupIceBeam(b);
+        this.iceBeams.splice(i, 1);
+        continue;
+      }
+      const cb = caster.sprite.body;
+      const cx = cb.x + cb.width / 2;
+      const cy = cb.y + cb.height / 2;
+
+      if (b.state === 'casting') {
+        if (b.castGlow) b.castGlow.setPosition(cx, cy);
+        if (time - b.startTime >= ICE_BEAM_CAST_MS) {
+          b.state = 'active';
+          b.activeStartTime = time;
+          if (b.castGlow) { b.castGlow.destroy(); b.castGlow = null; }
+          this.playSfx('sfx_heavens_fury_second', 0.5);
+        }
+        continue;
+      }
+
+      if (caster.isFrozen) {
+        this.cleanupIceBeam(b);
+        this.iceBeams.splice(i, 1);
+        continue;
+      }
+      if (time - b.activeStartTime >= ICE_BEAM_DURATION_MS) {
+        this.cleanupIceBeam(b);
+        this.iceBeams.splice(i, 1);
+        continue;
+      }
+
+      if (caster === this.playerFighter) {
+        const pointer = this.input.activePointer;
+        b.aimX = pointer.worldX;
+        b.aimY = pointer.worldY;
+      }
+      const targetAngle = Math.atan2(b.aimY - cy, b.aimX - cx);
+      const diff = Phaser.Math.Angle.Wrap(targetAngle - b.currentAngle);
+      b.currentAngle = Phaser.Math.Angle.Wrap(b.currentAngle + diff * ICE_BEAM_FOLLOW_STRENGTH);
+      const end = this.iceBeamComputeEnd(cx, cy, b.currentAngle);
+
+      const activeElapsed = time - b.activeStartTime;
+      let intensity = 1;
+      if (activeElapsed < 150) intensity = activeElapsed / 150;
+      const remaining = ICE_BEAM_DURATION_MS - activeElapsed;
+      if (remaining < 250) intensity *= remaining / 250;
+      this.drawIceBeam(b, cx, cy, end.x, end.y, intensity);
+
+      if (time - b.lastParticleAt > 35) {
+        b.lastParticleAt = time;
+        const steps = 6;
+        for (let s = 1; s <= steps; s++) {
+          if (Math.random() > 0.45) continue;
+          const t = s / steps;
+          const px = cx + (end.x - cx) * t;
+          const py = cy + (end.y - cy) * t;
+          this.spawnIceBeamParticle(px, py, b.currentAngle);
+        }
+      }
+
+      if (this.isAuthoritativeOwner(caster) && time - b.lastTickAt >= ICE_BEAM_TICK_MS) {
+        b.lastTickAt = time;
+        this.iceBeamTick(b, cx, cy, end.x, end.y);
+      }
+    }
+  }
+
+  cleanupIceBeam(b) {
+    if (b.graphics) b.graphics.destroy();
+    if (b.castGlow) b.castGlow.destroy();
+  }
+
+  updateFrozenStates(time) {
+    for (const f of this.fighters) {
+      if (f.isFrozen) {
+        if (time >= f.frozenUntil) {
+          this.removeFreeze(f);
+        } else if (f.frozenOverlay) {
+          const tb = f.sprite.body;
+          f.frozenOverlay.setPosition(tb.x + tb.width / 2, tb.y + tb.height / 2);
+        }
+      } else if (f.iceSlowActive && time >= (f.iceSlowUntil || 0)) {
+        f.iceSlowActive = false;
+        f.iceTickCount = 0;
+        f.iceSlowFactor = 1;
+      }
+    }
+  }
+
   fireFireStorm(fighter) {
     for (let w = 0; w < FIRE_STORM_WAVES; w++) {
       const delay = w * FIRE_STORM_WAVE_DELAY_MS;
@@ -3014,6 +3342,10 @@ export default class GameScene extends Phaser.Scene {
       fighter.specialPowers.shift();
       this.fireFireStorm(fighter);
       this.sendPowerCast('fire_storm', {});
+    } else if (power === 'ice_beam') {
+      fighter.specialPowers.shift();
+      this.fireIceBeam(fighter, pointer.worldX, pointer.worldY);
+      this.sendPowerCast('ice_beam', { worldX: pointer.worldX, worldY: pointer.worldY });
     }
   }
 
@@ -3243,6 +3575,10 @@ export default class GameScene extends Phaser.Scene {
 
   applyIncomingHit(target, hit) {
     if (!target || target.isDead) return;
+    if (hit.iceTick) {
+      this.applyIceTick(target);
+      return;
+    }
     if (target.isEye) {
       this.applyEyeHit(target, hit);
       return;
@@ -3362,6 +3698,7 @@ export default class GameScene extends Phaser.Scene {
       eyeFacing: f.eyeFacing || 1,
       eyeDashing: f.isEye && this.time.now < (f.eyeDashUntil || 0),
       eyeRemainingMs: f.isEye ? Math.max(0, (f.eyeTransformUntil || 0) - this.time.now) : 0,
+      frozen: !!f.isFrozen,
     });
   }
 
@@ -3436,6 +3773,8 @@ export default class GameScene extends Phaser.Scene {
         this.fireSkullCurse(caster, data.worldX, data.worldY);
       } else if (data.power === 'wheel') {
         this.fireWheel(caster, data.worldX);
+      } else if (data.power === 'ice_beam') {
+        this.fireIceBeam(caster, data.worldX, data.worldY);
       } else if (data.power === 'fire_storm') {
         this.fireFireStorm(caster);
       }
@@ -3493,6 +3832,10 @@ export default class GameScene extends Phaser.Scene {
     if (typeof data.stunned === 'boolean') {
       if (data.stunned && !remote.isStunned) this.applyStun(remote);
       else if (!data.stunned && remote.isStunned) this.removeStun(remote);
+    }
+    if (typeof data.frozen === 'boolean') {
+      if (data.frozen && !remote.isFrozen) this.applyFreeze(remote);
+      else if (!data.frozen && remote.isFrozen) this.removeFreeze(remote);
     }
     if (typeof data.cursed === 'boolean') {
       const isCursed = (remote.curseMultiplier || 1) > 1;
@@ -3608,6 +3951,8 @@ export default class GameScene extends Phaser.Scene {
 
     this.updateEyeHud(time);
     this.updateSelfArrow();
+    this.updateIceBeams(time);
+    this.updateFrozenStates(time);
 
     if (!fighter.isDead && fighter.isEye) {
       const inDash = time < fighter.eyeDashUntil;
@@ -3798,7 +4143,7 @@ export default class GameScene extends Phaser.Scene {
         this.castQueuedPower(fighter);
       }
       this.powerQueued = false;
-    } else if (!fighter.isDead && !fighter.isStunned) {
+    } else if (!fighter.isDead && !fighter.isStunned && !fighter.isFrozen) {
       if (
         Phaser.Input.Keyboard.JustDown(this.keys.swapPowers) &&
         fighter.specialPowers.length >= 2
@@ -3813,7 +4158,8 @@ export default class GameScene extends Phaser.Scene {
 
       let desiredFlip = this.player.flipX;
 
-      const speed = fighter.curseSlowed ? MOVE_SPEED * SKULL_CURSE_SLOW_FACTOR : MOVE_SPEED;
+      let speed = fighter.curseSlowed ? MOVE_SPEED * SKULL_CURSE_SLOW_FACTOR : MOVE_SPEED;
+      if (fighter.iceSlowActive && fighter.iceSlowFactor) speed *= fighter.iceSlowFactor;
       if (leftDown && !rightDown) {
         body.setVelocityX(-speed);
         desiredFlip = true;
