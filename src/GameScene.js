@@ -3908,9 +3908,13 @@ export default class GameScene extends Phaser.Scene {
 
       sprite.setTexture(orig.textureKey, orig.frameName);
       sprite.setScale(orig.scale);
+      sprite.setFlipX(false);
       if (sprite.updateDisplayOrigin) sprite.updateDisplayOrigin();
       body.setSize(orig.bodyW, orig.bodyH);
-      body.setOffset(orig.bodyOffsetX, orig.bodyOffsetY);
+      const revertOffsetX = sprite.flipX
+        ? FRAME_WIDTH - BODY_OFFSET_X - BODY_WIDTH
+        : BODY_OFFSET_X;
+      body.setOffset(revertOffsetX, orig.bodyOffsetY);
       body.allowGravity = orig.allowGravity;
       body.setGravityY(orig.gravityY);
       body.setVelocity(0, 0);
