@@ -5155,24 +5155,24 @@ export default class GameScene extends Phaser.Scene {
             .setScale(f.sprite.scaleX)
             .setFlipX(f.sprite.flipX)
             .setTintFill(f.char.tintColor)
-            .setAlpha(0.55)
+            .setAlpha(0.85)
             .setDepth(DEFAULT_SPRITE_DEPTH - 0.5);
           this.tweens.add({
             targets: sil,
             alpha: 0,
-            duration: 260,
+            duration: 320,
             onComplete: () => sil.destroy(),
           });
           const tx = fbody.x + fbody.width / 2;
           const ty = fbody.y + fbody.height / 2;
-          const streak = this.add.circle(tx, ty, 10, f.char.tintColor, 0.7)
+          const streak = this.add.circle(tx, ty, 10, f.char.tintColor, 0.95)
             .setDepth(DEFAULT_SPRITE_DEPTH - 1)
             .setBlendMode(Phaser.BlendModes.ADD);
           this.tweens.add({
             targets: streak,
             alpha: 0,
             scale: 0.3,
-            duration: 420,
+            duration: 480,
             onComplete: () => streak.destroy(),
           });
         }
