@@ -2022,6 +2022,12 @@ export default class GameScene extends Phaser.Scene {
   dealHit(target, hit) {
     if (hit.playHitSfx) this.playSfx('sfx_hit');
     if (this.isMultiplayer && target !== this.playerFighter) {
+      if (!target.isDead) {
+        this.triggerHitFlash(target);
+        if (hit.powerFlashColor !== null && hit.powerFlashColor !== undefined) {
+          this.triggerPowerFlash(target, hit.powerFlashColor);
+        }
+      }
       this.network.send({ type: 'hit', targetIndex: target.ownerIndex, ...hit });
       return;
     }
