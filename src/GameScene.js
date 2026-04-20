@@ -171,7 +171,9 @@ const POWERS = {
     orbColor: 0xa855f7,
     lootIdleKey: 'skull_curse_loot_idle',
     lootCatchKey: 'skull_curse_loot_catch',
-    lootGlowKey: 'glow_purple',
+    lootGlowKey: 'glow_purple_light',
+    lootGlowScale: 0.9,
+    lootGlowPulseScale: 1.15,
   },
   wheel: {
     orbColor: 0xffffff,
@@ -181,7 +183,7 @@ const POWERS = {
     lootGlowKey: 'glow_orange',
     lootIdleKey: 'fire_storm_loot_idle',
     lootCatchKey: 'fire_storm_loot_catch',
-    lootCatchScale: 1.65,
+    lootCatchScale: 2.5,
   },
   eye: {
     orbColor: 0x78350f,
@@ -539,6 +541,9 @@ export default class GameScene extends Phaser.Scene {
     ]);
     this.createGlowTexture('glow_brown', [
       170, 110, 60, 130, 80, 40, 90, 55, 25,
+    ]);
+    this.createGlowTexture('glow_purple_light', [
+      240, 210, 255, 210, 150, 255, 180, 90, 245,
     ]);
     this.createLightBeamTexture('eye_beam', [240, 200, 110]);
 
@@ -1290,13 +1295,15 @@ export default class GameScene extends Phaser.Scene {
     const idleFrameSize = powerDef?.lootFrameSize ?? type.idleFrameSize ?? LOOT_FRAME_SIZE;
     const idleScale = powerDef?.lootScale ?? type.idleScale ?? LOOT_SCALE;
 
+    const glowBaseScale = powerDef?.lootGlowScale ?? 0.55;
+    const glowPulseScale = powerDef?.lootGlowPulseScale ?? 0.75;
     const glow = this.add.image(x, y, glowKey)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(DEFAULT_SPRITE_DEPTH - 1)
-      .setScale(0.55);
+      .setScale(glowBaseScale);
     const glowPulse = this.tweens.add({
       targets: glow,
-      scale: 0.75,
+      scale: glowPulseScale,
       alpha: 0.55,
       duration: 700,
       yoyo: true,
@@ -1939,7 +1946,7 @@ export default class GameScene extends Phaser.Scene {
     if (!crow || crow.isDead || !crow.sprite) return;
     crow.isDead = true;
     this.playSfx('sfx_hit');
-    this.playSfx('sfx_crow_die', 0.5);
+    this.playSfx('sfx_crow_die', 0.2);
     const sprite = crow.sprite;
     sprite.anims.stop();
     sprite.setFrame(15);
@@ -2227,15 +2234,15 @@ export default class GameScene extends Phaser.Scene {
     const vx = Math.cos(angle) * SKULL_CURSE_SPEED;
     const vy = Math.sin(angle) * SKULL_CURSE_SPEED;
 
-    const aura = this.add.image(startX, startY, 'glow_purple')
+    const aura = this.add.image(startX, startY, 'glow_purple_light')
       .setBlendMode(Phaser.BlendModes.ADD)
-      .setScale(0.7)
+      .setScale(1.05)
       .setDepth(ATTACKER_DEPTH - 0.1)
-      .setAlpha(0.8);
+      .setAlpha(0.95);
     const auraPulse = this.tweens.add({
       targets: aura,
-      scale: 0.85,
-      alpha: 0.55,
+      scale: 1.25,
+      alpha: 0.7,
       duration: 260,
       yoyo: true,
       repeat: -1,
