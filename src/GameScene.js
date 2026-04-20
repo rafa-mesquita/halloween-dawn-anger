@@ -3021,6 +3021,8 @@ export default class GameScene extends Phaser.Scene {
     if (this.cache.audio.exists('sfx_ice_cast')) {
       const s = this.sound.add('sfx_ice_cast');
       s.play({ volume: this.masterVolume * this.sfxScale * 0.9 });
+      this._iceCastSfxInstances = this._iceCastSfxInstances || [];
+      this._iceCastSfxInstances.push(s);
     }
     const beam = {
       caster: fighter,
@@ -3336,8 +3338,20 @@ export default class GameScene extends Phaser.Scene {
   }
 
   updateIceAmbientStop() {
-    // Intentionally disabled — sound.stopByKey was silencing the cast entirely
-    // even though the raw playSfx path works. Keeping the helper for later.
+    if (this._iceAmbientStopped === undefined) this._iceAmbientStopped = true;
+    if (this.iceActivityActive()) {
+      this._iceAmbientStopped = false;
+      return;
+    }
+    if (this._iceAmbientStopped) return;
+    this._iceAmbientStopped = true;
+    const list = this._iceCastSfxInstances;
+    if (list && list.length) {
+      for (const snd of list) {
+        if (snd && snd.isPlaying) snd.stop();
+      }
+      this._iceCastSfxInstances = [];
+    }
   }
 
   cleanupIceBeam(b) {
