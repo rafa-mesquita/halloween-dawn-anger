@@ -191,6 +191,9 @@ const POWERS = {
     lootGlowKey: 'glow_orange',
     lootIdleKey: 'fire_storm_loot_idle',
     lootCatchKey: 'fire_storm_loot_catch',
+    lootFrameSize: 88,
+    lootFrameHeight: 96,
+    lootScale: 1.1,
     lootCatchScale: 2.5,
   },
   eye: {
@@ -395,9 +398,9 @@ export default class GameScene extends Phaser.Scene {
       frameWidth: FIRE_STORM_HIT_FRAME_SIZE,
       frameHeight: FIRE_STORM_HIT_FRAME_SIZE,
     });
-    this.load.spritesheet('fire_storm_loot_idle', 'sprites/Poder 5 (fire storm)/Fite Loot 2.png', {
-      frameWidth: LOOT_FRAME_SIZE,
-      frameHeight: LOOT_FRAME_SIZE,
+    this.load.spritesheet('fire_storm_loot_idle', 'sprites/Poder 5 (fire storm)/Fire loot 3.png', {
+      frameWidth: 88,
+      frameHeight: 96,
     });
     this.load.spritesheet('fire_storm_loot_catch', 'sprites/Poder 5 (fire storm)/Fire catch.png', {
       frameWidth: 64,
@@ -828,8 +831,8 @@ export default class GameScene extends Phaser.Scene {
     });
     this.anims.create({
       key: 'fire_storm_loot_idle',
-      frames: this.anims.generateFrameNumbers('fire_storm_loot_idle', { start: 0, end: WOOD_IDLE_FRAMES - 1 }),
-      frameRate: 6,
+      frames: this.anims.generateFrameNumbers('fire_storm_loot_idle', { start: 41, end: 44 }),
+      frameRate: 8,
       repeat: -1,
     });
     this.anims.create({
@@ -1543,6 +1546,7 @@ export default class GameScene extends Phaser.Scene {
     const catchKey = customCatchKey ?? type.catchKey;
     const glowKey = powerDef?.lootGlowKey ?? type.glowKey;
     const idleFrameSize = powerDef?.lootFrameSize ?? type.idleFrameSize ?? LOOT_FRAME_SIZE;
+    const idleFrameHeight = powerDef?.lootFrameHeight ?? idleFrameSize;
     const idleScale = powerDef?.lootScale ?? type.idleScale ?? LOOT_SCALE;
 
     const glowBaseScale = powerDef?.lootGlowScale ?? 0.55;
@@ -1612,7 +1616,7 @@ export default class GameScene extends Phaser.Scene {
     loot.body.setSize(LOOT_BODY_SIZE, LOOT_BODY_SIZE);
     loot.body.setOffset(
       (idleFrameSize - LOOT_BODY_SIZE) / 2,
-      (idleFrameSize - LOOT_BODY_SIZE) / 2
+      (idleFrameHeight - LOOT_BODY_SIZE) / 2
     );
 
     if (lootType === 'eye') {
