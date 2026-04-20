@@ -168,6 +168,8 @@ const POWERS = {
   },
   skull_curse: {
     orbColor: 0xa855f7,
+    lootIdleKey: 'skull_curse_loot_idle',
+    lootCatchKey: 'skull_curse_loot_catch',
   },
   wheel: {
     orbColor: 0xffffff,
@@ -378,6 +380,14 @@ export default class GameScene extends Phaser.Scene {
       frameWidth: FIRE_STORM_HIT_FRAME_SIZE,
       frameHeight: FIRE_STORM_HIT_FRAME_SIZE,
     });
+    this.load.spritesheet('skull_curse_loot_idle', 'sprites/Poder 3 (skull curse)/skull curse loot.png', {
+      frameWidth: LOOT_FRAME_SIZE,
+      frameHeight: LOOT_FRAME_SIZE,
+    });
+    this.load.spritesheet('skull_curse_loot_catch', 'sprites/Poder 3 (skull curse)/skull curse loot catch.png', {
+      frameWidth: LOOT_FRAME_SIZE,
+      frameHeight: LOOT_FRAME_SIZE,
+    });
     this.load.spritesheet('eye_loot_idle', 'sprites/Poder 6 (transform Flying Eye)/Loot power 6.png', {
       frameWidth: EYE_LOOT_IDLE_FRAME,
       frameHeight: EYE_LOOT_IDLE_FRAME,
@@ -545,6 +555,18 @@ export default class GameScene extends Phaser.Scene {
     this.anims.create({
       key: 'wood_catch',
       frames: this.anims.generateFrameNumbers('wood_catch', { start: 0, end: WOOD_CATCH_FRAMES - 1 }),
+      frameRate: 14,
+      repeat: 0,
+    });
+    this.anims.create({
+      key: 'skull_curse_loot_idle',
+      frames: this.anims.generateFrameNumbers('skull_curse_loot_idle', { start: 0, end: WOOD_IDLE_FRAMES - 1 }),
+      frameRate: 6,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: 'skull_curse_loot_catch',
+      frames: this.anims.generateFrameNumbers('skull_curse_loot_catch', { start: 0, end: WOOD_CATCH_FRAMES - 1 }),
       frameRate: 14,
       repeat: 0,
     });
@@ -1214,8 +1236,12 @@ export default class GameScene extends Phaser.Scene {
 
   createLootAt({ id, lootType, power, x, y }) {
     const type = LOOT_TYPES[lootType];
-    const glowKey =
-      (lootType === 'wood' && power && POWERS[power]?.lootGlowKey) || type.glowKey;
+    const powerDef = lootType === 'wood' && power ? POWERS[power] : null;
+    const customIdleKey = powerDef?.lootIdleKey;
+    const customCatchKey = powerDef?.lootCatchKey;
+    const idleKey = customIdleKey ?? type.idleKey;
+    const catchKey = customCatchKey ?? type.catchKey;
+    const glowKey = powerDef?.lootGlowKey ?? type.glowKey;
     const idleFrameSize = type.idleFrameSize ?? LOOT_FRAME_SIZE;
     const idleScale = type.idleScale ?? LOOT_SCALE;
 
@@ -1233,36 +1259,53 @@ export default class GameScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
 
-    const loot = this.physics.add.sprite(x, y, type.idleKey, 0);
+    const loot = this.physics.add.sprite(x, y, idleKey, 0);
     loot.setScale(idleScale);
     loot.setDepth(DEFAULT_SPRITE_DEPTH);
     loot.netId = id;
     loot.lootType = lootType;
+    loot.catchKey = catchKey;
     loot.glow = glow;
     loot.glowPulse = glowPulse;
 
-    let overlayTint = 0xffffff;
-    if (lootType === 'wood' && power) {
-      loot.power = power;
-      overlayTint = POWERS[power].orbColor;
-    }
+    if (lootType === 'wood' && power) loot.power = power;
 
-    const tintOverlay = this.add.sprite(x, y, type.idleKey, 0)
-      .setScale(idleScale)
-      .setDepth(DEFAULT_SPRITE_DEPTH + 0.5)
-      .setTintFill(overlayTint)
-      .setAlpha(0);
-    tintOverlay.anims.play(type.idleKey);
-    const whitePulse = this.tweens.add({
-      targets: tintOverlay,
-      alpha: 0.28,
-      duration: 500,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
-    loot.tintOverlay = tintOverlay;
-    loot.whitePulse = whitePulse;
+    if (!customIdleKey && lootType === 'wood' && power) {
+      const overlayTint = POWERS[power].orbColor;
+      const tintOverlay = this.add.sprite(x, y, idleKey, 0)
+        .setScale(idleScale)
+        .setDepth(DEFAULT_SPRITE_DEPTH + 0.5)
+        .setTintFill(overlayTint)
+        .setAlpha(0);
+      tintOverlay.anims.play(idleKey);
+      const whitePulse = this.tweens.add({
+        targets: tintOverlay,
+        alpha: 0.28,
+        duration: 500,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+      loot.tintOverlay = tintOverlay;
+      loot.whitePulse = whitePulse;
+    } else if (!customIdleKey) {
+      const tintOverlay = this.add.sprite(x, y, idleKey, 0)
+        .setScale(idleScale)
+        .setDepth(DEFAULT_SPRITE_DEPTH + 0.5)
+        .setTintFill(0xffffff)
+        .setAlpha(0);
+      tintOverlay.anims.play(idleKey);
+      const whitePulse = this.tweens.add({
+        targets: tintOverlay,
+        alpha: 0.28,
+        duration: 500,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+      loot.tintOverlay = tintOverlay;
+      loot.whitePulse = whitePulse;
+    }
     loot.body.setSize(LOOT_BODY_SIZE, LOOT_BODY_SIZE);
     loot.body.setOffset(
       (idleFrameSize - LOOT_BODY_SIZE) / 2,
@@ -1287,7 +1330,7 @@ export default class GameScene extends Phaser.Scene {
       });
     }
     loot.setCollideWorldBounds(true);
-    loot.anims.play(type.idleKey);
+    loot.anims.play(idleKey);
 
     this.physics.add.collider(loot, this.platformZones, null, this.oneWayProcessCallback);
 
@@ -1361,8 +1404,9 @@ export default class GameScene extends Phaser.Scene {
       duration: 200,
     });
     if (type.catchScale !== undefined) loot.setScale(type.catchScale);
-    loot.anims.play(type.catchKey);
-    loot.once(`animationcomplete-${type.catchKey}`, () => {
+    const catchKey = loot.catchKey || type.catchKey;
+    loot.anims.play(catchKey);
+    loot.once(`animationcomplete-${catchKey}`, () => {
       this.removeLoot(loot);
     });
   }
