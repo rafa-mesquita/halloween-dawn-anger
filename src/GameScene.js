@@ -3037,11 +3037,6 @@ export default class GameScene extends Phaser.Scene {
       ease: 'Sine.easeOut',
     });
 
-    beam.castFxSprite = this.add.sprite(cx, cy, 'ice_cast_fx', 0)
-      .setScale(3.2)
-      .setDepth(fighter.sprite.depth + 0.2)
-      .setBlendMode(Phaser.BlendModes.ADD);
-
     this.iceBeams = this.iceBeams || [];
     this.iceBeams.push(beam);
   }
