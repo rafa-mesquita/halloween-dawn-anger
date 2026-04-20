@@ -162,7 +162,7 @@ const ICE_BEAM_THICKNESS = 22;
 const ICE_BEAM_HIT_RADIUS = 32;
 const ICE_SLOW_DURATION_MS = 700;
 const ICE_FREEZE_DURATION_MS = 4000;
-const ICE_HITS_TO_FREEZE = 7;
+const ICE_HITS_TO_FREEZE = 16;
 const ICE_SLOW_FACTOR_START = 0.55;
 const ICE_SLOW_FACTOR_MIN = 0.15;
 const EYE_ATTACK_HITBOX_FORWARD = 40;
@@ -456,6 +456,10 @@ export default class GameScene extends Phaser.Scene {
       frameHeight: 32,
     });
     this.load.spritesheet('player_frozen', 'sprites/Power 7 (ice beam)/Player congelado.png', {
+      frameWidth: 32,
+      frameHeight: 32,
+    });
+    this.load.spritesheet('ice_cast_fx', 'sprites/Power 7 (ice beam)/shield carch.png', {
       frameWidth: 32,
       frameHeight: 32,
     });
@@ -974,6 +978,12 @@ export default class GameScene extends Phaser.Scene {
       frames: this.anims.generateFrameNumbers('player_frozen', { start: 0, end: 7 }),
       frameRate: 14,
       repeat: 0,
+    });
+    this.anims.create({
+      key: 'ice_cast_fx',
+      frames: this.anims.generateFrameNumbers('ice_cast_fx', { start: 0, end: 9 }),
+      frameRate: 12,
+      repeat: -1,
     });
     this.anims.create({
       key: 'fire_storm_loot_catch',
@@ -2858,9 +2868,18 @@ export default class GameScene extends Phaser.Scene {
       graphics: this.add.graphics().setDepth(ATTACKER_DEPTH + 0.2),
       castGlow: null,
       castSfx,
+      castFxSprite: null,
       lastTickAt: 0,
       lastParticleAt: 0,
     };
+    const sbInit = fighter.sprite.body;
+    const fxX = sbInit.x + sbInit.width / 2;
+    const fxY = sbInit.y + sbInit.height / 2;
+    beam.castFxSprite = this.add.sprite(fxX, fxY, 'ice_cast_fx', 0)
+      .setScale(3.2)
+      .setDepth(fighter.sprite.depth + 0.2)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    beam.castFxSprite.play('ice_cast_fx');
     const sb = fighter.sprite.body;
     const cx = sb.x + sb.width / 2;
     const cy = sb.y + sb.height / 2;
@@ -3053,6 +3072,7 @@ export default class GameScene extends Phaser.Scene {
       const cb = caster.sprite.body;
       const cx = cb.x + cb.width / 2;
       const cy = cb.y + cb.height / 2;
+      if (b.castFxSprite) b.castFxSprite.setPosition(cx, cy);
 
       if (b.state === 'casting') {
         if (b.castGlow) b.castGlow.setPosition(cx, cy);
@@ -3115,6 +3135,7 @@ export default class GameScene extends Phaser.Scene {
   cleanupIceBeam(b) {
     if (b.graphics) b.graphics.destroy();
     if (b.castGlow) b.castGlow.destroy();
+    if (b.castFxSprite) b.castFxSprite.destroy();
     if (b.castSfx) {
       if (b.castSfx.isPlaying) b.castSfx.stop();
     }
