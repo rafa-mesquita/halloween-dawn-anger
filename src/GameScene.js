@@ -374,6 +374,8 @@ export default class GameScene extends Phaser.Scene {
     this.load.audio('sfx_wheel_ground', 'audio/powers/wheel/Moviment_ground.mp3');
     this.load.audio('sfx_fire_storm', 'audio/powers/fire_storm/Cast and wave 2.mp3');
     this.load.audio('sfx_fire_storm_2', 'audio/powers/fire_storm/Cast and wave 2_2.mp3');
+    this.load.audio('sfx_ice_cast', 'audio/powers/icebeam/ice cast.mp3');
+    this.load.audio('sfx_ice_crash', 'audio/powers/icebeam/crash ice.mp3');
     this.load.audio('sfx_power_pickup', 'audio/power catch/power cath.mp3');
     this.load.audio('sfx_cure', 'audio/heal novo/93eeb9fc-8eab-44db-aa09-270a2550a130.mp3');
     this.load.audio('sfx_jump', 'audio/jump/30_Jump_03.wav');
@@ -2836,7 +2838,15 @@ export default class GameScene extends Phaser.Scene {
   }
 
   fireIceBeam(fighter, worldX, worldY) {
-    this.playSfx('sfx_heavens_fury_cast', 0.6);
+    const totalMs = ICE_BEAM_CAST_MS + ICE_BEAM_DURATION_MS;
+    const castSfx = this.sound.add('sfx_ice_cast', {
+      volume: this.masterVolume * this.sfxScale * 0.9,
+    });
+    castSfx.play();
+    this.time.delayedCall(totalMs, () => {
+      if (castSfx && castSfx.isPlaying) castSfx.stop();
+      castSfx.destroy();
+    });
     const beam = {
       caster: fighter,
       startTime: this.time.now,
@@ -2847,6 +2857,7 @@ export default class GameScene extends Phaser.Scene {
       currentAngle: 0,
       graphics: this.add.graphics().setDepth(ATTACKER_DEPTH + 0.2),
       castGlow: null,
+      castSfx,
       lastTickAt: 0,
       lastParticleAt: 0,
     };
@@ -2985,14 +2996,28 @@ export default class GameScene extends Phaser.Scene {
       this.attackQueued = false;
       this.powerQueued = false;
     }
-    target.sprite.setTint(0xbae6fd);
+    target.sprite.setTint(0x3b82f6);
     const tb = target.sprite.body;
     const cx = tb.x + tb.width / 2;
     const cy = tb.y + tb.height / 2;
+    if (target.frozenTintSprite) target.frozenTintSprite.destroy();
+    target.frozenTintSprite = this.add.sprite(
+      target.sprite.x,
+      target.sprite.y,
+      target.sprite.texture.key,
+      target.sprite.frame.name,
+    )
+      .setScale(target.sprite.scaleX, target.sprite.scaleY)
+      .setFlipX(target.sprite.flipX)
+      .setTintFill(0x7dd3fc)
+      .setAlpha(0.55)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(target.sprite.depth + 0.05);
     if (target.frozenOverlay) target.frozenOverlay.destroy();
     target.frozenOverlay = this.add.sprite(cx, cy, 'player_frozen', 0)
       .setDepth(target.sprite.depth + 0.1)
-      .setScale(3.0)
+      .setScale(3.2)
+      .setAlpha(0.95)
       .setBlendMode(Phaser.BlendModes.NORMAL);
     target.frozenOverlay.play('player_frozen');
   }
@@ -3008,6 +3033,11 @@ export default class GameScene extends Phaser.Scene {
       target.frozenOverlay.destroy();
       target.frozenOverlay = null;
     }
+    if (target.frozenTintSprite) {
+      target.frozenTintSprite.destroy();
+      target.frozenTintSprite = null;
+    }
+    if (!target.isDead) this.playSfx('sfx_ice_crash', 0.9);
   }
 
   updateIceBeams(time) {
@@ -3085,6 +3115,9 @@ export default class GameScene extends Phaser.Scene {
   cleanupIceBeam(b) {
     if (b.graphics) b.graphics.destroy();
     if (b.castGlow) b.castGlow.destroy();
+    if (b.castSfx) {
+      if (b.castSfx.isPlaying) b.castSfx.stop();
+    }
   }
 
   updateFrozenStates(time) {
@@ -3092,9 +3125,17 @@ export default class GameScene extends Phaser.Scene {
       if (f.isFrozen) {
         if (time >= f.frozenUntil) {
           this.removeFreeze(f);
-        } else if (f.frozenOverlay) {
+        } else {
           const tb = f.sprite.body;
-          f.frozenOverlay.setPosition(tb.x + tb.width / 2, tb.y + tb.height / 2);
+          if (f.frozenOverlay) {
+            f.frozenOverlay.setPosition(tb.x + tb.width / 2, tb.y + tb.height / 2);
+          }
+          if (f.frozenTintSprite) {
+            f.frozenTintSprite.setTexture(f.sprite.texture.key, f.sprite.frame.name);
+            f.frozenTintSprite.setPosition(f.sprite.x, f.sprite.y);
+            f.frozenTintSprite.setScale(f.sprite.scaleX, f.sprite.scaleY);
+            f.frozenTintSprite.setFlipX(f.sprite.flipX);
+          }
         }
       } else if (f.iceSlowActive && time >= (f.iceSlowUntil || 0)) {
         f.iceSlowActive = false;
