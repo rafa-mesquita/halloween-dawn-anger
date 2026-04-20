@@ -3018,15 +3018,6 @@ export default class GameScene extends Phaser.Scene {
     const sb = fighter.sprite.body;
     const cx = sb.x + sb.width / 2;
     const cy = sb.y + sb.height / 2;
-    const totalMs = ICE_BEAM_CAST_MS + ICE_BEAM_DURATION_MS;
-    const castSfx = this.sound.add('sfx_ice_cast', {
-      volume: this.masterVolume * this.sfxScale * 0.9,
-    });
-    castSfx.play();
-    this.time.delayedCall(totalMs, () => {
-      if (castSfx && castSfx.isPlaying) castSfx.stop();
-      castSfx.destroy();
-    });
     const beam = {
       caster: fighter,
       beamId: `ice_${fighter.ownerIndex ?? 0}_${this.time.now}_${Math.floor(Math.random() * 1e6)}`,
@@ -3038,7 +3029,7 @@ export default class GameScene extends Phaser.Scene {
       currentAngle: Math.atan2(worldY - cy, worldX - cx),
       graphics: this.add.graphics().setDepth(ATTACKER_DEPTH + 0.2),
       castGlow: null,
-      castSfx,
+      castSfx: null,
       castFxSprite: null,
       lastTickAt: 0,
       lastParticleAt: 0,
