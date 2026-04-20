@@ -3903,8 +3903,8 @@ export default class GameScene extends Phaser.Scene {
       if (sprite.updateDisplayOrigin) sprite.updateDisplayOrigin();
       body.setSize(orig.bodyW, orig.bodyH);
       body.setOffset(orig.bodyOffsetX, orig.bodyOffsetY);
-      body.allowGravity = orig.allowGravity;
-      body.setGravityY(orig.gravityY);
+      body.allowGravity = false;
+      body.setGravityY(0);
       body.setVelocity(0, 0);
       sprite.isEye = false;
       if (!skipReposition) {
@@ -3914,6 +3914,13 @@ export default class GameScene extends Phaser.Scene {
         if (body.reset) body.reset(newSpriteX, newSpriteY);
       }
       sprite.anims.play(`${fighter.char.id}_idle`, true);
+
+      fighter.postEyeHoverUntil = this.time.now + 450;
+      this.time.delayedCall(450, () => {
+        if (!fighter || fighter.isEye || fighter.isDead) return;
+        body.allowGravity = orig.allowGravity;
+        body.setGravityY(orig.gravityY);
+      });
     }
 
     fighter.isEye = false;
