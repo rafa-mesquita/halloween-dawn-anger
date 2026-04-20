@@ -3018,7 +3018,10 @@ export default class GameScene extends Phaser.Scene {
     const sb = fighter.sprite.body;
     const cx = sb.x + sb.width / 2;
     const cy = sb.y + sb.height / 2;
-    this.playSfx('sfx_ice_cast', 0.9);
+    if (this.cache.audio.exists('sfx_ice_cast')) {
+      const s = this.sound.add('sfx_ice_cast');
+      s.play({ volume: this.masterVolume * this.sfxScale * 0.9 });
+    }
     const beam = {
       caster: fighter,
       beamId: `ice_${fighter.ownerIndex ?? 0}_${this.time.now}_${Math.floor(Math.random() * 1e6)}`,
