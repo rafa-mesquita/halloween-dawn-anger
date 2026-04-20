@@ -3035,8 +3035,8 @@ export default class GameScene extends Phaser.Scene {
       lastTickAt: 0,
       lastParticleAt: 0,
     };
-    const facing = fighter.sprite.flipX ? -1 : 1;
-    const fxX = sb.x + sb.width / 2 + facing * (sb.width * 0.4);
+    beam.facing = fighter.sprite.flipX ? -1 : 1;
+    const fxX = sb.x + sb.width / 2 + beam.facing * (sb.width * 0.4);
     const fxY = sb.y + sb.height * 0.55;
     beam.castFxSprite = this.add.sprite(fxX, fxY, 'ice_spell_cast', 2)
       .setScale(3.2)
@@ -3263,8 +3263,7 @@ export default class GameScene extends Phaser.Scene {
         continue;
       }
       const cb = caster.sprite.body;
-      const facing = caster.sprite.flipX ? -1 : 1;
-      const cx = cb.x + cb.width / 2 + facing * (cb.width * 0.4);
+      const cx = cb.x + cb.width / 2 + b.facing * (cb.width * 0.4);
       const cy = cb.y + cb.height * 0.55;
       if (b.castFxSprite) b.castFxSprite.setPosition(cx, cy);
 
