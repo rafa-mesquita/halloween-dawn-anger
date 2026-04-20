@@ -170,6 +170,7 @@ const POWERS = {
     orbColor: 0xa855f7,
     lootIdleKey: 'skull_curse_loot_idle',
     lootCatchKey: 'skull_curse_loot_catch',
+    lootGlowKey: 'glow_purple',
   },
   wheel: {
     orbColor: 0xffffff,
