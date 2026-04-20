@@ -453,6 +453,64 @@ export default class GameScene extends Phaser.Scene {
       alpha: { min: 0.25, max: 0.55 },
       scale: { min: 0.8, max: 1.2 },
     }).setDepth(-5);
+
+    this._rainSurfaces = PLATFORM_RECTS.map((r) => ({ xStart: r.x, xEnd: r.x + r.w, y: r.y, w: r.w }));
+    this.time.addEvent({
+      delay: 90,
+      loop: true,
+      callback: () => this.spawnRainSplashes(),
+    });
+  }
+
+  spawnRainSplashes() {
+    if (!this._rainSurfaces) return;
+    for (const s of this._rainSurfaces) {
+      const count = Math.max(1, Math.round(s.w / 260));
+      for (let i = 0; i < count; i++) {
+        const x = Phaser.Math.Between(s.xStart + 4, s.xEnd - 4);
+        this.spawnRainSplash(x, s.y);
+      }
+    }
+  }
+
+  spawnRainSplash(x, y) {
+    const splash = this.add.ellipse(x, y - 1, 4, 2, 0xbed7ff, 0.7)
+      .setDepth(-4)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.tweens.add({
+      targets: splash,
+      scaleX: { from: 1, to: 3.2 },
+      scaleY: { from: 1, to: 0.6 },
+      alpha: { from: 0.7, to: 0 },
+      y: y - 3,
+      duration: 260,
+      ease: 'Quad.easeOut',
+      onComplete: () => splash.destroy(),
+    });
+    const drop1 = this.add.circle(x - 3, y - 2, 1, 0xd5e4ff, 0.8)
+      .setDepth(-4)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const drop2 = this.add.circle(x + 3, y - 2, 1, 0xd5e4ff, 0.8)
+      .setDepth(-4)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.tweens.add({
+      targets: drop1,
+      x: x - 7,
+      y: y - 6,
+      alpha: 0,
+      duration: 240,
+      ease: 'Quad.easeOut',
+      onComplete: () => drop1.destroy(),
+    });
+    this.tweens.add({
+      targets: drop2,
+      x: x + 7,
+      y: y - 6,
+      alpha: 0,
+      duration: 240,
+      ease: 'Quad.easeOut',
+      onComplete: () => drop2.destroy(),
+    });
   }
 
   createGlowTexture(key, rgbStops) {
