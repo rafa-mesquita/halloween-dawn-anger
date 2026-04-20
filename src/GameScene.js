@@ -3324,6 +3324,27 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  iceActivityActive() {
+    if (this.iceBeams && this.iceBeams.length > 0) return true;
+    for (const f of this.fighters) {
+      if (f.isFrozen || f.iceSlowActive) return true;
+    }
+    return false;
+  }
+
+  updateIceAmbientStop() {
+    if (this._iceAmbientStopped === undefined) this._iceAmbientStopped = true;
+    if (this.iceActivityActive()) {
+      this._iceAmbientStopped = false;
+      return;
+    }
+    if (this._iceAmbientStopped) return;
+    this._iceAmbientStopped = true;
+    if (this.sound && this.sound.stopByKey) {
+      this.sound.stopByKey('sfx_ice_cast');
+    }
+  }
+
   cleanupIceBeam(b) {
     if (b.graphics) b.graphics.destroy();
     if (b.castGlow) b.castGlow.destroy();
@@ -4222,6 +4243,7 @@ export default class GameScene extends Phaser.Scene {
     this.updateSelfArrow();
     this.updateIceBeams(time);
     this.updateFrozenStates(time);
+    this.updateIceAmbientStop();
 
     if (!fighter.isDead && fighter.isEye && !fighter.isFrozen) {
       const inDash = time < fighter.eyeDashUntil;
