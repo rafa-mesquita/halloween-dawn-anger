@@ -1186,9 +1186,9 @@ export default class GameScene extends Phaser.Scene {
 
     this.selfArrow = this.add.image(0, 0, 'self_arrow')
       .setOrigin(0.5, 1)
-      .setScale(0.35)
+      .setScale(0.175)
       .setDepth(24);
-    this._selfArrowBaseScale = 0.35;
+    this._selfArrowBaseScale = 0.175;
 
     if (this.isMultiplayer) {
       for (const f of this.fighters) {
