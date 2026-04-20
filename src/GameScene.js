@@ -152,7 +152,7 @@ const EYE_DASH_DURATION_MS = 320;
 const EYE_DASH_COOLDOWN_MS = 3000;
 const EYE_DASH_COMBO_WINDOW_MS = 700;
 const EYE_ATTACK_COOLDOWN_MS = 3000;
-const EYE_TRANSFORM_DURATION_MS = 25000;
+const EYE_TRANSFORM_DURATION_MS = 20000;
 const EYE_ATTACK_HITBOX_FORWARD = 40;
 const EYE_ATTACK_HITBOX_PADDING = 6;
 const EYE_DASH_BAR_WIDTH = 36;
@@ -1172,7 +1172,7 @@ export default class GameScene extends Phaser.Scene {
       stroke: '#000000',
       strokeThickness: 2,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(23).setVisible(false);
-    this.eyeHudText = this.add.text(eyeHudX, eyeHudY + 7, '25.0s', {
+    this.eyeHudText = this.add.text(eyeHudX, eyeHudY + 7, '20.0s', {
       font: 'bold 22px sans-serif',
       color: '#ffffff',
       stroke: '#000000',
