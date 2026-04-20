@@ -3912,6 +3912,16 @@ export default class GameScene extends Phaser.Scene {
         const newSpriteY = wantBodyCenterY - orig.bodyH / 2 + sprite.scaleY * (sprite.displayOriginY - orig.bodyOffsetY);
         sprite.setPosition(newSpriteX, newSpriteY);
         if (body.reset) body.reset(newSpriteX, newSpriteY);
+        if (body.updateFromGameObject) body.updateFromGameObject();
+        const actualCenterX = body.x + body.width / 2;
+        const actualCenterY = body.y + body.height / 2;
+        const dx = wantBodyCenterX - actualCenterX;
+        const dy = wantBodyCenterY - actualCenterY;
+        if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+          sprite.x += dx;
+          sprite.y += dy;
+          if (body.reset) body.reset(sprite.x, sprite.y);
+        }
       }
       sprite.anims.play(`${fighter.char.id}_idle`, true);
 
