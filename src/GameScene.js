@@ -253,13 +253,11 @@ const LOOT_TYPES = {
     idleKey: 'shield_idle',
     catchKey: 'shield_catch',
     glowKey: 'glow_blue',
-    onPickup: (_scene, fighter) => {
+    onPickup: (scene, fighter) => {
       if (fighter.isEye) {
         fighter.eyeHitsRemaining = Math.min(EYE_HITS_HARD_CAP, fighter.eyeHitsRemaining + EYE_HITS_SHIELD_LOOT_BONUS);
-      } else if (fighter.specialPowers.length < 2) {
-        fighter.specialPowers.push('shield');
       } else {
-        fighter.specialPowers[1] = 'shield';
+        scene.applyShield(fighter);
       }
     },
   },
