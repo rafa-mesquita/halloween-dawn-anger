@@ -163,6 +163,14 @@ const POWERS = {
     animKey: 'heavens_fury',
     orbColor: 0xfde047,
     orbStroke: 0xca8a04,
+    lootIdleKey: 'heavens_fury_loot_idle',
+    lootCatchKey: 'heavens_fury_loot_catch',
+    lootGlowKey: 'glow_yellow',
+    lootGlowScale: 0.85,
+    lootGlowPulseScale: 1.1,
+    lootFrameSize: 64,
+    lootScale: 1.65,
+    lootCatchScale: 2.0,
   },
   shield: {
     orbColor: 0x38bdf8,
@@ -454,6 +462,144 @@ export default class GameScene extends Phaser.Scene {
     tex.refresh();
   }
 
+  drawLightningBolt(ctx, cx, top, bottom, amplitude, seed) {
+    const rand = (() => {
+      let s = seed;
+      return () => {
+        s = (s * 9301 + 49297) % 233280;
+        return s / 233280;
+      };
+    })();
+    const points = [];
+    const segments = 8;
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const y = top + (bottom - top) * t;
+      const sway = i === 0 || i === segments ? 0 : (rand() * 2 - 1) * amplitude;
+      points.push({ x: cx + sway, y });
+    }
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(253, 224, 71, 0.55)';
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(254, 240, 138, 0.9)';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 1)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+    ctx.stroke();
+    return points;
+  }
+
+  drawHeavensFuryIdleFrame(ctx, frameIdx, frameW, frameH) {
+    ctx.clearRect(0, 0, frameW, frameH);
+    const dim = frameIdx === 1 || frameIdx === 4;
+    if (dim) ctx.globalAlpha = 0.4;
+    const points = this.drawLightningBolt(ctx, 32, 6, 58, 8, (frameIdx + 1) * 7);
+    if (!dim) {
+      const midIdx = Math.floor(points.length / 2);
+      const bs = points[midIdx];
+      const bx = bs.x + (frameIdx % 2 === 0 ? 10 : -10);
+      const by = bs.y + 14;
+      ctx.strokeStyle = 'rgba(254, 240, 138, 0.75)';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(bs.x, bs.y); ctx.lineTo(bx, by); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(bs.x, bs.y); ctx.lineTo(bx, by); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    const sparkle = ctx.createRadialGradient(32, 32, 0, 32, 32, 30);
+    sparkle.addColorStop(0, 'rgba(255, 255, 220, 0.35)');
+    sparkle.addColorStop(1, 'rgba(255, 255, 220, 0)');
+    ctx.fillStyle = sparkle;
+    ctx.fillRect(0, 0, frameW, frameH);
+  }
+
+  drawHeavensFuryCatchFrame(ctx, frameIdx, totalFrames, frameW, frameH) {
+    ctx.clearRect(0, 0, frameW, frameH);
+    const t = frameIdx / (totalFrames - 1);
+    const flashR = 6 + t * 34;
+    const flashAlpha = (1 - t) * 0.95;
+    const flash = ctx.createRadialGradient(32, 32, 0, 32, 32, flashR);
+    flash.addColorStop(0, `rgba(255, 255, 230, ${flashAlpha})`);
+    flash.addColorStop(0.4, `rgba(253, 224, 71, ${flashAlpha * 0.7})`);
+    flash.addColorStop(1, 'rgba(253, 224, 71, 0)');
+    ctx.fillStyle = flash;
+    ctx.fillRect(0, 0, frameW, frameH);
+    if (frameIdx < 4) {
+      const rays = 5;
+      for (let r = 0; r < rays; r++) {
+        const angle = (r / rays) * Math.PI * 2 + frameIdx * 0.4;
+        const reach = 10 + t * 26;
+        const ex = 32 + Math.cos(angle) * reach;
+        const ey = 32 + Math.sin(angle) * reach;
+        ctx.strokeStyle = `rgba(254, 240, 138, ${0.85 - t * 0.6})`;
+        ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.moveTo(32, 32); ctx.lineTo(ex, ey); ctx.stroke();
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.95 - t * 0.7})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(32, 32); ctx.lineTo(ex, ey); ctx.stroke();
+      }
+    }
+  }
+
+  createCanvasSpritesheet(key, frameW, frameH, frameCount, drawFrame) {
+    if (this.textures.exists(key)) return;
+    const tex = this.textures.createCanvas(key, frameW * frameCount, frameH);
+    const ctx = tex.getContext();
+    for (let i = 0; i < frameCount; i++) {
+      ctx.save();
+      ctx.translate(i * frameW, 0);
+      ctx.beginPath();
+      ctx.rect(0, 0, frameW, frameH);
+      ctx.clip();
+      drawFrame(ctx, i, frameCount, frameW, frameH);
+      ctx.restore();
+    }
+    for (let i = 0; i < frameCount; i++) tex.add(i, 0, i * frameW, 0, frameW, frameH);
+    tex.refresh();
+  }
+
+  createHeavensFuryLootTextures() {
+    const frameW = 64;
+    const frameH = 64;
+    this.createCanvasSpritesheet(
+      'heavens_fury_loot_idle',
+      frameW, frameH, 6,
+      (ctx, i) => this.drawHeavensFuryIdleFrame(ctx, i, frameW, frameH),
+    );
+    this.createCanvasSpritesheet(
+      'heavens_fury_loot_catch',
+      frameW, frameH, 7,
+      (ctx, i, total) => this.drawHeavensFuryCatchFrame(ctx, i, total, frameW, frameH),
+    );
+    this.anims.create({
+      key: 'heavens_fury_loot_idle',
+      frames: this.anims.generateFrameNumbers('heavens_fury_loot_idle', { start: 0, end: 5 }),
+      frameRate: 12,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: 'heavens_fury_loot_catch',
+      frames: this.anims.generateFrameNumbers('heavens_fury_loot_catch', { start: 0, end: 6 }),
+      frameRate: 16,
+      repeat: 0,
+    });
+  }
+
   createParallaxLayers() {
     this.createCloudTexture('parallax_far', [40, 30, 60], 22);
     this.createCloudTexture('parallax_near', [15, 10, 25], 16);
@@ -645,6 +791,10 @@ export default class GameScene extends Phaser.Scene {
     this.createGlowTexture('glow_purple_light', [
       240, 210, 255, 210, 150, 255, 180, 90, 245,
     ]);
+    this.createGlowTexture('glow_yellow', [
+      255, 240, 180, 255, 220, 110, 230, 180, 60,
+    ]);
+    this.createHeavensFuryLootTextures();
     this.createLightBeamTexture('eye_beam', [240, 200, 110]);
 
     const platformZones = [];
