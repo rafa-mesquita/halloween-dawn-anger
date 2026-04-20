@@ -96,6 +96,8 @@ const SKULL_CURSE_BODY_H = 22;
 const SKULL_CURSE_DAMAGE = 30;
 const SKULL_CURSE_DEBUFF_DURATION_MS = 10000;
 const SKULL_CURSE_DEBUFF_MULTIPLIER = 1.6;
+const SKULL_CURSE_SLOW_MS = 2000;
+const SKULL_CURSE_SLOW_FACTOR = 0.4;
 const SKULL_CURSE_FLY_FRAMERATE = 14;
 const SKULL_CURSE_HIT_FRAMERATE = 14;
 
@@ -1205,7 +1207,8 @@ export default class GameScene extends Phaser.Scene {
   damageFighter(fighter, amount, opts) {
     if (fighter.isInvulnerable || fighter.isDead) return;
     const ignoreShield = !!(opts && opts.ignoreShield);
-    let finalAmount = amount * (fighter.curseMultiplier || 1);
+    const ignoreCurseMultiplier = !!(opts && opts.ignoreCurseMultiplier);
+    let finalAmount = amount * (ignoreCurseMultiplier ? 1 : (fighter.curseMultiplier || 1));
     if (!ignoreShield && fighter.shieldCharges > 0) {
       finalAmount = finalAmount * SHIELD_DAMAGE_MULTIPLIER;
       fighter.shieldCharges -= 1;
@@ -1827,6 +1830,25 @@ export default class GameScene extends Phaser.Scene {
     target.curseTimer = this.time.delayedCall(SKULL_CURSE_DEBUFF_DURATION_MS, () => {
       this.removeSkullCurse(target);
     });
+    target.curseSlowed = true;
+    if (target.curseSlowTimer) target.curseSlowTimer.remove(false);
+    target.curseSlowTimer = this.time.delayedCall(SKULL_CURSE_SLOW_MS, () => {
+      target.curseSlowed = false;
+      target.curseSlowTimer = null;
+    });
+    if (this.isAuthoritativeOwner(target)) {
+      if (target.curseDotTimer) target.curseDotTimer.remove(false);
+      const ticks = 10;
+      const tickDamage = SKULL_CURSE_DAMAGE / ticks;
+      target.curseDotTimer = this.time.addEvent({
+        delay: SKULL_CURSE_DEBUFF_DURATION_MS / ticks,
+        repeat: ticks - 1,
+        callback: () => {
+          if (!target || target.isDead) return;
+          this.damageFighter(target, tickDamage, { ignoreShield: true, ignoreCurseMultiplier: true });
+        },
+      });
+    }
     if (!target.curseTintSprite) {
       target.curseTintSprite = this.add.sprite(
         target.sprite.x,
@@ -1871,9 +1893,18 @@ export default class GameScene extends Phaser.Scene {
 
   removeSkullCurse(target) {
     target.curseMultiplier = 1;
+    target.curseSlowed = false;
+    if (target.curseSlowTimer) {
+      target.curseSlowTimer.remove(false);
+      target.curseSlowTimer = null;
+    }
     if (target.curseTimer) {
       target.curseTimer.remove(false);
       target.curseTimer = null;
+    }
+    if (target.curseDotTimer) {
+      target.curseDotTimer.remove(false);
+      target.curseDotTimer = null;
     }
     if (target.cursePulseTween) {
       target.cursePulseTween.stop();
@@ -2262,11 +2293,12 @@ export default class GameScene extends Phaser.Scene {
 
       let desiredFlip = this.player.flipX;
 
+      const speed = fighter.curseSlowed ? MOVE_SPEED * SKULL_CURSE_SLOW_FACTOR : MOVE_SPEED;
       if (leftDown && !rightDown) {
-        body.setVelocityX(-MOVE_SPEED);
+        body.setVelocityX(-speed);
         desiredFlip = true;
       } else if (rightDown && !leftDown) {
-        body.setVelocityX(MOVE_SPEED);
+        body.setVelocityX(speed);
         desiredFlip = false;
       } else {
         body.setVelocityX(0);
@@ -2313,7 +2345,10 @@ export default class GameScene extends Phaser.Scene {
         time - this.lastJumpTime > JUMP_LOCKOUT_MS
       ) {
         const isSecondJump = this.jumpsRemaining < MAX_JUMPS;
-        body.setVelocityY(isSecondJump ? -DOUBLE_JUMP_VELOCITY : -JUMP_VELOCITY);
+        const slowMult = fighter.curseSlowed ? SKULL_CURSE_SLOW_FACTOR : 1;
+        body.setVelocityY(
+          (isSecondJump ? -DOUBLE_JUMP_VELOCITY : -JUMP_VELOCITY) * slowMult
+        );
         this.playSfx('sfx_jump', 2.5);
         this.jumpsRemaining -= 1;
         if (isSecondJump) this.didDoubleJump = true;
@@ -2323,7 +2358,7 @@ export default class GameScene extends Phaser.Scene {
       const slamPressed = Phaser.Input.Keyboard.JustDown(this.keys.down);
 
       if (slamPressed && !body.blocked.down) {
-        body.setVelocityY(SLAM_VELOCITY);
+        body.setVelocityY(SLAM_VELOCITY * (fighter.curseSlowed ? SKULL_CURSE_SLOW_FACTOR : 1));
       } else if (slamPressed && body.blocked.down) {
         if (this._lastDownPress && time - this._lastDownPress < 300) {
           this.player.dropThroughUntil = time + 220;
@@ -2581,9 +2616,10 @@ export default class GameScene extends Phaser.Scene {
             p.hasHit = true;
             p.body.setVelocityX(0);
             this.dealHit(target, {
-              damage: SKULL_CURSE_DAMAGE,
+              damage: 0,
               breakShield: true,
               curse: true,
+              playHitSfx: true,
             });
             p.play('skull_curse_hit');
             if (p.auraPulse) p.auraPulse.stop();
