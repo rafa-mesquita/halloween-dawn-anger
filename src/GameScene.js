@@ -1163,7 +1163,7 @@ export default class GameScene extends Phaser.Scene {
       const roll = Phaser.Math.FloatBetween(0, 1);
       if (roll < 0.1) key = 'hp';
       else if (roll < 0.2) key = 'shield';
-      else if (roll < 0.35 && !eyeBlocked) key = 'eye';
+      else if (roll < 0.25 && !eyeBlocked) key = 'eye';
       else key = 'wood';
     } else if (key === 'eye' && this._eyeActive) {
       return;
@@ -2636,6 +2636,17 @@ export default class GameScene extends Phaser.Scene {
     const sprite = fighter.sprite;
     const body = sprite.body;
 
+    if (fighter.isAttacking) {
+      fighter.isAttacking = false;
+      fighter.eyeBiteVfxFired = false;
+      if (fighter === this.playerFighter) {
+        this.attackHitbox.body.enable = false;
+        this.attackHitbox.setVisible(false);
+        this.targetsHitThisAttack.clear();
+        this.attackQueued = false;
+      }
+    }
+
     if (orig) {
       const wantBodyCenterX = body.x + body.width / 2;
       const wantBodyCenterY = body.y + body.height / 2;
@@ -2710,6 +2721,7 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
     if (hit.stun) {
+      this.cancelEyeAttack(target);
       this.applyStun(target);
       this.triggerHitFlash(target);
       return;
@@ -2719,7 +2731,19 @@ export default class GameScene extends Phaser.Scene {
     if (target.eyeHitsRemaining <= 0) {
       this.revertFromEye(target);
     } else {
+      this.cancelEyeAttack(target);
       target.sprite.anims.play('eye_take_hit', true);
+    }
+  }
+
+  cancelEyeAttack(fighter) {
+    if (!fighter.isAttacking) return;
+    fighter.isAttacking = false;
+    fighter.eyeBiteVfxFired = false;
+    if (fighter === this.playerFighter) {
+      this.attackHitbox.body.enable = false;
+      this.attackHitbox.setVisible(false);
+      this.targetsHitThisAttack.clear();
     }
   }
 
@@ -2796,6 +2820,12 @@ export default class GameScene extends Phaser.Scene {
       if (data.fireStormHit && target) {
         this.spawnFireStormHit(target);
       }
+      return;
+    }
+    if (data.type === 'double_jump_fx') {
+      if (data.index === this.myIndex) return;
+      const f = this.fightersByIndex[data.index];
+      if (f && !f.isDead) this.spawnDoubleJumpEffect(f);
       return;
     }
     if (data.type === 'loot_spawn') {
@@ -3072,6 +3102,10 @@ export default class GameScene extends Phaser.Scene {
         if (body.velocity.y > 0) body.setVelocityY(0);
       }
 
+      if (fighter.isAttacking && this.player.anims.currentAnim?.key !== 'eye_attack') {
+        this.cancelEyeAttack(fighter);
+      }
+
       if (
         this.attackQueued &&
         !fighter.isAttacking &&
@@ -3082,6 +3116,8 @@ export default class GameScene extends Phaser.Scene {
         fighter.eyeAttackCooldownUntil = time + EYE_ATTACK_COOLDOWN_MS;
         fighter.eyeBiteVfxFired = false;
         this.targetsHitThisAttack.clear();
+        this.attackHitbox.body.enable = false;
+        this.attackHitbox.setVisible(false);
         this.player.anims.play('eye_attack', true);
         this.playSfx('sfx_swing');
       }
@@ -3250,6 +3286,9 @@ export default class GameScene extends Phaser.Scene {
         if (isSecondJump) {
           this.didDoubleJump = true;
           this.spawnDoubleJumpEffect(fighter);
+          if (this.isMultiplayer && this.network) {
+            this.network.send({ type: 'double_jump_fx', index: this.myIndex });
+          }
         }
         this.lastJumpTime = time;
       }
