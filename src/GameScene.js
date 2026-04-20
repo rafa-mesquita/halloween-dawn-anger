@@ -51,8 +51,6 @@ const WOOD_IDLE_FRAMES = 8;
 const WOOD_CATCH_FRAMES = 7;
 const HP_IDLE_FRAMES = 10;
 const HP_CATCH_FRAMES = 5;
-const SHIELD_IDLE_FRAMES = 10;
-const SHIELD_CATCH_FRAMES = 5;
 const HP_HEAL_AMOUNT = 50;
 
 const HEAVENS_FURY_FRAME_SIZE = 128;
@@ -407,6 +405,10 @@ export default class GameScene extends Phaser.Scene {
       frameHeight: LOOT_FRAME_SIZE,
     });
     this.load.spritesheet('hp_sheet', 'sprites/HP/hp effect.png', {
+      frameWidth: LOOT_FRAME_SIZE,
+      frameHeight: LOOT_FRAME_SIZE,
+    });
+    this.load.spritesheet('shield_loot_icon', 'sprites/Poder 2 (Shield)/Icon19.png', {
       frameWidth: LOOT_FRAME_SIZE,
       frameHeight: LOOT_FRAME_SIZE,
     });
@@ -1175,20 +1177,14 @@ export default class GameScene extends Phaser.Scene {
     });
     this.anims.create({
       key: 'shield_idle',
-      frames: this.anims.generateFrameNumbers('shield_loot_sheet', {
-        start: 0,
-        end: SHIELD_IDLE_FRAMES - 1,
-      }),
-      frameRate: 8,
+      frames: [{ key: 'shield_loot_icon', frame: 0 }],
+      frameRate: 1,
       repeat: -1,
     });
     this.anims.create({
       key: 'shield_catch',
-      frames: this.anims.generateFrameNumbers('shield_loot_sheet', {
-        start: SHIELD_IDLE_FRAMES,
-        end: SHIELD_IDLE_FRAMES + SHIELD_CATCH_FRAMES - 1,
-      }),
-      frameRate: 14,
+      frames: [{ key: 'shield_loot_icon', frame: 0 }],
+      frameRate: 1,
       repeat: 0,
     });
     this.anims.create({
@@ -2008,6 +2004,26 @@ export default class GameScene extends Phaser.Scene {
     loot.setCollideWorldBounds(true);
     loot.anims.play(idleKey);
 
+    if (lootType === 'shield') {
+      loot.idlePulse = this.tweens.add({
+        targets: loot,
+        scaleX: idleScale * 1.12,
+        scaleY: idleScale * 1.12,
+        duration: 520,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+      loot.idleBob = this.tweens.add({
+        targets: loot,
+        angle: { from: -6, to: 6 },
+        duration: 880,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
+
     this.physics.add.collider(loot, this.platformZones, null, this.oneWayProcessCallback);
 
     loot.isPickedUp = false;
@@ -2033,6 +2049,8 @@ export default class GameScene extends Phaser.Scene {
     }
     if (loot.whitePulse) loot.whitePulse.stop();
     if (loot.beamPulse) loot.beamPulse.stop();
+    if (loot.idleBob) { loot.idleBob.stop(); loot.idleBob = null; }
+    if (loot.idlePulse) { loot.idlePulse.stop(); loot.idlePulse = null; }
     if (reason === 'shatter') {
       loot.isPickedUp = true;
       loot.body.enable = false;
@@ -2099,11 +2117,33 @@ export default class GameScene extends Phaser.Scene {
     if (loot.glowPulse) loot.glowPulse.stop();
     if (loot.whitePulse) loot.whitePulse.stop();
     if (loot.beamPulse) loot.beamPulse.stop();
+    if (loot.idleBob) { loot.idleBob.stop(); loot.idleBob = null; }
+    if (loot.idlePulse) { loot.idlePulse.stop(); loot.idlePulse = null; }
     this.tweens.add({
       targets: [loot.glow, loot.tintOverlay, loot.beam, loot.footGlow].filter(Boolean),
       alpha: 0,
       duration: 200,
     });
+    if (loot.lootType === 'shield') {
+      const baseScale = loot.scaleX;
+      this.tweens.add({
+        targets: loot,
+        scaleX: baseScale * 1.6,
+        scaleY: baseScale * 1.6,
+        duration: 160,
+        ease: 'Quad.easeOut',
+        yoyo: false,
+      });
+      this.tweens.add({
+        targets: loot,
+        angle: 360,
+        alpha: 0,
+        duration: 340,
+        ease: 'Quad.easeOut',
+        onComplete: () => this.removeLoot(loot),
+      });
+      return;
+    }
     if (loot.catchScale !== undefined) loot.setScale(loot.catchScale);
     const catchKey = loot.catchKey || type.catchKey;
     loot.anims.play(catchKey);
@@ -2119,6 +2159,8 @@ export default class GameScene extends Phaser.Scene {
     if (loot.whitePulse) loot.whitePulse.stop();
     if (loot.beamPulse) loot.beamPulse.stop();
     if (loot.footGlowPulse) loot.footGlowPulse.stop();
+    if (loot.idleBob) loot.idleBob.stop();
+    if (loot.idlePulse) loot.idlePulse.stop();
     if (loot.glow) loot.glow.destroy();
     if (loot.tintOverlay) loot.tintOverlay.destroy();
     if (loot.beam) loot.beam.destroy();
