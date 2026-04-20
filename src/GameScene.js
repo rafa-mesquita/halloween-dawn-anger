@@ -207,6 +207,13 @@ const POWERS = {
   ice_beam: {
     orbColor: 0x7dd3fc,
     lootGlowKey: 'glow_blue',
+    lootIdleKey: 'ice_beam_loot_idle',
+    lootCatchKey: 'ice_beam_loot_catch',
+    lootFrameSize: 64,
+    lootScale: 1.65,
+    lootCatchScale: 2.0,
+    lootGlowScale: 0.8,
+    lootGlowPulseScale: 1.05,
   },
   fire_storm: {
     orbColor: 0xff3b30,
@@ -695,6 +702,139 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
+  drawSnowballIdleFrame(ctx, frameIdx, total, frameW, frameH) {
+    ctx.clearRect(0, 0, frameW, frameH);
+    const cx = frameW / 2;
+    const cy = frameH / 2 + 2;
+    const phase = (frameIdx / total) * Math.PI * 2;
+    const bob = Math.sin(phase) * 1.5;
+    const ballR = 18;
+    const glow = ctx.createRadialGradient(cx, cy + bob, 0, cx, cy + bob, 28);
+    glow.addColorStop(0, 'rgba(186, 230, 253, 0.55)');
+    glow.addColorStop(1, 'rgba(125, 211, 252, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, frameW, frameH);
+    const body = ctx.createRadialGradient(
+      cx - 5, cy - 6 + bob, 2,
+      cx, cy + bob, ballR,
+    );
+    body.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    body.addColorStop(0.55, 'rgba(224, 242, 254, 1)');
+    body.addColorStop(1, 'rgba(125, 211, 252, 1)');
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.arc(cx, cy + bob, ballR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(56, 140, 189, 0.65)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+    ctx.beginPath();
+    ctx.ellipse(cx - 5, cy - 8 + bob, 5, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    const speckCount = 5;
+    for (let i = 0; i < speckCount; i++) {
+      const a = (i / speckCount) * Math.PI * 2 + phase * 0.4 + i;
+      const rr = ballR - 5;
+      const sx = cx + Math.cos(a) * rr * 0.6;
+      const sy = cy + bob + Math.sin(a) * rr * 0.6;
+      ctx.fillStyle = 'rgba(224, 242, 254, 0.9)';
+      ctx.fillRect(sx - 1, sy - 1, 2, 2);
+    }
+    const orbiters = 3;
+    for (let i = 0; i < orbiters; i++) {
+      const a = phase + (i / orbiters) * Math.PI * 2;
+      const orbitR = 24;
+      const ox = cx + Math.cos(a) * orbitR;
+      const oy = cy + bob + Math.sin(a) * orbitR * 0.6;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+      ctx.beginPath();
+      ctx.arc(ox, oy, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(186, 230, 253, 0.6)';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(ox - 2.5, oy); ctx.lineTo(ox + 2.5, oy);
+      ctx.moveTo(ox, oy - 2.5); ctx.lineTo(ox, oy + 2.5);
+      ctx.stroke();
+    }
+  }
+
+  drawSnowballCatchFrame(ctx, frameIdx, totalFrames, frameW, frameH) {
+    ctx.clearRect(0, 0, frameW, frameH);
+    const cx = frameW / 2;
+    const cy = frameH / 2;
+    const t = frameIdx / (totalFrames - 1);
+    const flashR = 5 + t * 34;
+    const flashAlpha = (1 - t) * 0.9;
+    const flash = ctx.createRadialGradient(cx, cy, 0, cx, cy, flashR);
+    flash.addColorStop(0, `rgba(255, 255, 255, ${flashAlpha})`);
+    flash.addColorStop(0.45, `rgba(186, 230, 253, ${flashAlpha * 0.65})`);
+    flash.addColorStop(1, 'rgba(125, 211, 252, 0)');
+    ctx.fillStyle = flash;
+    ctx.fillRect(0, 0, frameW, frameH);
+    if (frameIdx < 2) {
+      const ballR = 18 - frameIdx * 4;
+      ctx.fillStyle = `rgba(255, 255, 255, ${0.8 - frameIdx * 0.3})`;
+      ctx.beginPath();
+      ctx.arc(cx, cy, ballR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    const shards = 8;
+    for (let i = 0; i < shards; i++) {
+      const ang = (i / shards) * Math.PI * 2 + frameIdx * 0.25;
+      const near = 4 + t * 8;
+      const far = 8 + t * 28;
+      const sx = cx + Math.cos(ang) * near;
+      const sy = cy + Math.sin(ang) * near;
+      const ex = cx + Math.cos(ang) * far;
+      const ey = cy + Math.sin(ang) * far;
+      ctx.strokeStyle = `rgba(224, 242, 254, ${0.9 - t * 0.7})`;
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.strokeStyle = `rgba(255, 255, 255, ${0.95 - t * 0.75})`;
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+    }
+    if (frameIdx >= 2) {
+      ctx.strokeStyle = `rgba(186, 230, 253, ${Math.max(0, 0.75 - t * 0.9)})`;
+      ctx.lineWidth = 1.4;
+      const ringR = 14 + t * 24;
+      ctx.beginPath();
+      ctx.arc(cx, cy, ringR, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  createSnowballLootTextures() {
+    const frameW = 64;
+    const frameH = 64;
+    this.createCanvasSpritesheet(
+      'ice_beam_loot_idle',
+      frameW, frameH, 8,
+      (ctx, i, total) => this.drawSnowballIdleFrame(ctx, i, total, frameW, frameH),
+    );
+    this.createCanvasSpritesheet(
+      'ice_beam_loot_catch',
+      frameW, frameH, 7,
+      (ctx, i, total) => this.drawSnowballCatchFrame(ctx, i, total, frameW, frameH),
+    );
+    this.anims.create({
+      key: 'ice_beam_loot_idle',
+      frames: this.anims.generateFrameNumbers('ice_beam_loot_idle', { start: 0, end: 7 }),
+      frameRate: 10,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: 'ice_beam_loot_catch',
+      frames: this.anims.generateFrameNumbers('ice_beam_loot_catch', { start: 0, end: 6 }),
+      frameRate: 16,
+      repeat: 0,
+    });
+  }
+
   createHeavensFuryLootTextures() {
     const frameW = 64;
     const frameH = 64;
@@ -918,6 +1058,7 @@ export default class GameScene extends Phaser.Scene {
     ]);
     this.createHeavensFuryLootTextures();
     this.createWheelLootCatchTexture();
+    this.createSnowballLootTextures();
     this.createLightBeamTexture('eye_beam', [240, 200, 110]);
 
     const platformZones = [];
