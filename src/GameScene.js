@@ -3333,16 +3333,8 @@ export default class GameScene extends Phaser.Scene {
   }
 
   updateIceAmbientStop() {
-    if (this._iceAmbientStopped === undefined) this._iceAmbientStopped = true;
-    if (this.iceActivityActive()) {
-      this._iceAmbientStopped = false;
-      return;
-    }
-    if (this._iceAmbientStopped) return;
-    this._iceAmbientStopped = true;
-    if (this.sound && this.sound.stopByKey) {
-      this.sound.stopByKey('sfx_ice_cast');
-    }
+    // Intentionally disabled — sound.stopByKey was silencing the cast entirely
+    // even though the raw playSfx path works. Keeping the helper for later.
   }
 
   cleanupIceBeam(b) {
