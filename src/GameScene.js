@@ -3035,11 +3035,12 @@ export default class GameScene extends Phaser.Scene {
       lastTickAt: 0,
       lastParticleAt: 0,
     };
-    beam.facing = fighter.sprite.flipX ? -1 : 1;
+    beam.facing = worldX >= cx ? 1 : -1;
     const fxX = sb.x + sb.width / 2 + beam.facing * (sb.width * 0.4);
     const fxY = sb.y + sb.height * 0.55;
     beam.castFxSprite = this.add.sprite(fxX, fxY, 'ice_spell_cast', 2)
       .setScale(3.2)
+      .setFlipX(beam.facing < 0)
       .setDepth(fighter.sprite.depth + 0.2);
     beam.castFxSprite.play('ice_spell_cast');
 
