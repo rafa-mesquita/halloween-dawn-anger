@@ -560,7 +560,7 @@ export default class GameScene extends Phaser.Scene {
       .setScrollFactor(0.3, 0.6)
       .setDepth(-10);
 
-    this.add.rectangle(0, 0, MAP_WIDTH, MAP_HEIGHT, 0x000000, 0.35)
+    this.add.rectangle(0, 0, MAP_WIDTH, MAP_HEIGHT, 0x000000, 0.6)
       .setOrigin(0, 0)
       .setScrollFactor(0)
       .setDepth(-9);
