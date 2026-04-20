@@ -3027,9 +3027,21 @@ export default class GameScene extends Phaser.Scene {
       castGlow: null,
       castSfx,
       castFxSprite: null,
+      emitter: null,
       lastTickAt: 0,
       lastParticleAt: 0,
     };
+    beam.emitter = this.add.particles(0, 0, 'ice_particles', {
+      lifespan: 420,
+      speed: { min: 20, max: 60 },
+      angle: { min: 0, max: 360 },
+      scale: { start: 1.1, end: 0.2 },
+      alpha: { start: 0.95, end: 0 },
+      blendMode: Phaser.BlendModes.ADD,
+      frequency: -1,
+      emitting: false,
+    });
+    beam.emitter.setDepth(ATTACKER_DEPTH + 0.3);
     const sbInit = fighter.sprite.body;
     const fxX = sbInit.x + sbInit.width / 2;
     const fxY = sbInit.y + sbInit.height / 2;
@@ -3064,11 +3076,9 @@ export default class GameScene extends Phaser.Scene {
     const g = beam.graphics;
     g.clear();
     const thickness = ICE_BEAM_THICKNESS * intensity;
-    g.lineStyle(thickness + 10, 0x7dd3fc, 0.35);
+    g.lineStyle(thickness + 10, 0x7dd3fc, 0.5);
     g.lineBetween(cx, cy, endX, endY);
-    g.lineStyle(thickness, 0xe0f2fe, 0.9);
-    g.lineBetween(cx, cy, endX, endY);
-    g.lineStyle(Math.max(2, thickness * 0.35), 0xffffff, 1);
+    g.lineStyle(Math.max(2, thickness * 0.4), 0xffffff, 1);
     g.lineBetween(cx, cy, endX, endY);
     if (this.hitboxesVisible) {
       g.lineStyle(ICE_BEAM_HIT_RADIUS * 2, 0xff3344, 0.22);
@@ -3078,25 +3088,8 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  spawnIceBeamParticle(x, y, angle) {
-    const p = this.add.sprite(x, y, 'ice_particles', 0)
-      .setDepth(ATTACKER_DEPTH + 0.3)
-      .setBlendMode(Phaser.BlendModes.ADD)
-      .setScale(Phaser.Math.FloatBetween(0.8, 1.3));
-    p.play('ice_particles');
-    const perp = angle + Math.PI / 2 * (Math.random() < 0.5 ? 1 : -1);
-    const dx = Math.cos(perp) * Phaser.Math.Between(12, 28);
-    const dy = Math.sin(perp) * Phaser.Math.Between(12, 28);
-    this.tweens.add({
-      targets: p,
-      x: x + dx,
-      y: y + dy,
-      alpha: 0,
-      scale: 0.2,
-      duration: 500,
-      ease: 'Sine.easeOut',
-      onComplete: () => p.destroy(),
-    });
+  spawnIceBeamParticle(beam, x, y) {
+    if (beam.emitter) beam.emitter.emitParticleAt(x, y, 1);
   }
 
   iceBeamComputeEnd(cx, cy, angle) {
@@ -3176,7 +3169,7 @@ export default class GameScene extends Phaser.Scene {
     if (target.iceTickCount >= ICE_HITS_TO_FREEZE) {
       this.applyFreeze(target);
     }
-    if (target.iceTickCount % 3 === 0) {
+    if (target.iceTickCount % 5 === 0) {
       const tb = target.sprite.body;
       this.spawnIceBeamHitVfx(tb.x + tb.width / 2, tb.y + tb.height / 2);
     }
@@ -3298,15 +3291,14 @@ export default class GameScene extends Phaser.Scene {
       if (remaining < 250) intensity *= remaining / 250;
       this.drawIceBeam(b, cx, cy, end.x, end.y, intensity);
 
-      if (time - b.lastParticleAt > 120) {
+      if (time - b.lastParticleAt > 140) {
         b.lastParticleAt = time;
         const steps = 3;
         for (let s = 1; s <= steps; s++) {
-          if (Math.random() > 0.55) continue;
           const t = s / steps;
           const px = cx + (end.x - cx) * t;
           const py = cy + (end.y - cy) * t;
-          this.spawnIceBeamParticle(px, py, b.currentAngle);
+          this.spawnIceBeamParticle(b, px, py);
         }
       }
 
@@ -3321,6 +3313,7 @@ export default class GameScene extends Phaser.Scene {
     if (b.graphics) b.graphics.destroy();
     if (b.castGlow) b.castGlow.destroy();
     if (b.castFxSprite) b.castFxSprite.destroy();
+    if (b.emitter) b.emitter.destroy();
     if (b.castSfx) {
       if (b.castSfx.isPlaying) b.castSfx.stop();
     }
