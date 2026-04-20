@@ -152,6 +152,7 @@ const EYE_DASH_DURATION_MS = 320;
 const EYE_DASH_COOLDOWN_MS = 3000;
 const EYE_DASH_COMBO_WINDOW_MS = 700;
 const EYE_ATTACK_COOLDOWN_MS = 3000;
+const EYE_TRANSFORM_DURATION_MS = 25000;
 const EYE_ATTACK_HITBOX_FORWARD = 40;
 const EYE_ATTACK_HITBOX_PADDING = 6;
 const EYE_DASH_BAR_WIDTH = 36;
@@ -1157,6 +1158,26 @@ export default class GameScene extends Phaser.Scene {
       'A/D: andar  |  W/Espaço: pular (2x)  |  S: slam  |  botão esquerdo: ataque  |  botão direito: especial  |  1/2/3: trocar',
       { font: '14px sans-serif', color: '#ffffff' }
     ).setScrollFactor(0).setDepth(20);
+
+    const eyeHudX = this.cameras.main.width / 2;
+    const eyeHudY = 42;
+    this.eyeHudBg = this.add.rectangle(eyeHudX, eyeHudY, 180, 44, 0x1e1b4b, 0.75)
+      .setStrokeStyle(2, 0xa855f7, 0.9)
+      .setScrollFactor(0)
+      .setDepth(22)
+      .setVisible(false);
+    this.eyeHudLabel = this.add.text(eyeHudX, eyeHudY - 10, 'FLYING EYE', {
+      font: 'bold 11px sans-serif',
+      color: '#d8b4fe',
+      stroke: '#000000',
+      strokeThickness: 2,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(23).setVisible(false);
+    this.eyeHudText = this.add.text(eyeHudX, eyeHudY + 7, '25.0s', {
+      font: 'bold 22px sans-serif',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(23).setVisible(false);
 
     this.loots = [];
     this._lootIdCounter = 0;
@@ -2624,6 +2645,7 @@ export default class GameScene extends Phaser.Scene {
     fighter.eyeDashCooldownUntil = 0;
     fighter.eyeDashUntil = 0;
     fighter.eyeAttackCooldownUntil = 0;
+    fighter.eyeTransformUntil = this.time.now + EYE_TRANSFORM_DURATION_MS;
 
     const sprite = fighter.sprite;
     const body = sprite.body;
@@ -2712,6 +2734,7 @@ export default class GameScene extends Phaser.Scene {
     fighter.isEye = false;
     fighter.eyeOriginalState = null;
     fighter.eyeHitsRemaining = 0;
+    fighter.eyeTransformUntil = 0;
     this._eyeActive = this.fighters.some((f) => f.isEye);
 
     if (!killAlso) {
@@ -2721,6 +2744,26 @@ export default class GameScene extends Phaser.Scene {
     } else {
       this.killFighter(fighter);
     }
+  }
+
+  updateEyeHud(time) {
+    if (!this.eyeHudText) return;
+    const eyeF = this.fighters.find((f) => f.isEye && !f.isDead);
+    if (!eyeF || !eyeF.eyeTransformUntil) {
+      this.eyeHudBg.setVisible(false);
+      this.eyeHudLabel.setVisible(false);
+      this.eyeHudText.setVisible(false);
+      return;
+    }
+    const remaining = Math.max(0, eyeF.eyeTransformUntil - time);
+    const seconds = (remaining / 1000).toFixed(1);
+    this.eyeHudText.setText(`${seconds}s`);
+    const isMe = eyeF === this.playerFighter;
+    const color = isMe ? '#fde047' : '#ffffff';
+    this.eyeHudText.setColor(color);
+    this.eyeHudBg.setVisible(true);
+    this.eyeHudLabel.setVisible(true);
+    this.eyeHudText.setVisible(true);
   }
 
   applyIncomingHit(target, hit) {
@@ -2843,6 +2886,7 @@ export default class GameScene extends Phaser.Scene {
       eyeHits: f.eyeHitsRemaining || 0,
       eyeFacing: f.eyeFacing || 1,
       eyeDashing: f.isEye && this.time.now < (f.eyeDashUntil || 0),
+      eyeRemainingMs: f.isEye ? Math.max(0, (f.eyeTransformUntil || 0) - this.time.now) : 0,
     });
   }
 
@@ -2935,6 +2979,9 @@ export default class GameScene extends Phaser.Scene {
     }
     if (typeof data.eyeDashing === 'boolean') {
       remote.isEyeDashingRemote = data.eyeDashing;
+    }
+    if (typeof data.eyeRemainingMs === 'number' && remote.isEye) {
+      remote.eyeTransformUntil = this.time.now + data.eyeRemainingMs;
     }
 
     const sprite = remote.sprite;
@@ -3065,6 +3112,17 @@ export default class GameScene extends Phaser.Scene {
         f.sprite.body.setVelocity(0, 0);
       }
     }
+
+    if (
+      !fighter.isDead &&
+      fighter.isEye &&
+      fighter.eyeTransformUntil &&
+      time >= fighter.eyeTransformUntil
+    ) {
+      this.revertFromEye(fighter);
+    }
+
+    this.updateEyeHud(time);
 
     if (!fighter.isDead && fighter.isEye) {
       const inDash = time < fighter.eyeDashUntil;
