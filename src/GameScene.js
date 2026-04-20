@@ -3849,11 +3849,12 @@ export default class GameScene extends Phaser.Scene {
       fighter.attackSpriteShift = 0;
     }
 
-    const wantBodyCenterX = body.x + body.width / 2;
-    const wantBodyCenterY = body.y + body.height / 2;
+    const wantCx = body.x + body.width / 2;
+    const wantCy = body.y + body.height / 2;
 
     sprite.setTexture('eye_flight', 0);
     sprite.setScale(EYE_SCALE);
+    if (sprite.updateDisplayOrigin) sprite.updateDisplayOrigin();
     sprite.anims.play('eye_flight', true);
     body.allowGravity = false;
     body.setGravityY(0);
@@ -3864,8 +3865,14 @@ export default class GameScene extends Phaser.Scene {
     const eyeOffsetY = (EYE_FRAME_SIZE - EYE_BODY_H) / 2;
     body.setOffset(eyeOffsetX, eyeOffsetY);
     if (!skipReposition) {
-      sprite.x = wantBodyCenterX - EYE_BODY_W / 2 + sprite.scaleX * (sprite.displayOriginX - eyeOffsetX);
-      sprite.y = wantBodyCenterY - EYE_BODY_H / 2 + sprite.scaleY * (sprite.displayOriginY - eyeOffsetY);
+      sprite.setPosition(0, 0);
+      if (body.updateFromGameObject) body.updateFromGameObject();
+      const offsetCenterX = body.x + body.width / 2;
+      const offsetCenterY = body.y + body.height / 2;
+      const newSpriteX = wantCx - offsetCenterX;
+      const newSpriteY = wantCy - offsetCenterY;
+      sprite.setPosition(newSpriteX, newSpriteY);
+      if (body.reset) body.reset(newSpriteX, newSpriteY);
     }
     sprite.setFlipX(fighter.eyeFacing < 0);
 
