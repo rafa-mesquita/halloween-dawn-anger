@@ -3088,11 +3088,6 @@ export default class GameScene extends Phaser.Scene {
       g.fillStyle(0xffffff, 0.95);
       g.fillCircle(sx, sy, r);
     }
-    g.fillStyle(0xffffff, 0.95);
-    g.fillCircle(cx, cy, thickness + 6);
-    g.fillStyle(0x7dd3fc, 0.5);
-    g.fillCircle(cx, cy, thickness + 14);
-
     if (this.hitboxesVisible) {
       g.lineStyle(ICE_BEAM_HIT_RADIUS * 2, 0xff3344, 0.22);
       g.lineBetween(cx, cy, endX, endY);
@@ -3260,8 +3255,9 @@ export default class GameScene extends Phaser.Scene {
         continue;
       }
       const cb = caster.sprite.body;
-      const cx = cb.x + cb.width / 2;
-      const cy = cb.y + cb.height / 2;
+      const facing = caster.sprite.flipX ? -1 : 1;
+      const cx = cb.x + cb.width / 2 + facing * (cb.width * 0.9);
+      const cy = cb.y + cb.height * 0.7;
       if (b.castFxSprite) b.castFxSprite.setPosition(cx, cy);
 
       if (b.state === 'casting') {
