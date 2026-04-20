@@ -3214,8 +3214,8 @@ export default class GameScene extends Phaser.Scene {
     const now = this.time.now;
     const bob = Math.sin(now / 220) * 4;
     const pulse = 1 + Math.sin(now / 260) * 0.08;
-    const extraLift = f.isEye ? 5 : 0;
-    const baseLift = 42;
+    const extraLift = f.isEye ? 8 : 0;
+    const baseLift = 39;
     this.selfArrow.x = body.x + body.width / 2;
     this.selfArrow.y = body.y - baseLift - extraLift + bob;
     this.selfArrow.setScale(this._selfArrowBaseScale * pulse);
