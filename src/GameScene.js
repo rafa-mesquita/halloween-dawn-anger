@@ -1183,6 +1183,10 @@ export default class GameScene extends Phaser.Scene {
       : this.fighters[0];
     this.player = this.playerFighter.sprite;
 
+    this.selfArrow = this.add.triangle(0, 0, 0, 0, 16, 0, 8, 12, 0xfde047)
+      .setStrokeStyle(2, 0x000000, 0.9)
+      .setDepth(24);
+
     if (this.isMultiplayer) {
       for (const f of this.fighters) {
         if (f === this.playerFighter) continue;
@@ -3077,8 +3081,9 @@ export default class GameScene extends Phaser.Scene {
     vfx.once('animationcomplete-eye_bite_effect', () => vfx.destroy());
   }
 
-  transformToEye(fighter) {
+  transformToEye(fighter, opts) {
     if (!fighter || fighter.isDead || fighter.isEye) return;
+    const skipReposition = !!(opts && opts.skipReposition);
     this._eyeActive = true;
     fighter.isEye = true;
     this.removeShield(fighter);
@@ -3129,8 +3134,10 @@ export default class GameScene extends Phaser.Scene {
     const eyeOffsetX = (EYE_FRAME_SIZE - EYE_BODY_W) / 2;
     const eyeOffsetY = (EYE_FRAME_SIZE - EYE_BODY_H) / 2;
     body.setOffset(eyeOffsetX, eyeOffsetY);
-    sprite.x = wantBodyCenterX - EYE_BODY_W / 2 + sprite.scaleX * (sprite.displayOriginX - eyeOffsetX);
-    sprite.y = wantBodyCenterY - EYE_BODY_H / 2 + sprite.scaleY * (sprite.displayOriginY - eyeOffsetY);
+    if (!skipReposition) {
+      sprite.x = wantBodyCenterX - EYE_BODY_W / 2 + sprite.scaleX * (sprite.displayOriginX - eyeOffsetX);
+      sprite.y = wantBodyCenterY - EYE_BODY_H / 2 + sprite.scaleY * (sprite.displayOriginY - eyeOffsetY);
+    }
     sprite.setFlipX(fighter.eyeFacing < 0);
 
     if (fighter.hpBarBg) fighter.hpBarBg.setVisible(false);
@@ -3142,6 +3149,7 @@ export default class GameScene extends Phaser.Scene {
   revertFromEye(fighter, opts) {
     if (!fighter || !fighter.isEye) return;
     const killAlso = !!(opts && opts.killAlso);
+    const skipReposition = !!(opts && opts.skipReposition);
     const orig = fighter.eyeOriginalState;
     const sprite = fighter.sprite;
     const body = sprite.body;
@@ -3169,8 +3177,10 @@ export default class GameScene extends Phaser.Scene {
       body.setGravityY(orig.gravityY);
       body.setVelocity(0, 0);
       sprite.isEye = false;
-      sprite.x = wantBodyCenterX - orig.bodyW / 2 + sprite.scaleX * (sprite.displayOriginX - orig.bodyOffsetX);
-      sprite.y = wantBodyCenterY - orig.bodyH / 2 + sprite.scaleY * (sprite.displayOriginY - orig.bodyOffsetY);
+      if (!skipReposition) {
+        sprite.x = wantBodyCenterX - orig.bodyW / 2 + sprite.scaleX * (sprite.displayOriginX - orig.bodyOffsetX);
+        sprite.y = wantBodyCenterY - orig.bodyH / 2 + sprite.scaleY * (sprite.displayOriginY - orig.bodyOffsetY);
+      }
       sprite.anims.play(`${fighter.char.id}_idle`, true);
     }
 
@@ -3187,6 +3197,20 @@ export default class GameScene extends Phaser.Scene {
     } else {
       this.killFighter(fighter);
     }
+  }
+
+  updateSelfArrow() {
+    if (!this.selfArrow) return;
+    const f = this.playerFighter;
+    if (!f || f.isDead) {
+      this.selfArrow.setVisible(false);
+      return;
+    }
+    this.selfArrow.setVisible(true);
+    const body = f.sprite.body;
+    const bob = Math.sin(this.time.now / 180) * 3;
+    this.selfArrow.x = body.x + body.width / 2 - 8;
+    this.selfArrow.y = body.y - 30 + bob;
   }
 
   updateEyeHud(time) {
@@ -3415,9 +3439,9 @@ export default class GameScene extends Phaser.Scene {
 
     if (typeof data.isEye === 'boolean') {
       if (data.isEye && !remote.isEye && !remote.isDead) {
-        this.transformToEye(remote);
+        this.transformToEye(remote, { skipReposition: true });
       } else if (!data.isEye && remote.isEye) {
-        this.revertFromEye(remote);
+        this.revertFromEye(remote, { skipReposition: true });
       }
     }
     if (typeof data.eyeHits === 'number') {
@@ -3575,6 +3599,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     this.updateEyeHud(time);
+    this.updateSelfArrow();
 
     if (!fighter.isDead && fighter.isEye) {
       const inDash = time < fighter.eyeDashUntil;
