@@ -300,6 +300,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   init(data) {
+    this.initData = data;
     this.mode = data?.mode ?? 'single';
     this.network = data?.network ?? null;
     this.isMultiplayer = this.mode === 'host' || this.mode === 'client';
@@ -1514,6 +1515,28 @@ export default class GameScene extends Phaser.Scene {
       { font: '14px sans-serif', color: '#ffffff' }
     ).setScrollFactor(0).setDepth(20);
 
+    if (!this.isMultiplayer) {
+      const cam = this.cameras.main;
+      const menuBtnBg = this.add.rectangle(cam.width - 70, 22, 110, 28, 0x1e293b, 0.85)
+        .setStrokeStyle(2, 0x475569, 0.9)
+        .setScrollFactor(0)
+        .setDepth(22)
+        .setInteractive({ useHandCursor: true });
+      const menuBtnLabel = this.add.text(cam.width - 70, 22, 'Menu', {
+        font: 'bold 14px sans-serif',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 2,
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(23);
+      menuBtnBg.on('pointerover', () => menuBtnBg.setFillStyle(0x334155, 0.95));
+      menuBtnBg.on('pointerout', () => menuBtnBg.setFillStyle(0x1e293b, 0.85));
+      menuBtnBg.on('pointerdown', () => {
+        menuBtnBg.disableInteractive();
+        menuBtnLabel.setText('Voltando...');
+        window.location.reload();
+      });
+    }
+
     const eyeHudX = this.cameras.main.width / 2;
     const eyeHudY = 42;
     this.eyeHudBg = this.add.rectangle(eyeHudX, eyeHudY, 180, 44, 0x1e1b4b, 0.75)
@@ -2500,8 +2523,12 @@ export default class GameScene extends Phaser.Scene {
     btnBg.on('pointerout', () => btnBg.setFillStyle(0x22c55e));
     btnBg.on('pointerdown', () => {
       btnBg.disableInteractive();
-      btnLabel.setText('Recarregando...');
-      window.location.reload();
+      btnLabel.setText('Reiniciando...');
+      if (this.network) {
+        this.network.send({ type: 'match_restart' });
+        this.time.delayedCall(180, () => { if (this.network) this.network.send({ type: 'match_restart' }); });
+      }
+      this.time.delayedCall(140, () => this.scene.restart(this.initData));
     });
   }
 
@@ -3325,6 +3352,12 @@ export default class GameScene extends Phaser.Scene {
       if (data.fireStormHit && target) {
         this.spawnFireStormHit(target);
       }
+      return;
+    }
+    if (data.type === 'match_restart') {
+      if (this._restartingFromNetwork) return;
+      this._restartingFromNetwork = true;
+      this.scene.restart(this.initData);
       return;
     }
     if (data.type === 'double_jump_fx') {
