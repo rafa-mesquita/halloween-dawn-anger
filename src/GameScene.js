@@ -433,6 +433,46 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
+  createCloudTexture(key, color, blobCount) {
+    if (this.textures.exists(key)) return;
+    const w = 1024;
+    const h = 512;
+    const tex = this.textures.createCanvas(key, w, h);
+    const ctx = tex.getContext();
+    ctx.clearRect(0, 0, w, h);
+    for (let i = 0; i < blobCount; i++) {
+      const cx = Math.random() * w;
+      const cy = Math.random() * h;
+      const r = 60 + Math.random() * 180;
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+      const a = 0.08 + Math.random() * 0.12;
+      g.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${a})`);
+      g.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0)`);
+      ctx.fillStyle = g;
+      ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+    }
+    tex.refresh();
+  }
+
+  createParallaxLayers() {
+    this.createCloudTexture('parallax_far', [40, 30, 60], 22);
+    this.createCloudTexture('parallax_near', [15, 10, 25], 16);
+
+    this.parallaxFar = this.add
+      .tileSprite(0, 0, MAP_WIDTH, MAP_HEIGHT, 'parallax_far')
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(-9.5)
+      .setAlpha(0.6);
+
+    this.parallaxNear = this.add
+      .tileSprite(0, 0, MAP_WIDTH, MAP_HEIGHT, 'parallax_near')
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(-8.5)
+      .setAlpha(0.5);
+  }
+
   createRainEffect() {
     if (!this.textures.exists('rain_drop')) {
       const tex = this.textures.createCanvas('rain_drop', 2, 8);
@@ -564,6 +604,8 @@ export default class GameScene extends Phaser.Scene {
       .setOrigin(0, 0)
       .setScrollFactor(0)
       .setDepth(-9);
+
+    this.createParallaxLayers();
 
     this.add.image(0, 0, 'map1_platforms')
       .setOrigin(0, 0)
@@ -3175,6 +3217,9 @@ export default class GameScene extends Phaser.Scene {
   }
 
   update(time, delta) {
+    if (this.parallaxFar) this.parallaxFar.tilePositionX += delta * 0.008;
+    if (this.parallaxNear) this.parallaxNear.tilePositionX += delta * 0.022;
+
     if (!this.isMultiplayer) {
       if (Phaser.Input.Keyboard.JustDown(this.switchKeys.one)) this.setControlledFighter(0);
       else if (Phaser.Input.Keyboard.JustDown(this.switchKeys.two)) this.setControlledFighter(1);
