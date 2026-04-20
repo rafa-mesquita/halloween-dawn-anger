@@ -140,6 +140,7 @@ const LOOT_TYPES = {
     glowKey: 'glow_orange',
     onPickup: (scene, fighter, loot) => {
       if (fighter.specialPowers.length < 2) fighter.specialPowers.push(loot.power);
+      else fighter.specialPowers[1] = loot.power;
     },
   },
   hp: {
@@ -156,6 +157,7 @@ const LOOT_TYPES = {
     glowKey: 'glow_blue',
     onPickup: (_scene, fighter) => {
       if (fighter.specialPowers.length < 2) fighter.specialPowers.push('shield');
+      else fighter.specialPowers[1] = 'shield';
     },
   },
 };
@@ -615,6 +617,7 @@ export default class GameScene extends Phaser.Scene {
       down: Phaser.Input.Keyboard.KeyCodes.S,
       right: Phaser.Input.Keyboard.KeyCodes.D,
       space: Phaser.Input.Keyboard.KeyCodes.SPACE,
+      swapPowers: Phaser.Input.Keyboard.KeyCodes.Q,
     });
 
     this.switchKeys = this.input.keyboard.addKeys({
@@ -1077,6 +1080,13 @@ export default class GameScene extends Phaser.Scene {
     const hpBarFill = this.add.rectangle(0, 0, hpBarWidth - 2, hpBarHeight - 2, 0x22c55e)
       .setOrigin(0, 0.5).setDepth(16);
 
+    const powerIcons = [0, 1].map(() =>
+      this.add.circle(0, 0, 4, 0xffffff)
+        .setStrokeStyle(1, 0x0f172a)
+        .setDepth(16)
+        .setVisible(false)
+    );
+
     const fighter = {
       char,
       sprite,
@@ -1092,6 +1102,7 @@ export default class GameScene extends Phaser.Scene {
       hpBarBg,
       hpBarFill,
       hpBarWidth,
+      powerIcons,
       isAttacking: false,
       attackSpriteShift: 0,
       currentAttackAnim: keys.attackHorizontal,
@@ -1521,6 +1532,7 @@ export default class GameScene extends Phaser.Scene {
     fighter.sprite.setDepth(DEFAULT_SPRITE_DEPTH);
     fighter.hpBarBg.setVisible(false);
     fighter.hpBarFill.setVisible(false);
+    for (const icon of fighter.powerIcons) icon.setVisible(false);
     fighter.glow.setVisible(false);
     fighter.flashSprite.setAlpha(0);
     fighter.hitFlashSprite.setAlpha(0);
@@ -1560,6 +1572,7 @@ export default class GameScene extends Phaser.Scene {
     fighter.sprite.body.setVelocity(0, 0);
     fighter.hpBarBg.setVisible(false);
     fighter.hpBarFill.setVisible(false);
+    for (const icon of fighter.powerIcons) icon.setVisible(false);
     fighter.glow.setVisible(false);
     fighter.flashSprite.setAlpha(0);
     fighter.hitFlashSprite.setAlpha(0);
@@ -1896,7 +1909,7 @@ export default class GameScene extends Phaser.Scene {
             dx <= HEAVENS_FURY_BEAM_HALF_WIDTH
           ) {
             this.dealHit(target, {
-              damage: MAX_HP,
+              damage: MAX_HP * 0.8,
               ignoreShield: true,
               powerFlashColor: POWERS.heavens_fury.orbColor,
             });
@@ -1982,6 +1995,7 @@ export default class GameScene extends Phaser.Scene {
       hp: f.hp,
       lives: f.lives,
       shielded: f.shieldCharges > 0,
+      powers: f.specialPowers.slice(),
     });
   }
 
@@ -2030,6 +2044,9 @@ export default class GameScene extends Phaser.Scene {
     }
     if (typeof data.hp === 'number') {
       remote.hp = data.hp;
+    }
+    if (Array.isArray(data.powers)) {
+      remote.specialPowers = data.powers.slice();
     }
     if (typeof data.lives === 'number') {
       const prevLives = remote.lives;
@@ -2104,6 +2121,15 @@ export default class GameScene extends Phaser.Scene {
     }
 
     if (!fighter.isDead && !fighter.isStunned) {
+      if (
+        Phaser.Input.Keyboard.JustDown(this.keys.swapPowers) &&
+        fighter.specialPowers.length >= 2
+      ) {
+        const [a, b] = fighter.specialPowers;
+        fighter.specialPowers[0] = b;
+        fighter.specialPowers[1] = a;
+      }
+
       const leftDown = this.keys.left.isDown;
       const rightDown = this.keys.right.isDown;
 
@@ -2635,6 +2661,7 @@ export default class GameScene extends Phaser.Scene {
         f.glow.setVisible(false);
         f.hpBarBg.setVisible(false);
         f.hpBarFill.setVisible(false);
+        for (const icon of f.powerIcons) icon.setVisible(false);
         continue;
       }
 
@@ -2705,6 +2732,22 @@ export default class GameScene extends Phaser.Scene {
       f.hpBarFill.setPosition(barX - (f.hpBarWidth - 2) / 2, barY);
       f.hpBarFill.width = (f.hpBarWidth - 2) * pct;
       f.hpBarFill.fillColor = pct > 0.5 ? 0x22c55e : pct > 0.25 ? 0xeab308 : 0xef4444;
+
+      const iconY = barY - 10;
+      const iconSpacing = 10;
+      const powers = f.specialPowers;
+      for (let i = 0; i < f.powerIcons.length; i++) {
+        const icon = f.powerIcons[i];
+        const power = powers[i];
+        if (power && POWERS[power]) {
+          const offset = (i - (Math.min(powers.length, f.powerIcons.length) - 1) / 2) * iconSpacing;
+          icon.setPosition(barX + offset, iconY);
+          icon.fillColor = POWERS[power].orbColor;
+          icon.setVisible(true);
+        } else {
+          icon.setVisible(false);
+        }
+      }
     }
   }
 }
