@@ -3900,6 +3900,7 @@ export default class GameScene extends Phaser.Scene {
 
       sprite.setTexture(orig.textureKey, orig.frameName);
       sprite.setScale(orig.scale);
+      if (sprite.updateDisplayOrigin) sprite.updateDisplayOrigin();
       body.setSize(orig.bodyW, orig.bodyH);
       body.setOffset(orig.bodyOffsetX, orig.bodyOffsetY);
       body.allowGravity = orig.allowGravity;
@@ -3907,8 +3908,10 @@ export default class GameScene extends Phaser.Scene {
       body.setVelocity(0, 0);
       sprite.isEye = false;
       if (!skipReposition) {
-        sprite.x = wantBodyCenterX - orig.bodyW / 2 + sprite.scaleX * (sprite.displayOriginX - orig.bodyOffsetX);
-        sprite.y = wantBodyCenterY - orig.bodyH / 2 + sprite.scaleY * (sprite.displayOriginY - orig.bodyOffsetY);
+        const newSpriteX = wantBodyCenterX - orig.bodyW / 2 + sprite.scaleX * (sprite.displayOriginX - orig.bodyOffsetX);
+        const newSpriteY = wantBodyCenterY - orig.bodyH / 2 + sprite.scaleY * (sprite.displayOriginY - orig.bodyOffsetY);
+        sprite.setPosition(newSpriteX, newSpriteY);
+        if (body.reset) body.reset(newSpriteX, newSpriteY);
       }
       sprite.anims.play(`${fighter.char.id}_idle`, true);
     }
