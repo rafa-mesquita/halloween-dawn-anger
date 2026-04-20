@@ -211,7 +211,7 @@ const POWERS = {
     lootCatchKey: 'ice_beam_loot_catch',
     lootFrameSize: 64,
     lootScale: 1.1,
-    lootCatchScale: 1.4,
+    lootCatchScale: 2.6,
     lootGlowScale: 0.65,
     lootGlowPulseScale: 0.88,
   },
@@ -467,6 +467,10 @@ export default class GameScene extends Phaser.Scene {
       frameHeight: 32,
     });
     this.load.spritesheet('ice_cast_fx', 'sprites/Power 7 (ice beam)/shield carch.png', {
+      frameWidth: 32,
+      frameHeight: 32,
+    });
+    this.load.spritesheet('ice_beam_loot_catch_sheet', 'sprites/Power 7 (ice beam)/loot catch.png', {
       frameWidth: 32,
       frameHeight: 32,
     });
@@ -816,11 +820,6 @@ export default class GameScene extends Phaser.Scene {
       frameW, frameH, 8,
       (ctx, i, total) => this.drawSnowballIdleFrame(ctx, i, total, frameW, frameH),
     );
-    this.createCanvasSpritesheet(
-      'ice_beam_loot_catch',
-      frameW, frameH, 7,
-      (ctx, i, total) => this.drawSnowballCatchFrame(ctx, i, total, frameW, frameH),
-    );
     this.anims.create({
       key: 'ice_beam_loot_idle',
       frames: this.anims.generateFrameNumbers('ice_beam_loot_idle', { start: 0, end: 7 }),
@@ -829,8 +828,8 @@ export default class GameScene extends Phaser.Scene {
     });
     this.anims.create({
       key: 'ice_beam_loot_catch',
-      frames: this.anims.generateFrameNumbers('ice_beam_loot_catch', { start: 0, end: 6 }),
-      frameRate: 16,
+      frames: this.anims.generateFrameNumbers('ice_beam_loot_catch_sheet', { start: 0, end: 17 }),
+      frameRate: 20,
       repeat: 0,
     });
   }
