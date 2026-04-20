@@ -3896,8 +3896,8 @@ export default class GameScene extends Phaser.Scene {
 
     if (orig) {
       const EYE_REVERT_LIFT_Y = 48;
-      const eyeSpriteX = sprite.x;
-      const eyeSpriteY = sprite.y;
+      const wantCx = body.x + body.width / 2;
+      const wantCy = body.y + body.height / 2;
 
       sprite.setTexture(orig.textureKey, orig.frameName);
       sprite.setScale(orig.scale);
@@ -3909,8 +3909,12 @@ export default class GameScene extends Phaser.Scene {
       body.setVelocity(0, 0);
       sprite.isEye = false;
       if (!skipReposition) {
-        const newSpriteX = eyeSpriteX;
-        const newSpriteY = eyeSpriteY - EYE_REVERT_LIFT_Y;
+        sprite.setPosition(0, 0);
+        if (body.updateFromGameObject) body.updateFromGameObject();
+        const offsetCenterX = body.x + body.width / 2;
+        const offsetCenterY = body.y + body.height / 2;
+        const newSpriteX = wantCx - offsetCenterX;
+        const newSpriteY = wantCy - offsetCenterY - EYE_REVERT_LIFT_Y;
         sprite.setPosition(newSpriteX, newSpriteY);
         if (body.reset) body.reset(newSpriteX, newSpriteY);
       }
