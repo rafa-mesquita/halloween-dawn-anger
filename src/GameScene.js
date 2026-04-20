@@ -162,7 +162,7 @@ const ICE_BEAM_THICKNESS = 22;
 const ICE_BEAM_HIT_RADIUS = 42;
 const ICE_SLOW_DURATION_MS = 700;
 const ICE_FREEZE_DURATION_MS = 4000;
-const ICE_HITS_TO_FREEZE = 10;
+const ICE_HITS_TO_FREEZE = 12;
 const ICE_SLOW_FACTOR_START = 0.55;
 const ICE_SLOW_FACTOR_MIN = 0.15;
 const EYE_ATTACK_HITBOX_FORWARD = 40;
@@ -3342,6 +3342,15 @@ export default class GameScene extends Phaser.Scene {
         const pointer = this.input.activePointer;
         b.aimX = pointer.worldX;
         b.aimY = pointer.worldY;
+        if (this.isMultiplayer && this.network && (!b.lastAimSentAt || time - b.lastAimSentAt > 80)) {
+          b.lastAimSentAt = time;
+          this.network.send({
+            type: 'ice_beam_aim',
+            beamId: b.beamId,
+            aimX: b.aimX,
+            aimY: b.aimY,
+          });
+        }
       }
       const targetAngle = Math.atan2(b.aimY - cy, b.aimX - cx);
       const diff = Phaser.Math.Angle.Wrap(targetAngle - b.currentAngle);
@@ -3894,7 +3903,7 @@ export default class GameScene extends Phaser.Scene {
     const cam = this.cameras.main;
     const lineH = 20;
     const rows = Math.max(1, this.fighters.length);
-    const w = 180;
+    const w = 220;
     const h = lineH * rows + 22;
     const x = cam.width - w - 14;
     const y = 86;
@@ -3903,7 +3912,7 @@ export default class GameScene extends Phaser.Scene {
       .setStrokeStyle(2, 0x38bdf8, 0.7)
       .setScrollFactor(0)
       .setDepth(22);
-    this.killHudTitle = this.add.text(x + w / 2, y + 4, 'Kills', {
+    this.killHudTitle = this.add.text(x + w / 2, y + 4, 'Jogadores', {
       font: 'bold 12px sans-serif',
       color: '#93c5fd',
       stroke: '#000000',
@@ -3921,13 +3930,31 @@ export default class GameScene extends Phaser.Scene {
         stroke: '#000000',
         strokeThickness: 2,
       }).setOrigin(0, 0).setScrollFactor(0).setDepth(23);
+      const heart = this.add.text(x + w - 70, row, '♥', {
+        font: 'bold 13px sans-serif',
+        color: '#ef4444',
+        stroke: '#000000',
+        strokeThickness: 2,
+      }).setOrigin(0, 0).setScrollFactor(0).setDepth(23);
+      const livesText = this.add.text(x + w - 56, row, `${f.lives ?? 0}`, {
+        font: 'bold 13px sans-serif',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 2,
+      }).setOrigin(0, 0).setScrollFactor(0).setDepth(23);
+      const skull = this.add.text(x + w - 28, row, '☠', {
+        font: 'bold 13px sans-serif',
+        color: '#e5e7eb',
+        stroke: '#000000',
+        strokeThickness: 2,
+      }).setOrigin(0, 0).setScrollFactor(0).setDepth(23);
       const countText = this.add.text(x + w - 10, row, '0', {
         font: 'bold 13px sans-serif',
         color: '#ffffff',
         stroke: '#000000',
         strokeThickness: 2,
       }).setOrigin(1, 0).setScrollFactor(0).setDepth(23);
-      this.killHudLines.push({ fighter: f, label, countText });
+      this.killHudLines.push({ fighter: f, label, heart, livesText, skull, countText });
     }
   }
 
@@ -3939,9 +3966,18 @@ export default class GameScene extends Phaser.Scene {
         line.lastKills = k;
         line.countText.setText(String(k));
       }
+      const lv = line.fighter.lives ?? 0;
+      if (line.lastLives !== lv) {
+        line.lastLives = lv;
+        line.livesText.setText(String(lv));
+      }
       const dead = line.fighter.isDead && line.fighter.lives <= 0;
-      line.label.setAlpha(dead ? 0.45 : 1);
-      line.countText.setAlpha(dead ? 0.45 : 1);
+      const a = dead ? 0.4 : 1;
+      line.label.setAlpha(a);
+      line.heart.setAlpha(a);
+      line.livesText.setAlpha(a);
+      line.skull.setAlpha(a);
+      line.countText.setAlpha(a);
     }
   }
 
@@ -4167,6 +4203,18 @@ export default class GameScene extends Phaser.Scene {
       if (killer) {
         killer.kills = (killer.kills || 0) + 1;
         if (data.killerIndex === this.myIndex) this.playKillSfx(killer.kills);
+      }
+      return;
+    }
+    if (data.type === 'ice_beam_aim') {
+      if (this.iceBeams) {
+        for (const b of this.iceBeams) {
+          if (b.beamId === data.beamId) {
+            b.aimX = data.aimX;
+            b.aimY = data.aimY;
+            break;
+          }
+        }
       }
       return;
     }
