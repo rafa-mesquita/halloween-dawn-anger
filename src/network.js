@@ -25,7 +25,7 @@ export class NetworkManager {
   host() {
     this.isHost = true;
     this.myIndex = 0;
-    this.peers = [{ index: 0, charId: 'p1' }];
+    this.peers = [{ index: 0, charId: 'p1', nick: '' }];
     return new Promise((resolve, reject) => {
       let attempts = 0;
       const tryOpen = () => {
@@ -64,7 +64,7 @@ export class NetworkManager {
     const defaultChars = ['p1', 'p2', 'p3', 'p4'];
     const client = { conn, index };
     this.clients.push(client);
-    this.peers.push({ index, charId: defaultChars[index] ?? 'p1' });
+    this.peers.push({ index, charId: defaultChars[index] ?? 'p1', nick: '' });
     conn.on('open', () => {
       this.isConnected = true;
       conn.send({ type: '_assign', index });
@@ -98,6 +98,15 @@ export class NetworkManager {
       }
       return;
     }
+    if (data.type === '_nick') {
+      const peer = this.peers.find((p) => p.index === client.index);
+      if (peer && typeof data.nick === 'string') {
+        peer.nick = data.nick.slice(0, 12);
+        this.broadcastPeers();
+        if (this.onPeersCallback) this.onPeersCallback(this.peers.slice());
+      }
+      return;
+    }
     for (const c of this.clients) {
       if (c !== client && c.conn.open) c.conn.send(data);
     }
@@ -112,6 +121,18 @@ export class NetworkManager {
       if (this.onPeersCallback) this.onPeersCallback(this.peers.slice());
     } else if (this.hostConn && this.hostConn.open) {
       this.hostConn.send({ type: '_pick', charId });
+    }
+  }
+
+  setMyNick(nick) {
+    const clean = (nick || '').slice(0, 12);
+    if (this.isHost) {
+      const me = this.peers.find((p) => p.index === this.myIndex);
+      if (me) me.nick = clean;
+      this.broadcastPeers();
+      if (this.onPeersCallback) this.onPeersCallback(this.peers.slice());
+    } else if (this.hostConn && this.hostConn.open) {
+      this.hostConn.send({ type: '_nick', nick: clean });
     }
   }
 

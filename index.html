@@ -281,6 +281,10 @@
         <button id="btn-copy-id" type="button">Copiar código</button>
         <p class="muted" id="host-status">Aguardando conexão...</p>
         <div class="picker">
+          <div class="picker-label">Seu nick</div>
+          <input id="host-nick" type="text" maxlength="12" placeholder="Seu nick" />
+        </div>
+        <div class="picker">
           <div class="picker-label">Seu personagem</div>
           <div class="picker-tiles" id="host-picker"></div>
         </div>
@@ -297,6 +301,10 @@
       </div>
       <div id="lobby-waiting" class="panel">
         <p class="muted">Conectado. Aguardando o host iniciar a partida...</p>
+        <div class="picker">
+          <div class="picker-label">Seu nick</div>
+          <input id="waiting-nick" type="text" maxlength="12" placeholder="Seu nick" />
+        </div>
         <div class="picker">
           <div class="picker-label">Seu personagem</div>
           <div class="picker-tiles" id="waiting-picker"></div>

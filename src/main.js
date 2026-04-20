@@ -65,7 +65,8 @@ function renderPlayersList(containerId, peers, myIndex) {
     const left = document.createElement('span');
     const youTag = p.index === myIndex ? ' (você)' : '';
     const hostTag = p.index === 0 ? ' [host]' : '';
-    left.textContent = `Jogador ${p.index + 1}${hostTag}${youTag}`;
+    const nickTag = p.nick ? ` "${p.nick}"` : ' (sem nick)';
+    left.textContent = `Jogador ${p.index + 1}${hostTag}${youTag}${nickTag}`;
 
     const right = document.createElement('span');
     right.style.display = 'flex';
@@ -94,7 +95,9 @@ function updateStartButton(peers) {
   const btn = document.getElementById('btn-start-match');
   const count = peers.length;
   btn.textContent = `Iniciar partida (${count}/${MAX_PLAYERS})`;
-  btn.disabled = count < 2;
+  const allHaveNick = peers.every((p) => (p.nick || '').trim().length > 0);
+  btn.disabled = count < 2 || !allHaveNick;
+  btn.title = !allHaveNick ? 'Aguardando todos escolherem um nick' : '';
 }
 
 document.getElementById('btn-single').addEventListener('click', () => {
@@ -117,6 +120,14 @@ function setupHostLobbyUI(net) {
       refresh();
     });
   };
+  const nickInput = document.getElementById('host-nick');
+  if (nickInput) {
+    nickInput.value = myPeer()?.nick ?? '';
+    nickInput.oninput = () => {
+      net.setMyNick(nickInput.value.trim());
+      refresh();
+    };
+  }
   refresh();
 
   net.onPeers((peers) => {
@@ -131,7 +142,11 @@ function setupHostLobbyUI(net) {
     const players = net.peers
       .slice()
       .sort((a, b) => a.index - b.index)
-      .map((p) => ({ index: p.index, charId: p.charId ?? CHARACTER_IDS[p.index] ?? 'p1' }));
+      .map((p) => ({
+        index: p.index,
+        charId: p.charId ?? CHARACTER_IDS[p.index] ?? 'p1',
+        nick: (p.nick || '').trim() || `Jogador ${p.index + 1}`,
+      }));
     net.startMatch(players);
     lobby.style.display = 'none';
     startGame('host', net, { players, myIndex: net.myIndex });
@@ -147,6 +162,14 @@ function setupClientWaitingUI(net) {
       net.setMyCharacter(charId);
     });
   };
+  const nickInput = document.getElementById('waiting-nick');
+  if (nickInput) {
+    nickInput.value = myPeer()?.nick ?? '';
+    nickInput.oninput = () => {
+      net.setMyNick(nickInput.value.trim());
+      refresh();
+    };
+  }
   refresh();
   net.onPeers(() => refresh());
   net.onStart((players) => {

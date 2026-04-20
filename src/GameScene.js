@@ -383,6 +383,11 @@ export default class GameScene extends Phaser.Scene {
     this.load.audio('sfx_fire_storm_2', 'audio/powers/fire_storm/Cast and wave 2_2.mp3');
     this.load.audio('sfx_ice_cast', 'audio/powers/icebeam/ice cast.mp3');
     this.load.audio('sfx_ice_crash', 'audio/powers/icebeam/crash ice.mp3');
+    this.load.audio('sfx_kill_1', 'audio/kills sounds/1-kill.mp3');
+    this.load.audio('sfx_kill_2', 'audio/kills sounds/2-kills.mp3');
+    this.load.audio('sfx_kill_3', 'audio/kills sounds/3-kills.mp3');
+    this.load.audio('sfx_kill_4', 'audio/kills sounds/4-kills.mp3');
+    this.load.audio('sfx_kill_5', 'audio/kills sounds/5-kills.mp3');
     this.load.audio('sfx_power_pickup', 'audio/power catch/power cath.mp3');
     this.load.audio('sfx_cure', 'audio/heal novo/93eeb9fc-8eab-44db-aa09-270a2550a130.mp3');
     this.load.audio('sfx_jump', 'audio/jump/30_Jump_03.wav');
@@ -1382,17 +1387,21 @@ export default class GameScene extends Phaser.Scene {
         index: p.index,
         char: CHARACTERS.find((c) => c.id === p.charId) ?? CHARACTERS[i],
         spawn: spawnPositions[i] ?? spawnPositions[0],
+        nick: p.nick || `Jogador ${p.index + 1}`,
       }));
     } else {
       playerConfigs = CHARACTERS.slice(0, SINGLE_PLAYER_CHARACTER_COUNT).map((char, i) => ({
         index: i,
         char,
         spawn: spawnPositions[i] ?? spawnPositions[0],
+        nick: `P${i + 1}`,
       }));
     }
     for (const cfg of playerConfigs) {
       const fighter = this.createFighter(cfg.char, cfg.spawn.x, cfg.spawn.y);
       fighter.ownerIndex = cfg.index;
+      fighter.nick = cfg.nick;
+      fighter.kills = 0;
       this.fighters.push(fighter);
       this.fightersByIndex[cfg.index] = fighter;
       this.physics.add.collider(
@@ -1407,6 +1416,8 @@ export default class GameScene extends Phaser.Scene {
       ? this.fightersByIndex[this.myIndex]
       : this.fighters[0];
     this.player = this.playerFighter.sprite;
+
+    if (this.isMultiplayer) this.createKillHud();
 
     this.selfArrow = this.add.image(0, 0, 'self_arrow')
       .setOrigin(0.5, 1)
@@ -2273,6 +2284,9 @@ export default class GameScene extends Phaser.Scene {
     if (fighter.isInvulnerable || fighter.isDead) return;
     const ignoreShield = !!(opts && opts.ignoreShield);
     const ignoreCurseMultiplier = !!(opts && opts.ignoreCurseMultiplier);
+    if (opts && opts.attackerIndex !== undefined) {
+      fighter.lastAttackerIndex = opts.attackerIndex;
+    }
     let finalAmount = amount * (ignoreCurseMultiplier ? 1 : (fighter.curseMultiplier || 1));
     if (!ignoreShield && fighter.shieldCharges > 0) {
       finalAmount = finalAmount * SHIELD_DAMAGE_MULTIPLIER;
@@ -2655,6 +2669,25 @@ export default class GameScene extends Phaser.Scene {
     if (fighter.isFrozen) this.removeFreeze(fighter);
     fighter.isDead = true;
     fighter.lives = Math.max(0, fighter.lives - 1);
+    if (
+      fighter.lastAttackerIndex !== undefined &&
+      fighter.lastAttackerIndex !== null &&
+      fighter.lastAttackerIndex !== fighter.ownerIndex
+    ) {
+      const killer = this.fightersByIndex[fighter.lastAttackerIndex];
+      if (killer && killer !== fighter) {
+        killer.kills = (killer.kills || 0) + 1;
+        if (killer === this.playerFighter) this.playKillSfx(killer.kills);
+        if (this.isMultiplayer && this.network && this.isAuthoritativeOwner(fighter)) {
+          this.network.send({
+            type: 'kill_credit',
+            killerIndex: fighter.lastAttackerIndex,
+            victimIndex: fighter.ownerIndex,
+          });
+        }
+      }
+    }
+    fighter.lastAttackerIndex = null;
     fighter.specialPowers = [];
     this.removeShield(fighter);
     this.removeSkullCurse(fighter);
@@ -3852,6 +3885,66 @@ export default class GameScene extends Phaser.Scene {
     this.selfArrow.setScale(this._selfArrowBaseScale * pulse);
   }
 
+  playKillSfx(killsCount) {
+    const n = Math.max(1, Math.min(5, killsCount));
+    this.playSfx(`sfx_kill_${n}`, 1);
+  }
+
+  createKillHud() {
+    const cam = this.cameras.main;
+    const lineH = 20;
+    const rows = Math.max(1, this.fighters.length);
+    const w = 180;
+    const h = lineH * rows + 22;
+    const x = cam.width - w - 14;
+    const y = 86;
+    this.killHudBg = this.add.rectangle(x, y, w, h, 0x0f172a, 0.7)
+      .setOrigin(0, 0)
+      .setStrokeStyle(2, 0x38bdf8, 0.7)
+      .setScrollFactor(0)
+      .setDepth(22);
+    this.killHudTitle = this.add.text(x + w / 2, y + 4, 'Kills', {
+      font: 'bold 12px sans-serif',
+      color: '#93c5fd',
+      stroke: '#000000',
+      strokeThickness: 2,
+    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(23);
+    this.killHudLines = [];
+    const sorted = this.fighters.slice().sort((a, b) => a.ownerIndex - b.ownerIndex);
+    for (let i = 0; i < sorted.length; i++) {
+      const f = sorted[i];
+      const row = y + 22 + i * lineH;
+      const colorHex = `#${(f.char.tintColor || 0xffffff).toString(16).padStart(6, '0')}`;
+      const label = this.add.text(x + 10, row, f.nick || `P${f.ownerIndex + 1}`, {
+        font: 'bold 13px sans-serif',
+        color: colorHex,
+        stroke: '#000000',
+        strokeThickness: 2,
+      }).setOrigin(0, 0).setScrollFactor(0).setDepth(23);
+      const countText = this.add.text(x + w - 10, row, '0', {
+        font: 'bold 13px sans-serif',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 2,
+      }).setOrigin(1, 0).setScrollFactor(0).setDepth(23);
+      this.killHudLines.push({ fighter: f, label, countText });
+    }
+  }
+
+  updateKillHud() {
+    if (!this.killHudLines) return;
+    for (const line of this.killHudLines) {
+      const k = line.fighter.kills || 0;
+      if (line.lastKills !== k) {
+        line.lastKills = k;
+        line.countText.setText(String(k));
+      }
+      const dead = line.fighter.isDead && line.fighter.lives <= 0;
+      line.label.setAlpha(dead ? 0.45 : 1);
+      line.countText.setAlpha(dead ? 0.45 : 1);
+    }
+  }
+
   updateEyeHud(time) {
     if (!this.eyeHudText) return;
     const eyeF = this.fighters.find((f) => f.isEye && !f.isDead);
@@ -3886,7 +3979,10 @@ export default class GameScene extends Phaser.Scene {
       this.playSfx('sfx_shield_break');
       this.removeShield(target);
     }
-    this.damageFighter(target, hit.damage, { ignoreShield: !!hit.ignoreShield });
+    this.damageFighter(target, hit.damage, {
+      ignoreShield: !!hit.ignoreShield,
+      attackerIndex: hit.attackerIndex,
+    });
     if (!target.isDead) {
       if (hit.knockbackX) {
         target.sprite.body.setVelocityX(hit.knockbackX);
@@ -3908,6 +4004,9 @@ export default class GameScene extends Phaser.Scene {
   applyEyeHit(target, hit) {
     if (hit.powerFlashColor !== null && hit.powerFlashColor !== undefined) {
       this.triggerPowerFlash(target, hit.powerFlashColor);
+    }
+    if (hit.attackerIndex !== undefined) {
+      target.lastAttackerIndex = hit.attackerIndex;
     }
     if (hit.heavensFury) {
       this.revertFromEye(target, { killAlso: true });
@@ -3947,6 +4046,7 @@ export default class GameScene extends Phaser.Scene {
 
   dealHit(target, hit) {
     if (hit.playHitSfx) this.playSfx('sfx_hit');
+    hit.attackerIndex = this.playerFighter?.ownerIndex ?? this.myIndex ?? 0;
     if (this.isMultiplayer && target !== this.playerFighter) {
       if (!target.isDead) {
         this.triggerHitFlash(target);
@@ -4060,6 +4160,14 @@ export default class GameScene extends Phaser.Scene {
       if (this._restartingFromNetwork) return;
       this._restartingFromNetwork = true;
       window.dispatchEvent(new CustomEvent('match-return-to-lobby'));
+      return;
+    }
+    if (data.type === 'kill_credit') {
+      const killer = this.fightersByIndex[data.killerIndex];
+      if (killer) {
+        killer.kills = (killer.kills || 0) + 1;
+        if (data.killerIndex === this.myIndex) this.playKillSfx(killer.kills);
+      }
       return;
     }
     if (data.type === 'double_jump_fx') {
@@ -4294,6 +4402,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.updateEyeHud(time);
     this.updateSelfArrow();
+    this.updateKillHud();
     this.updateIceBeams(time);
     this.updateFrozenStates(time);
     this.updateIceAmbientStop();
