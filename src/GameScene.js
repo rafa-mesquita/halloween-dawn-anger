@@ -178,14 +178,10 @@ const POWERS = {
   },
   fire_storm: {
     orbColor: 0xff3b30,
-    lootGlowKey: 'glow_red',
+    lootGlowKey: 'glow_orange',
     lootIdleKey: 'fire_storm_loot_idle',
     lootCatchKey: 'fire_storm_loot_catch',
-    lootFrameSize: 48,
-    lootScale: 2.2,
     lootCatchScale: 1.65,
-    lootIdleFrameStart: 8,
-    lootIdleFrameEnd: 11,
   },
   eye: {
     orbColor: 0x78350f,
@@ -389,9 +385,9 @@ export default class GameScene extends Phaser.Scene {
       frameWidth: FIRE_STORM_HIT_FRAME_SIZE,
       frameHeight: FIRE_STORM_HIT_FRAME_SIZE,
     });
-    this.load.spritesheet('fire_storm_loot_idle', 'sprites/Poder 5 (fire storm)/Fite Loot.png', {
-      frameWidth: 48,
-      frameHeight: 48,
+    this.load.spritesheet('fire_storm_loot_idle', 'sprites/Poder 5 (fire storm)/Fite Loot 2.png', {
+      frameWidth: LOOT_FRAME_SIZE,
+      frameHeight: LOOT_FRAME_SIZE,
     });
     this.load.spritesheet('fire_storm_loot_catch', 'sprites/Poder 5 (fire storm)/Fire catch.png', {
       frameWidth: 64,
@@ -577,8 +573,8 @@ export default class GameScene extends Phaser.Scene {
     });
     this.anims.create({
       key: 'fire_storm_loot_idle',
-      frames: this.anims.generateFrameNumbers('fire_storm_loot_idle', { start: 8, end: 11 }),
-      frameRate: 8,
+      frames: this.anims.generateFrameNumbers('fire_storm_loot_idle', { start: 0, end: WOOD_IDLE_FRAMES - 1 }),
+      frameRate: 6,
       repeat: -1,
     });
     this.anims.create({
