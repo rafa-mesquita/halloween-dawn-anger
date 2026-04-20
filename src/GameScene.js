@@ -116,6 +116,21 @@ const WHEEL_STUN_MS = 4000;
 const WHEEL_KNOCKUP = -380;
 const WHEEL_FRAMERATE = 14;
 
+const FIRE_STORM_FRAME_W = 64;
+const FIRE_STORM_FRAME_H = 64;
+const FIRE_STORM_FRAMES_PER_ROW = 14;
+const FIRE_STORM_HIT_FRAME_SIZE = 160;
+const FIRE_STORM_HIT_FRAMES = 8;
+const FIRE_STORM_HIT_SCALE = 1.4;
+const FIRE_STORM_HIT_FRAMERATE = 20;
+const FIRE_STORM_SCALE = 2.5;
+const FIRE_STORM_SPEED = 520;
+const FIRE_STORM_DAMAGE = MAX_HP * 0.25;
+const FIRE_STORM_RAY_BODY = 42;
+const FIRE_STORM_WAVES = 2;
+const FIRE_STORM_WAVE_DELAY_MS = 1100;
+const FIRE_STORM_FRAMERATE = 20;
+
 const POWERS = {
   heavens_fury: {
     animKey: 'heavens_fury',
@@ -131,9 +146,13 @@ const POWERS = {
   wheel: {
     orbColor: 0xffffff,
   },
+  fire_storm: {
+    orbColor: 0xff3b30,
+    lootGlowKey: 'glow_red',
+  },
 };
 
-const WOOD_POWER_POOL = ['heavens_fury', 'skull_curse', 'wheel'];
+const WOOD_POWER_POOL = ['heavens_fury', 'skull_curse', 'wheel', 'fire_storm'];
 
 const LOOT_TYPES = {
   wood: {
@@ -243,6 +262,8 @@ export default class GameScene extends Phaser.Scene {
     this.load.audio('sfx_wheel_hit2', 'audio/powers/wheel/hit2.mp3');
     this.load.audio('sfx_wheel_air', 'audio/powers/wheel/Moviment_Air.mp3');
     this.load.audio('sfx_wheel_ground', 'audio/powers/wheel/Moviment_ground.mp3');
+    this.load.audio('sfx_fire_storm', 'audio/powers/fire_storm/Cast and wave 2.mp3');
+    this.load.audio('sfx_fire_storm_2', 'audio/powers/fire_storm/Cast and wave 2_2.mp3');
     this.load.audio('sfx_power_pickup', 'audio/power catch/power cath.mp3');
     this.load.audio('sfx_cure', 'audio/heal novo/93eeb9fc-8eab-44db-aa09-270a2550a130.mp3');
     this.load.audio('sfx_jump', 'audio/jump/30_Jump_03.wav');
@@ -296,6 +317,14 @@ export default class GameScene extends Phaser.Scene {
     this.load.spritesheet('stun_vfx', 'sprites/Poder 4 (Wheel)/stun.png', {
       frameWidth: 64,
       frameHeight: 64,
+    });
+    this.load.spritesheet('fire_storm', 'sprites/Poder 5 (fire storm)/579.png', {
+      frameWidth: FIRE_STORM_FRAME_W,
+      frameHeight: FIRE_STORM_FRAME_H,
+    });
+    this.load.spritesheet('fire_storm_hit', 'sprites/Poder 5 (fire storm)/hit.png', {
+      frameWidth: FIRE_STORM_HIT_FRAME_SIZE,
+      frameHeight: FIRE_STORM_HIT_FRAME_SIZE,
     });
   }
 
@@ -485,6 +514,24 @@ export default class GameScene extends Phaser.Scene {
       }),
       frameRate: SKULL_CURSE_VFX_FRAMERATE,
       repeat: -1,
+    });
+    this.anims.create({
+      key: 'fire_storm_ray',
+      frames: this.anims.generateFrameNumbers('fire_storm', {
+        start: 0,
+        end: FIRE_STORM_FRAMES_PER_ROW - 1,
+      }),
+      frameRate: FIRE_STORM_FRAMERATE,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: 'fire_storm_hit',
+      frames: this.anims.generateFrameNumbers('fire_storm_hit', {
+        start: 0,
+        end: FIRE_STORM_HIT_FRAMES - 1,
+      }),
+      frameRate: FIRE_STORM_HIT_FRAMERATE,
+      repeat: 0,
     });
     this.anims.create({
       key: 'wheel_roll',
@@ -844,6 +891,29 @@ export default class GameScene extends Phaser.Scene {
 
     this.wheelProjectiles = [];
 
+    this.specialFireStormSprite = this.add.circle(
+      specialOrbCenterX,
+      orbsY,
+      SPECIAL_ORB_RADIUS,
+      0xff3b30
+    )
+      .setStrokeStyle(3, 0x991b1b)
+      .setDepth(22)
+      .setScrollFactor(0)
+      .setVisible(false);
+    this.specialFireStormPulse = this.tweens.add({
+      targets: this.specialFireStormSprite,
+      scale: 1.2,
+      duration: 500,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+      paused: true,
+    });
+
+    this.fireStormRays = [];
+    this.fireStormHitVfx = [];
+
     const secondarySlotX = specialOrbCenterX + SPECIAL_ORB_RADIUS + 10;
     this.specialSlot2Sprite = this.add.circle(
       secondarySlotX,
@@ -968,8 +1038,10 @@ export default class GameScene extends Phaser.Scene {
 
   createLootAt({ id, lootType, power, x, y }) {
     const type = LOOT_TYPES[lootType];
+    const glowKey =
+      (lootType === 'wood' && power && POWERS[power]?.lootGlowKey) || type.glowKey;
 
-    const glow = this.add.image(x, y, type.glowKey)
+    const glow = this.add.image(x, y, glowKey)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(DEFAULT_SPRITE_DEPTH - 1)
       .setScale(0.55);
@@ -1925,6 +1997,102 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  fireFireStorm(fighter) {
+    for (let w = 0; w < FIRE_STORM_WAVES; w++) {
+      const delay = w * FIRE_STORM_WAVE_DELAY_MS;
+      this.time.delayedCall(delay, () => {
+        if (!fighter || fighter.isDead) return;
+        this.spawnFireStormWave(fighter);
+      });
+    }
+  }
+
+  spawnFireStormWave(fighter) {
+    this.playSfx('sfx_fire_storm', 1, 0.2);
+    this.playSfx('sfx_fire_storm_2', 1, 0.4);
+    const body = fighter.sprite.body;
+    const startX = body.x + body.width / 2;
+    const startY = body.y + body.height / 2;
+    const hitSet = new Set();
+
+    const burst = this.add.image(startX, startY, 'glow_orange')
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(ATTACKER_DEPTH - 0.1)
+      .setScale(0.5)
+      .setAlpha(0.9);
+    this.tweens.add({
+      targets: burst,
+      alpha: 0,
+      scale: 1.4,
+      duration: 420,
+      onComplete: () => burst.destroy(),
+    });
+    this.spawnFireStormHit(fighter);
+
+    for (let i = 0; i < 8; i++) {
+      const angle = (Math.PI / 4) * i;
+      this.spawnFireStormRay(fighter, startX, startY, angle, hitSet);
+    }
+  }
+
+  spawnFireStormRay(fighter, startX, startY, angle, hitSet) {
+    const vx = Math.cos(angle) * FIRE_STORM_SPEED;
+    const vy = Math.sin(angle) * FIRE_STORM_SPEED;
+
+    const aura = this.add.image(startX, startY, 'glow_orange')
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setScale(0.45)
+      .setDepth(ATTACKER_DEPTH - 0.1)
+      .setAlpha(0.85);
+    const auraPulse = this.tweens.add({
+      targets: aura,
+      scale: 0.6,
+      alpha: 0.55,
+      duration: 220,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    const ray = this.physics.add.sprite(startX, startY, 'fire_storm', 0);
+    ray.setScale(FIRE_STORM_SCALE);
+    ray.setDepth(ATTACKER_DEPTH);
+    ray.setRotation(angle);
+    ray.body.allowGravity = false;
+    ray.body.setSize(FIRE_STORM_RAY_BODY, FIRE_STORM_RAY_BODY, true);
+    ray.body.setVelocity(vx, vy);
+    ray.setCollideWorldBounds(false);
+    ray.setBlendMode(Phaser.BlendModes.ADD);
+    ray.ownerFighter = fighter;
+    ray.hitSet = hitSet;
+    ray.aura = aura;
+    ray.auraPulse = auraPulse;
+    ray.play('fire_storm_ray');
+
+    this.fireStormRays.push(ray);
+  }
+
+  spawnFireStormHit(fighter) {
+    const body = fighter.sprite.body;
+    const vfx = this.add.sprite(
+      body.x + body.width / 2,
+      body.y + body.height / 2,
+      'fire_storm_hit',
+      0,
+    )
+      .setScale(FIRE_STORM_HIT_SCALE)
+      .setDepth(ATTACKER_DEPTH + 0.5)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    vfx.follow = fighter;
+    vfx.play('fire_storm_hit');
+    vfx.once('animationcomplete', () => {
+      const idx = this.fireStormHitVfx.indexOf(vfx);
+      if (idx >= 0) this.fireStormHitVfx.splice(idx, 1);
+      vfx.destroy();
+    });
+    this.fireStormHitVfx.push(vfx);
+  }
+
   executeHeavensStrike(fighter, worldX, surfaceY) {
     this.playSfx('sfx_heavens_fury_second');
     const beamCoreHeight = Math.max(0, surfaceY);
@@ -2104,16 +2272,20 @@ export default class GameScene extends Phaser.Scene {
     if (!data) return;
     if (data.type === 'hit') {
       if (data.playHitSfx) this.playSfx('sfx_hit');
+      const target =
+        data.targetIndex === this.myIndex
+          ? this.playerFighter
+          : this.fightersByIndex[data.targetIndex];
       if (data.targetIndex === this.myIndex) {
         this.applyIncomingHit(this.playerFighter, data);
-      } else {
-        const remote = this.fightersByIndex[data.targetIndex];
-        if (remote && !remote.isDead) {
-          this.triggerHitFlash(remote);
-          if (data.powerFlashColor !== null && data.powerFlashColor !== undefined) {
-            this.triggerPowerFlash(remote, data.powerFlashColor);
-          }
+      } else if (target && !target.isDead) {
+        this.triggerHitFlash(target);
+        if (data.powerFlashColor !== null && data.powerFlashColor !== undefined) {
+          this.triggerPowerFlash(target, data.powerFlashColor);
         }
+      }
+      if (data.fireStormHit && target) {
+        this.spawnFireStormHit(target);
       }
       return;
     }
@@ -2155,6 +2327,8 @@ export default class GameScene extends Phaser.Scene {
         this.fireSkullCurse(caster, data.worldX, data.worldY);
       } else if (data.power === 'wheel') {
         this.fireWheel(caster, data.worldX);
+      } else if (data.power === 'fire_storm') {
+        this.fireFireStorm(caster);
       }
       return;
     }
@@ -2398,6 +2572,10 @@ export default class GameScene extends Phaser.Scene {
           fighter.specialPowers.shift();
           this.fireWheel(fighter, pointer.worldX);
           this.sendPowerCast('wheel', { worldX: pointer.worldX });
+        } else if (power === 'fire_storm') {
+          fighter.specialPowers.shift();
+          this.fireFireStorm(fighter);
+          this.sendPowerCast('fire_storm', {});
         }
       }
       this.powerQueued = false;
@@ -2644,6 +2822,62 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
+    for (const vfx of this.fireStormHitVfx) {
+      const f = vfx.follow;
+      if (!f || !f.sprite || !f.sprite.body) continue;
+      const fb = f.sprite.body;
+      vfx.setPosition(fb.x + fb.width / 2, fb.y + fb.height / 2);
+    }
+
+    for (let i = this.fireStormRays.length - 1; i >= 0; i--) {
+      const r = this.fireStormRays[i];
+      if (!r.active) {
+        this.fireStormRays.splice(i, 1);
+        continue;
+      }
+      if (r.aura) r.aura.setPosition(r.x, r.y);
+      const offMap =
+        r.x < -80 || r.x > MAP_WIDTH + 80 || r.y < -80 || r.y > MAP_HEIGHT + 80;
+      if (offMap) {
+        if (r.auraPulse) r.auraPulse.stop();
+        if (r.aura) r.aura.destroy();
+        r.destroy();
+        this.fireStormRays.splice(i, 1);
+        continue;
+      }
+      const rb = r.body;
+      const rLeft = rb.x;
+      const rRight = rb.x + rb.width;
+      const rTop = rb.y;
+      const rBottom = rb.y + rb.height;
+      if (!this.isAuthoritativeOwner(r.ownerFighter)) continue;
+      for (const target of this.fighters) {
+        if (target === r.ownerFighter) continue;
+        if (target.isDead || target.isInvulnerable) continue;
+        if (r.hitSet.has(target)) continue;
+        const tb = target.sprite.body;
+        const hit =
+          rRight > tb.x &&
+          rLeft < tb.x + tb.width &&
+          rBottom > tb.y &&
+          rTop < tb.y + tb.height;
+        if (hit) {
+          r.hitSet.add(target);
+          this.dealHit(target, {
+            damage: FIRE_STORM_DAMAGE,
+            ignoreShield: false,
+            playHitSfx: true,
+            powerFlashColor: POWERS.fire_storm.orbColor,
+            fireStormHit: true,
+          });
+          this.spawnFireStormHit(target);
+        }
+      }
+      if (this.isCrowHitByRect(rLeft, rRight, rTop, rBottom)) {
+        this.killCrow();
+      }
+    }
+
     for (let i = this.wheelProjectiles.length - 1; i >= 0; i--) {
       const w = this.wheelProjectiles[i];
       if (!w.active) {
@@ -2766,6 +3000,7 @@ export default class GameScene extends Phaser.Scene {
     const hasShield = slot0 === 'shield';
     const hasSkullCurse = slot0 === 'skull_curse';
     const hasWheel = slot0 === 'wheel';
+    const hasFireStorm = slot0 === 'fire_storm';
     for (let i = 0; i < this.attackOrbs.length; i++) {
       const available = this.attackOrbs[i];
       const sprite = this.orbSprites[i];
@@ -2800,11 +3035,19 @@ export default class GameScene extends Phaser.Scene {
       this.specialWheelPulse.pause();
       this.specialWheelSprite.setScale(1);
     }
+    this.specialFireStormSprite.setVisible(hasFireStorm);
+    if (hasFireStorm && this.specialFireStormPulse.paused) {
+      this.specialFireStormPulse.resume();
+    } else if (!hasFireStorm && !this.specialFireStormPulse.paused) {
+      this.specialFireStormPulse.pause();
+      this.specialFireStormSprite.setScale(1);
+    }
     if (slot1) {
       const slot1Color =
         slot1 === 'heavens_fury' ? 0xfde047
         : slot1 === 'shield' ? 0x3b82f6
         : slot1 === 'skull_curse' ? 0xa855f7
+        : slot1 === 'fire_storm' ? 0xff3b30
         : 0xffffff;
       this.specialSlot2Sprite.fillColor = slot1Color;
       this.specialSlot2Sprite.setVisible(true);
