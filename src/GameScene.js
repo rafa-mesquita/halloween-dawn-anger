@@ -1110,8 +1110,8 @@ export default class GameScene extends Phaser.Scene {
     this.anims.create({
       key: 'ice_particles',
       frames: this.anims.generateFrameNumbers('ice_particles', { start: 0, end: 4 }),
-      frameRate: 10,
-      repeat: -1,
+      frameRate: 12,
+      repeat: 0,
     });
     this.anims.create({
       key: 'player_frozen',
@@ -3064,11 +3064,9 @@ export default class GameScene extends Phaser.Scene {
     const g = beam.graphics;
     g.clear();
     const thickness = ICE_BEAM_THICKNESS * intensity;
-    g.lineStyle(thickness + 12, 0x7dd3fc, 0.25);
+    g.lineStyle(thickness + 10, 0x7dd3fc, 0.35);
     g.lineBetween(cx, cy, endX, endY);
-    g.lineStyle(thickness + 4, 0xbae6fd, 0.55);
-    g.lineBetween(cx, cy, endX, endY);
-    g.lineStyle(thickness, 0xe0f2fe, 0.85);
+    g.lineStyle(thickness, 0xe0f2fe, 0.9);
     g.lineBetween(cx, cy, endX, endY);
     g.lineStyle(Math.max(2, thickness * 0.35), 0xffffff, 1);
     g.lineBetween(cx, cy, endX, endY);
@@ -3124,7 +3122,6 @@ export default class GameScene extends Phaser.Scene {
           playHitSfx: false,
           powerFlashColor: null,
         });
-        if (target === this.playerFighter) this.spawnIceBeamHitVfx(tx, ty);
       }
     }
   }
@@ -3167,7 +3164,7 @@ export default class GameScene extends Phaser.Scene {
     if (target.iceTickCount >= ICE_HITS_TO_FREEZE) {
       this.applyFreeze(target);
     }
-    if (target !== this.playerFighter) {
+    if (target.iceTickCount % 3 === 0) {
       const tb = target.sprite.body;
       this.spawnIceBeamHitVfx(tb.x + tb.width / 2, tb.y + tb.height / 2);
     }
@@ -3289,11 +3286,11 @@ export default class GameScene extends Phaser.Scene {
       if (remaining < 250) intensity *= remaining / 250;
       this.drawIceBeam(b, cx, cy, end.x, end.y, intensity);
 
-      if (time - b.lastParticleAt > 35) {
+      if (time - b.lastParticleAt > 120) {
         b.lastParticleAt = time;
-        const steps = 6;
+        const steps = 3;
         for (let s = 1; s <= steps; s++) {
-          if (Math.random() > 0.45) continue;
+          if (Math.random() > 0.55) continue;
           const t = s / steps;
           const px = cx + (end.x - cx) * t;
           const py = cy + (end.y - cy) * t;
@@ -4027,11 +4024,14 @@ export default class GameScene extends Phaser.Scene {
     const remote = this.fightersByIndex[data.index];
     if (!remote || remote === this.playerFighter) return;
 
+    let eyeStateChanged = false;
     if (typeof data.isEye === 'boolean') {
       if (data.isEye && !remote.isEye && !remote.isDead) {
         this.transformToEye(remote, { skipReposition: true });
+        eyeStateChanged = true;
       } else if (!data.isEye && remote.isEye) {
         this.revertFromEye(remote, { skipReposition: true });
+        eyeStateChanged = true;
       }
     }
     if (typeof data.eyeHits === 'number') {
@@ -4063,6 +4063,9 @@ export default class GameScene extends Phaser.Scene {
         : effectiveOffset;
     }
     body.setVelocity(0, 0);
+    if (eyeStateChanged && body.reset) {
+      body.reset(sprite.x, sprite.y);
+    }
     if (data.anim && sprite.anims.currentAnim?.key !== data.anim) {
       sprite.anims.play(data.anim, true);
     }
