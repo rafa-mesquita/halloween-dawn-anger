@@ -179,6 +179,13 @@ const POWERS = {
   fire_storm: {
     orbColor: 0xff3b30,
     lootGlowKey: 'glow_red',
+    lootIdleKey: 'fire_storm_loot_idle',
+    lootCatchKey: 'fire_storm_loot_catch',
+    lootFrameSize: 48,
+    lootScale: 2.2,
+    lootCatchScale: 1.65,
+    lootIdleFrameStart: 8,
+    lootIdleFrameEnd: 11,
   },
   eye: {
     orbColor: 0x78350f,
@@ -382,6 +389,14 @@ export default class GameScene extends Phaser.Scene {
       frameWidth: FIRE_STORM_HIT_FRAME_SIZE,
       frameHeight: FIRE_STORM_HIT_FRAME_SIZE,
     });
+    this.load.spritesheet('fire_storm_loot_idle', 'sprites/Poder 5 (fire storm)/Fite Loot.png', {
+      frameWidth: 48,
+      frameHeight: 48,
+    });
+    this.load.spritesheet('fire_storm_loot_catch', 'sprites/Poder 5 (fire storm)/Fire catch.png', {
+      frameWidth: 64,
+      frameHeight: 64,
+    });
     this.load.spritesheet('skull_curse_loot_idle', 'sprites/Poder 3 (skull curse)/skull curse loot.png', {
       frameWidth: LOOT_FRAME_SIZE,
       frameHeight: LOOT_FRAME_SIZE,
@@ -558,6 +573,18 @@ export default class GameScene extends Phaser.Scene {
       key: 'wood_catch',
       frames: this.anims.generateFrameNumbers('wood_catch', { start: 0, end: WOOD_CATCH_FRAMES - 1 }),
       frameRate: 14,
+      repeat: 0,
+    });
+    this.anims.create({
+      key: 'fire_storm_loot_idle',
+      frames: this.anims.generateFrameNumbers('fire_storm_loot_idle', { start: 8, end: 11 }),
+      frameRate: 8,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: 'fire_storm_loot_catch',
+      frames: this.anims.generateFrameNumbers('fire_storm_loot_catch', { start: 0, end: 15 }),
+      frameRate: 18,
       repeat: 0,
     });
     this.anims.create({
@@ -1264,8 +1291,8 @@ export default class GameScene extends Phaser.Scene {
     const idleKey = customIdleKey ?? type.idleKey;
     const catchKey = customCatchKey ?? type.catchKey;
     const glowKey = powerDef?.lootGlowKey ?? type.glowKey;
-    const idleFrameSize = type.idleFrameSize ?? LOOT_FRAME_SIZE;
-    const idleScale = type.idleScale ?? LOOT_SCALE;
+    const idleFrameSize = powerDef?.lootFrameSize ?? type.idleFrameSize ?? LOOT_FRAME_SIZE;
+    const idleScale = powerDef?.lootScale ?? type.idleScale ?? LOOT_SCALE;
 
     const glow = this.add.image(x, y, glowKey)
       .setBlendMode(Phaser.BlendModes.ADD)
@@ -1287,6 +1314,7 @@ export default class GameScene extends Phaser.Scene {
     loot.netId = id;
     loot.lootType = lootType;
     loot.catchKey = catchKey;
+    loot.catchScale = powerDef?.lootCatchScale ?? type.catchScale;
     loot.glow = glow;
     loot.glowPulse = glowPulse;
 
@@ -1425,7 +1453,7 @@ export default class GameScene extends Phaser.Scene {
       alpha: 0,
       duration: 200,
     });
-    if (type.catchScale !== undefined) loot.setScale(type.catchScale);
+    if (loot.catchScale !== undefined) loot.setScale(loot.catchScale);
     const catchKey = loot.catchKey || type.catchKey;
     loot.anims.play(catchKey);
     loot.once(`animationcomplete-${catchKey}`, () => {
@@ -2686,8 +2714,8 @@ export default class GameScene extends Phaser.Scene {
     const eyeOffsetX = (EYE_FRAME_SIZE - EYE_BODY_W) / 2;
     const eyeOffsetY = (EYE_FRAME_SIZE - EYE_BODY_H) / 2;
     body.setOffset(eyeOffsetX, eyeOffsetY);
-    sprite.x = wantBodyCenterX + sprite.scaleX * (sprite.displayOriginX - eyeOffsetX - EYE_BODY_W / 2);
-    sprite.y = wantBodyCenterY + sprite.scaleY * (sprite.displayOriginY - eyeOffsetY - EYE_BODY_H / 2);
+    sprite.x = wantBodyCenterX - EYE_BODY_W / 2 + sprite.scaleX * (sprite.displayOriginX - eyeOffsetX);
+    sprite.y = wantBodyCenterY - EYE_BODY_H / 2 + sprite.scaleY * (sprite.displayOriginY - eyeOffsetY);
     sprite.setFlipX(fighter.eyeFacing < 0);
 
     if (fighter.hpBarBg) fighter.hpBarBg.setVisible(false);
@@ -2726,8 +2754,8 @@ export default class GameScene extends Phaser.Scene {
       body.setGravityY(orig.gravityY);
       body.setVelocity(0, 0);
       sprite.isEye = false;
-      sprite.x = wantBodyCenterX + sprite.scaleX * (sprite.displayOriginX - orig.bodyOffsetX - orig.bodyW / 2);
-      sprite.y = wantBodyCenterY + sprite.scaleY * (sprite.displayOriginY - orig.bodyOffsetY - orig.bodyH / 2);
+      sprite.x = wantBodyCenterX - orig.bodyW / 2 + sprite.scaleX * (sprite.displayOriginX - orig.bodyOffsetX);
+      sprite.y = wantBodyCenterY - orig.bodyH / 2 + sprite.scaleY * (sprite.displayOriginY - orig.bodyOffsetY);
       sprite.anims.play(`${fighter.char.id}_idle`, true);
     }
 
