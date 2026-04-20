@@ -185,6 +185,12 @@ const POWERS = {
   },
   wheel: {
     orbColor: 0xffffff,
+    lootIdleKey: 'wheel_loot_idle',
+    lootCatchKey: 'wheel_loot_catch',
+    lootFrameSize: 32,
+    lootScale: 3.3,
+    lootCatchScale: 2.2,
+    lootTintFill: 0xffffff,
   },
   fire_storm: {
     orbColor: 0xff3b30,
@@ -401,6 +407,10 @@ export default class GameScene extends Phaser.Scene {
       frameWidth: 64,
       frameHeight: 64,
     });
+    this.load.spritesheet('wheel_loot_idle', 'sprites/Poder 4 (Wheel)/Wheel loot.png', {
+      frameWidth: 32,
+      frameHeight: 32,
+    });
     this.load.spritesheet('fire_storm_loot_catch', 'sprites/Poder 5 (fire storm)/Fire catch.png', {
       frameWidth: 64,
       frameHeight: 64,
@@ -573,6 +583,64 @@ export default class GameScene extends Phaser.Scene {
     }
     for (let i = 0; i < frameCount; i++) tex.add(i, 0, i * frameW, 0, frameW, frameH);
     tex.refresh();
+  }
+
+  drawWhiteCatchFrame(ctx, frameIdx, totalFrames, frameW, frameH) {
+    ctx.clearRect(0, 0, frameW, frameH);
+    const cx = frameW / 2;
+    const cy = frameH / 2;
+    const t = frameIdx / (totalFrames - 1);
+    const r = 4 + t * (Math.max(frameW, frameH) * 0.6);
+    const alpha = (1 - t) * 0.95;
+    const flash = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    flash.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
+    flash.addColorStop(0.55, `rgba(255, 255, 255, ${alpha * 0.55})`);
+    flash.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = flash;
+    ctx.fillRect(0, 0, frameW, frameH);
+    const rings = Math.min(frameIdx + 1, 3);
+    for (let i = 0; i < rings; i++) {
+      const ringT = Math.min(1, t + i * 0.18);
+      const ringR = 3 + ringT * (Math.max(frameW, frameH) * 0.55);
+      const ringA = Math.max(0, 0.8 - ringT * 0.85);
+      ctx.strokeStyle = `rgba(255, 255, 255, ${ringA})`;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.arc(cx, cy, ringR, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    if (frameIdx < 4) {
+      const spokes = 6;
+      for (let s = 0; s < spokes; s++) {
+        const ang = (s / spokes) * Math.PI * 2 + frameIdx * 0.3;
+        const reach = 6 + t * (Math.max(frameW, frameH) * 0.5);
+        const sx = cx + Math.cos(ang) * 3;
+        const sy = cy + Math.sin(ang) * 3;
+        const ex = cx + Math.cos(ang) * reach;
+        const ey = cy + Math.sin(ang) * reach;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.85 - t * 0.7})`;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+      }
+    }
+  }
+
+  createWheelLootCatchTexture() {
+    const frameW = 64;
+    const frameH = 64;
+    const frameCount = 7;
+    this.createCanvasSpritesheet(
+      'wheel_loot_catch',
+      frameW, frameH, frameCount,
+      (ctx, i, total) => this.drawWhiteCatchFrame(ctx, i, total, frameW, frameH),
+    );
+    this.anims.create({
+      key: 'wheel_loot_catch',
+      frames: this.anims.generateFrameNumbers('wheel_loot_catch', { start: 0, end: frameCount - 1 }),
+      frameRate: 16,
+      repeat: 0,
+    });
   }
 
   createHeavensFuryLootTextures() {
@@ -797,6 +865,7 @@ export default class GameScene extends Phaser.Scene {
       255, 240, 180, 255, 220, 110, 230, 180, 60,
     ]);
     this.createHeavensFuryLootTextures();
+    this.createWheelLootCatchTexture();
     this.createLightBeamTexture('eye_beam', [240, 200, 110]);
 
     const platformZones = [];
@@ -832,6 +901,12 @@ export default class GameScene extends Phaser.Scene {
       key: 'fire_storm_loot_idle',
       frames: this.anims.generateFrameNumbers('fire_storm_loot_idle', { start: 56, end: 60 }),
       frameRate: 8,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: 'wheel_loot_idle',
+      frames: this.anims.generateFrameNumbers('wheel_loot_idle', { start: 0, end: 8 }),
+      frameRate: 10,
       repeat: -1,
     });
     this.anims.create({
@@ -1587,6 +1662,9 @@ export default class GameScene extends Phaser.Scene {
     loot.glowPulse = glowPulse;
 
     if (lootType === 'wood' && power) loot.power = power;
+    if (powerDef?.lootTintFill !== undefined) {
+      loot.setTintFill(powerDef.lootTintFill);
+    }
 
     if (!customIdleKey && lootType === 'wood' && power) {
       const overlayTint = POWERS[power].orbColor;
