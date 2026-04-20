@@ -3018,6 +3018,7 @@ export default class GameScene extends Phaser.Scene {
     const sb = fighter.sprite.body;
     const cx = sb.x + sb.width / 2;
     const cy = sb.y + sb.height / 2;
+    this.playSfx('sfx_ice_cast', 0.9);
     const beam = {
       caster: fighter,
       beamId: `ice_${fighter.ownerIndex ?? 0}_${this.time.now}_${Math.floor(Math.random() * 1e6)}`,
@@ -3060,10 +3061,56 @@ export default class GameScene extends Phaser.Scene {
     const g = beam.graphics;
     g.clear();
     const thickness = ICE_BEAM_THICKNESS * intensity;
-    g.lineStyle(thickness + 10, 0x7dd3fc, 0.5);
+    const dx = endX - cx;
+    const dy = endY - cy;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const ux = len > 0 ? dx / len : 1;
+    const uy = len > 0 ? dy / len : 0;
+    const px = -uy;
+    const py = ux;
+
+    g.lineStyle(thickness + 14, 0x38bdf8, 0.3);
     g.lineBetween(cx, cy, endX, endY);
-    g.lineStyle(Math.max(2, thickness * 0.4), 0xffffff, 1);
+    g.lineStyle(thickness + 6, 0x7dd3fc, 0.6);
     g.lineBetween(cx, cy, endX, endY);
+    g.lineStyle(thickness, 0xe0f2fe, 0.9);
+    g.lineBetween(cx, cy, endX, endY);
+    g.lineStyle(Math.max(2, thickness * 0.35), 0xffffff, 1);
+    g.lineBetween(cx, cy, endX, endY);
+
+    const now = this.time.now;
+    const flowOffset = (now / 220) % 1;
+    const shards = 10;
+    for (let i = 0; i < shards; i++) {
+      const t = ((i / shards) + flowOffset) % 1;
+      const baseX = cx + ux * len * t;
+      const baseY = cy + uy * len * t;
+      const sway = Math.sin((i + now / 90) * 1.7) * (thickness + 4);
+      const sx = baseX + px * sway;
+      const sy = baseY + py * sway;
+      const wobble = 0.6 + 0.4 * Math.sin((i + now / 110) * 2.1);
+      g.fillStyle(0xffffff, 0.95);
+      g.fillCircle(sx, sy, 2.2 * wobble);
+      g.fillStyle(0xbae6fd, 0.6);
+      g.fillCircle(sx, sy, 4.5 * wobble);
+    }
+    const sparkleCount = 5;
+    for (let i = 0; i < sparkleCount; i++) {
+      const t = Math.random();
+      const baseX = cx + ux * len * t;
+      const baseY = cy + uy * len * t;
+      const offs = (Math.random() - 0.5) * (thickness + 10);
+      const sx = baseX + px * offs;
+      const sy = baseY + py * offs;
+      const r = 1.2 + Math.random() * 2.2;
+      g.fillStyle(0xffffff, 0.95);
+      g.fillCircle(sx, sy, r);
+    }
+    g.fillStyle(0xffffff, 0.95);
+    g.fillCircle(cx, cy, thickness + 6);
+    g.fillStyle(0x7dd3fc, 0.5);
+    g.fillCircle(cx, cy, thickness + 14);
+
     if (this.hitboxesVisible) {
       g.lineStyle(ICE_BEAM_HIT_RADIUS * 2, 0xff3344, 0.22);
       g.lineBetween(cx, cy, endX, endY);
