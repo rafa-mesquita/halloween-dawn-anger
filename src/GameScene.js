@@ -18,9 +18,9 @@ const BODY_HEIGHT = 25;
 const BODY_OFFSET_X = 49;
 const BODY_OFFSET_Y = 55;
 
-const ATTACK_HITBOX_WIDTH = 130;
-const ATTACK_HITBOX_HEIGHT = 100;
-const VERTICAL_ATTACK_REACH = 240;
+const ATTACK_HITBOX_WIDTH = 95;
+const ATTACK_HITBOX_HEIGHT = 75;
+const VERTICAL_ATTACK_REACH = 125;
 
 const MAX_ATTACK_ORBS = 4;
 const ORB_FULL_RESET_MS = 4000;
@@ -154,8 +154,8 @@ const LOOT_TYPES = {
     idleKey: 'shield_idle',
     catchKey: 'shield_catch',
     glowKey: 'glow_blue',
-    onPickup: (scene, fighter) => {
-      scene.applyShield(fighter);
+    onPickup: (_scene, fighter) => {
+      if (fighter.specialPowers.length < 2) fighter.specialPowers.push('shield');
     },
   },
 };
@@ -633,7 +633,7 @@ export default class GameScene extends Phaser.Scene {
       this.bgm.play();
     }
 
-    this.hitboxesVisible = this.physics.config.debug ?? false;
+    this.hitboxesVisible = false;
     const hitboxToggle = document.getElementById('hitbox-toggle');
     if (hitboxToggle) {
       const applyHitboxState = () => {
@@ -1986,10 +1986,7 @@ export default class GameScene extends Phaser.Scene {
         this.player.setFlipX(desiredFlip);
       }
 
-      const isHorizontalAttack =
-        fighter.isAttacking &&
-        fighter.currentAttackAnim === fighter.keys.attackHorizontal;
-      const effectiveFrameOffset = isHorizontalAttack
+      const effectiveFrameOffset = fighter.isAttacking
         ? fighter.currentAttackAnim.charFrameOffsetX
         : BODY_OFFSET_X;
       const offsetX = this.player.flipX
@@ -2122,9 +2119,8 @@ export default class GameScene extends Phaser.Scene {
         else fighter.currentAttackAnim = fighter.keys.attackHorizontal;
 
         const isHorizontalDir = direction === 'left' || direction === 'right';
-        const charShift = isHorizontalDir
-          ? (fighter.currentAttackAnim.charFrameOffsetX - BODY_OFFSET_X) * SPRITE_SCALE
-          : 0;
+        const charShift =
+          (fighter.currentAttackAnim.charFrameOffsetX - BODY_OFFSET_X) * SPRITE_SCALE;
         fighter.attackSpriteShift = this.player.flipX ? charShift : -charShift;
         this.player.x += fighter.attackSpriteShift;
 
@@ -2155,36 +2151,28 @@ export default class GameScene extends Phaser.Scene {
         this.attackHitbox.setVisible(active);
 
         if (active) {
-          const rawBodyCenterX = body.x + body.width / 2;
+          const bodyCenterX = body.x + body.width / 2;
           const bodyCenterY = body.y + body.height / 2;
-          const frameOffsetDelta =
-            (fighter.currentAttackAnim.charFrameOffsetX - BODY_OFFSET_X) * SPRITE_SCALE;
-          const visualCenterShift =
-            fighter.currentAttackAnim === fighter.keys.attackHorizontal
-              ? 0
-              : (this.player.flipX ? -frameOffsetDelta : frameOffsetDelta);
-          const bodyCenterX = rawBodyCenterX + visualCenterShift;
 
           const isVertical = Math.abs(Math.cos(this.attackAngle)) < 0.5;
           const physW = isVertical ? ATTACK_HITBOX_HEIGHT : ATTACK_HITBOX_WIDTH;
           const physH = isVertical ? VERTICAL_ATTACK_REACH : ATTACK_HITBOX_HEIGHT;
-          const bodyHalfAlongAttack = isVertical
-            ? (BODY_HEIGHT * SPRITE_SCALE) / 2
-            : (BODY_WIDTH * SPRITE_SCALE) / 2;
+          const bodyHalfAlongAttack = isVertical ? body.height / 2 : body.width / 2;
           const reachAlongAttack = isVertical ? physH / 2 : physW / 2;
           const distance = bodyHalfAlongAttack + reachAlongAttack;
-          this.attackHitbox.setPosition(
-            bodyCenterX + Math.cos(this.attackAngle) * distance,
-            bodyCenterY + Math.sin(this.attackAngle) * distance
-          );
-          this.attackHitbox.rotation = this.attackAngle;
+          const hitboxX = bodyCenterX + Math.cos(this.attackAngle) * distance;
+          const hitboxY = bodyCenterY + Math.sin(this.attackAngle) * distance;
+
+          this.attackHitbox.setRotation(0);
+          this.attackHitbox.setPosition(hitboxX, hitboxY);
           if (
-            this.attackHitbox.body.width !== physW ||
-            this.attackHitbox.body.height !== physH
+            this.attackHitbox.displayWidth !== physW ||
+            this.attackHitbox.displayHeight !== physH
           ) {
+            this.attackHitbox.setSize(physW, physH);
             this.attackHitbox.body.setSize(physW, physH, true);
           }
-          this.attackHitbox.body.reset(this.attackHitbox.x, this.attackHitbox.y);
+          this.attackHitbox.body.reset(hitboxX, hitboxY);
 
           const hbLeft = this.attackHitbox.x - physW / 2;
           const hbRight = this.attackHitbox.x + physW / 2;
