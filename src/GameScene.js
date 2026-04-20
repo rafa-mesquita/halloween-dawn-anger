@@ -58,8 +58,8 @@ const HP_HEAL_AMOUNT = 50;
 const HEAVENS_FURY_FRAME_SIZE = 128;
 const HEAVENS_FURY_FRAMES = 12;
 const HEAVENS_FURY_SCALE = 4;
-const HEAVENS_FURY_STRIKE_HALF_WIDTH = 100;
-const HEAVENS_FURY_BEAM_HALF_WIDTH = 65;
+const HEAVENS_FURY_STRIKE_HALF_WIDTH = 130;
+const HEAVENS_FURY_BEAM_HALF_WIDTH = 85;
 const HEAVENS_FURY_GROUND_ZONE_HEIGHT = 110;
 const HEAVENS_FURY_DAMAGE_FULL = 80;
 const HEAVENS_FURY_DAMAGE_BEAM = 33;
@@ -1495,10 +1495,11 @@ export default class GameScene extends Phaser.Scene {
 
     const margin = 40;
     const minClearance = 60;
+    const minLootDistance = 110;
     let x = 0;
     let y = 0;
     let found = false;
-    for (let attempt = 0; attempt < 20; attempt++) {
+    for (let attempt = 0; attempt < 30; attempt++) {
       const rect = Phaser.Math.RND.pick(PLATFORM_RECTS);
       const candidateX = rect.x + Phaser.Math.Between(margin, Math.max(margin, rect.w - margin));
       const candidateY = rect.y - 80;
@@ -1509,6 +1510,17 @@ export default class GameScene extends Phaser.Scene {
         if (Math.abs(fx - candidateX) < minClearance) {
           blocked = true;
           break;
+        }
+      }
+      if (!blocked) {
+        for (const l of this.loots) {
+          if (l.isPickedUp) continue;
+          const dx = l.x - candidateX;
+          const dy = l.y - candidateY;
+          if (dx * dx + dy * dy < minLootDistance * minLootDistance) {
+            blocked = true;
+            break;
+          }
         }
       }
       if (!blocked) {
@@ -2814,6 +2826,23 @@ export default class GameScene extends Phaser.Scene {
           ) {
             this.killCrow();
           }
+        }
+        if (this._isLootAuthority) {
+          const lootsToKill = [];
+          for (const l of this.loots) {
+            if (l.isPickedUp) continue;
+            const lx = l.x;
+            const ly = l.y;
+            const dx = Math.abs(lx - worldX);
+            const inGroundZone = ly >= groundTop && ly <= groundBottom;
+            if (
+              (inGroundZone && dx <= HEAVENS_FURY_STRIKE_HALF_WIDTH) ||
+              (ly < groundTop && ly >= 0 && dx <= HEAVENS_FURY_BEAM_HALF_WIDTH)
+            ) {
+              lootsToKill.push(l);
+            }
+          }
+          for (const l of lootsToKill) this.despawnLoot(l);
         }
       }
     });
