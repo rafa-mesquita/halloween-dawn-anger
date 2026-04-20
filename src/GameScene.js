@@ -3080,7 +3080,6 @@ export default class GameScene extends Phaser.Scene {
           b.state = 'active';
           b.activeStartTime = time;
           if (b.castGlow) { b.castGlow.destroy(); b.castGlow = null; }
-          this.playSfx('sfx_heavens_fury_second', 0.5);
         }
         continue;
       }
