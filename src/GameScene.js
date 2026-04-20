@@ -3058,7 +3058,7 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  fireIceBeam(fighter, worldX, worldY) {
+  fireIceBeam(fighter, worldX, worldY, opts) {
     const sb = fighter.sprite.body;
     const cx = sb.x + sb.width / 2;
     const cy = sb.y + sb.height / 2;
@@ -3070,7 +3070,8 @@ export default class GameScene extends Phaser.Scene {
     }
     const beam = {
       caster: fighter,
-      beamId: `ice_${fighter.ownerIndex ?? 0}_${this.time.now}_${Math.floor(Math.random() * 1e6)}`,
+      beamId: opts?.beamId
+        ?? `ice_${fighter.ownerIndex ?? 0}_${this.time.now}_${Math.floor(Math.random() * 1e6)}`,
       startTime: this.time.now,
       activeStartTime: 0,
       state: 'casting',
@@ -3084,7 +3085,7 @@ export default class GameScene extends Phaser.Scene {
       lastTickAt: 0,
       lastParticleAt: 0,
     };
-    beam.facing = worldX >= cx ? 1 : -1;
+    beam.facing = opts?.facing !== undefined ? opts.facing : (worldX >= cx ? 1 : -1);
     const fxX = sb.x + sb.width / 2 + beam.facing * (sb.width * 0.4);
     const fxY = sb.y + sb.height * 0.55;
     beam.castFxSprite = this.add.sprite(fxX, fxY, 'ice_spell_cast', 2)
@@ -3095,6 +3096,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.iceBeams = this.iceBeams || [];
     this.iceBeams.push(beam);
+    return beam;
   }
 
   drawIceBeam(beam, cx, cy, endX, endY, intensity) {
@@ -3685,8 +3687,13 @@ export default class GameScene extends Phaser.Scene {
       this.sendPowerCast('fire_storm', {});
     } else if (power === 'ice_beam') {
       fighter.specialPowers.shift();
-      this.fireIceBeam(fighter, pointer.worldX, pointer.worldY);
-      this.sendPowerCast('ice_beam', { worldX: pointer.worldX, worldY: pointer.worldY });
+      const beam = this.fireIceBeam(fighter, pointer.worldX, pointer.worldY);
+      this.sendPowerCast('ice_beam', {
+        worldX: pointer.worldX,
+        worldY: pointer.worldY,
+        beamId: beam?.beamId ?? null,
+        facing: beam?.facing ?? 1,
+      });
     }
   }
 
@@ -4263,7 +4270,10 @@ export default class GameScene extends Phaser.Scene {
       } else if (data.power === 'wheel') {
         this.fireWheel(caster, data.worldX);
       } else if (data.power === 'ice_beam') {
-        this.fireIceBeam(caster, data.worldX, data.worldY);
+        this.fireIceBeam(caster, data.worldX, data.worldY, {
+          beamId: data.beamId,
+          facing: data.facing,
+        });
       } else if (data.power === 'fire_storm') {
         this.fireFireStorm(caster);
       }
