@@ -1763,8 +1763,6 @@ export default class GameScene extends Phaser.Scene {
         duration: 200,
       });
       if (loot.catchScale !== undefined) loot.setScale(loot.catchScale);
-      loot.setTintFill(0xffffff);
-      loot.clearTint();
       const catchKey = loot.catchKey;
       if (catchKey && this.anims.exists(catchKey)) {
         loot.anims.play(catchKey);
