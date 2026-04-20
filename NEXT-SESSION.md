@@ -1,67 +1,59 @@
 # Próxima Sessão
 
 > Última atualização: 2026-04-19
-> Sessão anterior: Implementado Poder 1 (HeavensFury) com telegraph e zonas de dano, Poder 2 (HolyShield) ativável com contador de charges, e polish do sistema de loot.
+> Sessão anterior: Implementado Poder 5 (Fire Storm) — 2 waves de 8 raios radiais, hit VFX seguindo caster/alvo, sons cast+wave, sync multiplayer; Skull Curse refatorado pra DoT + slow 2s.
 
 ## Estado atual
-- Projeto Phaser 3 + Vite rodando localmente (`npm run dev`). Diretório **não** é repo git ainda.
-- `src/GameScene.js` é o único arquivo de gameplay — contém 3 personagens (WASD + mouse), 4 orbs de ataque, lives/respawn, loot genérico (wood box random power / HP), chuva pixel art, e dois poderes especiais funcionais.
-- Assets atuais: Player 1/2/3 (idle/run/jump/fall/attack/attack_up/attack_down/death), Wood box, HP loot, HeavensFury + Smite (Poder 1), HolyShield + shield icon (Poder 2).
-- Controles ativos: A/D andar, W/Espaço pular (2x), S slam, clique esquerdo ataque, clique direito especial, 1/2/3 trocar personagem.
+- Branch `main`, repo sincronizado com `origin/main`, deploy automático no GitHub Pages ativo.
+- 5 poderes funcionais (HeavensFury, HolyShield, SkullCurse, Wheel, FireStorm) + sistema de 2 slots com Q pra trocar ordem.
+- Multiplayer PeerJS até 4 jogadores funcional (host-as-hub, dano autoritário no alvo, visuais replicados).
+- Assets novos não integrados: `public/sprites/Poder 6 (transform Flying Eye)/` (untracked, sem código ainda).
 
 ## Por onde começar
-1. **Testar o Poder 2 em jogo** — confirmar scale/pulse/posição do shield animado no personagem, e que os ícones HUD (shield icon azul) aparecem corretos no stored e no active (com contador "x2").
-2. **Adicionar mais poderes ao `WOOD_POWER_POOL`** — hoje só tem `heavens_fury` e `shield`. Pode expandir com novos efeitos conforme o usuário criar spritesheets.
-3. **Inicializar git + primeiro push pro GitHub** — diretório ainda não é repo. Usuário já tá logado no gh como `rafaelmesquita-spec`.
-4. **Começar setup de multiplayer (Colyseus)** — singleplayer tá sólido o suficiente pra pensar em online.
+1. **Planejar/implementar Poder 6 (Transform Flying Eye)** — assets já estão em `public/sprites/Poder 6 (transform Flying Eye)/`. Perguntar ao usuário o design (buff? transformação com outros controles? novo ataque?) antes de codar.
+2. **Testar Fire Storm com 2+ jogadores online** — confirmar que ambas waves + hit VFX + sons aparecem em todos os clients. Dano múltiplas waves pode acumular 50% HP em um alvo; validar se faz sentido no caótico.
+3. **Balanceamento visual** — usuário pode pedir ajustes no Fire Storm depois do teste (velocidade dos raios, scale do hit VFX, volume dos sons, duração do intervalo entre waves=1.1s).
+4. **Tela de fim de jogo** — pendência antiga: quando jogador perde todas as vidas, não há feedback visual claro de "fim".
 
 ## Contexto crítico
-- **Gamefeel é prioridade sobre realismo.** Usuário rejeita mecânicas "flutuantes" e balanceamento realista. Referência é Chaos Faction, não plataforma tradicional.
-- **Sem pulo variável.** Altura fixa, double jump disponível, gravidade 2.8x na queda normal, 3.8x depois do double jump. Não alterar sem pedir.
-- **One-way platforms usam `body.prev.y`** em `oneWayProcessCallback` — se mexer na colisão de plataforma, preservar esse comportamento (boneco sobe através sem bater a cabeça e não atravessa caindo normal).
-- **Body do hitbox de ataque rotaciona W/H** dependendo do ângulo (horizontal 130×100 vs vertical 100×130) porque arcade physics é AABB e não rotaciona nativamente.
-- **Loot não pode spawnar em cima de player** — `spawnLoot` tenta até 20 posições filtrando por proximidade horizontal < 60px.
-- **HeavensFury tem DUAS zonas de dano:** chão (±70px horizontais, 110px acima da superfície) = 80 dano, coluna/beam (±45px horizontais, qualquer altura acima) = 33 dano.
-- **Telegraph do HeavensFury = 1.5s** com anim Smite (11 frames, `duration: 1500`) + colunas auxiliares em 10% alpha fixo. Sem isso o raio fica invencível demais.
-- **Shield é ATIVÁVEL** (não mais passivo ao pegar). Pegou caixa → `specialPower = 'shield'` armazenado. Clique direito → `applyShield(fighter)` consome e aplica buff com 2 charges (80% redução de dano cada).
-- **Enquanto shield ativo o player pode acumular outro `specialPower`** — o sprite active shield no HUD é independente do slot de stored power.
-- **NÃO usar setas como controle principal.** WASD + mouse, sempre.
+- **Adicionar novo poder segue checklist** (ver `memory/project_powers.md` seção "How to apply"): POWERS, preload, anims, método fireXxx, routing no update + handleNetState, HUD sprite+pulse, slot1 color, WOOD_POWER_POOL, botão dev no HTML.
+- **Gamefeel > realismo.** Jogo é caótico estilo Chaos Faction, não balanceado.
+- **Multiplayer: dano é autoritário no alvo.** Quem executa `dealHit` só manda o pacote; só o dono do fighter-alvo aplica `applyIncomingHit`. VFX que precisam aparecer em todos os clients: passar flag no pacote `hit` (ex: `fireStormHit: true`) e tratar em `handleNetState`.
+- **VFX que segue fighter:** registrar o sprite em array (`fireStormHitVfx`), fazer `sprite.follow = fighter`, atualizar posição em cada frame no `update()` (ver padrão em GameScene linhas ~2770).
+- **Loot authority é do host**, não do player local. `_isLootAuthority` controla.
+- **Skull Curse agora é DoT** (não dano instantâneo): 30 HP ao longo de 10s, 3/s, bypass de curseMultiplier (usa `ignoreCurseMultiplier` no `damageFighter`). Slow 40% nos primeiros 2s (movimento/pulo/slam).
+- **Down-attack flip compensa 2 offsets X** (body 49 horizontal vs 67 vertical) — não mexer nisso sem entender o bloco em `update()` com `flipCompensation` + `attackSpriteShift`.
+- **Alt-tab freeze:** player em aba não-visível fica invulnerável + velocity zero + sem gravidade. Handler em `_onVisibilityChange`.
 
 ## Pendências conhecidas
-- [ ] Inicializar git no diretório e criar repo no GitHub
-- [ ] Salvar o GDD original (`chaos_faction_style_game_design.md`) em `docs/` — ainda só existe no histórico de conversa
-- [ ] Testar shield no personagem (posição, tint branco, frequência do pulse) e HUD novo com shield_icon.png
-- [ ] Adicionar mais poderes no pool (hoje só 2 opções no sorteio do wood box)
-- [ ] Implementar novo personagem + armas pra completar MVP (2 personagens, 3 armas)
-- [ ] Começar Colyseus / multiplayer online depois que singleplayer tá completo
-- [ ] Som de impacto, som de ataque, sons dos poderes (só tem BGM hoje)
-- [ ] Tela de fim de jogo quando um player perde todas as vidas
+- [ ] Integrar Poder 6 (Flying Eye) — assets presentes, sem código
+- [ ] Tela de fim de jogo / HUD de ranking final
+- [ ] Testar Fire Storm em sessão multiplayer real
+- [ ] Segundo personagem + mais armas pro MVP completo
+- [ ] Balanceamento do pool de poderes (hoje 4 opções no sorteio)
 
 ## Arquivos / locais relevantes
-- `src/GameScene.js` — **único arquivo de gameplay**. ~1400 linhas. Tudo: fighters, loot, poderes, HUD, rain, colisão.
-- `src/main.js` — config Phaser (1536×1024, gravidade 800, `debug: true`)
-- `src/map1.js` — dimensões do mapa + `PLATFORM_RECTS` (4 plataformas)
-- `index.html` — volume slider no canto inferior direito
-- `public/sprites/Player 2|3/` — sprites dos personagens 2 e 3 (mesma estrutura do P1)
-- `public/sprites/Wood/` — loot idle + catch
-- `public/sprites/HP/` — loot HP (10 idle + 5 catch no mesmo sheet)
-- `public/sprites/Poder 1/` — `HeavensFury_spritesheet.png` (1536×128, 12 frames) + `Smite_spritesheet.png` (704×64, 11 frames, telegraph)
-- `public/sprites/Poder 2 (Shield)/` — `HolyShield_spritesheet.png` (704×64, 11 frames, anim no player) + `shield icon.png` (260×280, HUD)
-- `public/maps/map1/` — background + platforms do mapa 1
+- `src/GameScene.js` — **único arquivo de gameplay**, ~3000+ linhas. Organização: constants → POWERS/LOOT_TYPES/CHARACTERS → preload → create → fighter/loot/power methods → syncNetwork/handleNetState → update
+- `src/main.js` — config Phaser + lobby (single/host/join), picker de personagem
+- `src/network.js` — NetworkManager PeerJS (host/join, broadcast, callbacks `onPeers`/`onStart`/`onState`)
+- `src/map1.js` — dimensões + `PLATFORM_RECTS`
+- `index.html` — lobby + volume + hitbox toggle + dev power panel (botões 1-5)
+- `.github/workflows/deploy.yml` — CI Pages
+- `public/sprites/Poder N (...)` — assets por poder
+- `public/audio/powers/<power>/` — sons por poder
 
 ## Comandos úteis
 ```bash
-# Rodar em dev
+# Dev
 cd "c:/Users/rafam/Desktop/Rpositórios Github - claude/Pessoal/Chaotic Game"
 npm run dev
 
-# Quando for iniciar git
-rtk git init
-rtk git add src public index.html package.json package-lock.json vite.config.js
-rtk git commit -m "initial commit: Phaser 3 game base with 3 chars, loot, 2 powers"
-gh repo create chaotic-game --public --source=. --push
+# Build + syntax check rápido
+node --check src/GameScene.js
+npm run build
 
-# Para multiplayer (futuro)
-npm install colyseus.js
-# Servidor separado com Colyseus: criar repo `chaotic-game-server` quando chegar a hora
+# Git
+rtk git status
+rtk git log -5 --oneline
+rtk git push
 ```
