@@ -102,42 +102,88 @@ document.getElementById('btn-single').addEventListener('click', () => {
   startGame('single', null, null);
 });
 
+let currentGame = null;
+let currentNet = null;
+let currentMode = null;
+
+function setupHostLobbyUI(net) {
+  const myPeer = () => net.peers.find((p) => p.index === net.myIndex);
+  const refresh = () => {
+    renderPlayersList('host-players', net.peers, net.myIndex);
+    updateStartButton(net.peers);
+    const me = myPeer();
+    renderPicker('host-picker', me?.charId ?? 'p1', (charId) => {
+      net.setMyCharacter(charId);
+      refresh();
+    });
+  };
+  refresh();
+
+  net.onPeers((peers) => {
+    const status = document.getElementById('host-status');
+    status.textContent = peers.length > 1
+      ? `${peers.length} jogadores na sala`
+      : 'Aguardando conexão...';
+    refresh();
+  });
+
+  document.getElementById('btn-start-match').onclick = () => {
+    const players = net.peers
+      .slice()
+      .sort((a, b) => a.index - b.index)
+      .map((p) => ({ index: p.index, charId: p.charId ?? CHARACTER_IDS[p.index] ?? 'p1' }));
+    net.startMatch(players);
+    lobby.style.display = 'none';
+    startGame('host', net, { players, myIndex: net.myIndex });
+  };
+}
+
+function setupClientWaitingUI(net) {
+  const myPeer = () => net.peers.find((p) => p.index === net.myIndex);
+  const refresh = () => {
+    renderPlayersList('waiting-players', net.peers, net.myIndex);
+    const me = myPeer();
+    renderPicker('waiting-picker', me?.charId ?? CHARACTER_IDS[net.myIndex] ?? 'p1', (charId) => {
+      net.setMyCharacter(charId);
+    });
+  };
+  refresh();
+  net.onPeers(() => refresh());
+  net.onStart((players) => {
+    lobby.style.display = 'none';
+    startGame('client', net, { players, myIndex: net.myIndex });
+  });
+}
+
+window.addEventListener('match-return-to-lobby', () => {
+  if (currentGame) {
+    currentGame.destroy(true);
+    currentGame = null;
+  }
+  if (currentNet) {
+    currentNet.onState(() => {});
+  }
+  lobby.style.display = '';
+  if (currentMode === 'host' && currentNet) {
+    showPanel(panelHost);
+    setupHostLobbyUI(currentNet);
+  } else if (currentMode === 'client' && currentNet) {
+    showPanel(panelWaiting);
+    setupClientWaitingUI(currentNet);
+  } else {
+    window.location.reload();
+  }
+});
+
 document.getElementById('btn-host').addEventListener('click', async () => {
   showPanel(panelHost);
   const net = new NetworkManager();
   try {
     const id = await net.host();
     document.getElementById('host-id').textContent = id;
-
-    const myPeer = () => net.peers.find((p) => p.index === net.myIndex);
-    const refresh = () => {
-      renderPlayersList('host-players', net.peers, net.myIndex);
-      updateStartButton(net.peers);
-      const me = myPeer();
-      renderPicker('host-picker', me?.charId ?? 'p1', (charId) => {
-        net.setMyCharacter(charId);
-        refresh();
-      });
-    };
-    refresh();
-
-    net.onPeers((peers) => {
-      const status = document.getElementById('host-status');
-      status.textContent = peers.length > 1
-        ? `${peers.length} jogadores na sala`
-        : 'Aguardando conexão...';
-      refresh();
-    });
-
-    document.getElementById('btn-start-match').onclick = () => {
-      const players = net.peers
-        .slice()
-        .sort((a, b) => a.index - b.index)
-        .map((p) => ({ index: p.index, charId: p.charId ?? CHARACTER_IDS[p.index] ?? 'p1' }));
-      net.startMatch(players);
-      lobby.style.display = 'none';
-      startGame('host', net, { players, myIndex: net.myIndex });
-    };
+    currentNet = net;
+    currentMode = 'host';
+    setupHostLobbyUI(net);
   } catch (e) {
     document.getElementById('host-status').textContent = 'Erro: ' + e.message;
   }
@@ -179,22 +225,9 @@ document.getElementById('btn-connect').addEventListener('click', async () => {
     await net.join(id);
     status.textContent = 'Conectado.';
     showPanel(panelWaiting);
-
-    const myPeer = () => net.peers.find((p) => p.index === net.myIndex);
-    const refresh = () => {
-      renderPlayersList('waiting-players', net.peers, net.myIndex);
-      const me = myPeer();
-      renderPicker('waiting-picker', me?.charId ?? CHARACTER_IDS[net.myIndex] ?? 'p1', (charId) => {
-        net.setMyCharacter(charId);
-      });
-    };
-    refresh();
-
-    net.onPeers(() => refresh());
-    net.onStart((players) => {
-      lobby.style.display = 'none';
-      startGame('client', net, { players, myIndex: net.myIndex });
-    });
+    currentNet = net;
+    currentMode = 'client';
+    setupClientWaitingUI(net);
   } catch (e) {
     status.textContent = 'Erro: ' + (e.message || e.type || 'falha ao conectar');
   }
@@ -229,4 +262,7 @@ function startGame(mode, network, matchInfo) {
   };
   const game = new Phaser.Game(config);
   game.scene.add('GameScene', GameScene, true, { mode, network, matchInfo });
+  currentGame = game;
+  currentMode = mode;
+  currentNet = network;
 }

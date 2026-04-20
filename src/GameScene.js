@@ -2768,7 +2768,7 @@ export default class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(101)
       .setInteractive({ useHandCursor: true });
-    const btnLabel = this.add.text(btnX, btnY, 'Jogar novamente', {
+    const btnLabel = this.add.text(btnX, btnY, this.isMultiplayer ? 'Voltar ao lobby' : 'Jogar novamente', {
       font: 'bold 22px sans-serif',
       color: '#ffffff',
       stroke: '#000000',
@@ -2778,12 +2778,18 @@ export default class GameScene extends Phaser.Scene {
     btnBg.on('pointerout', () => btnBg.setFillStyle(0x22c55e));
     btnBg.on('pointerdown', () => {
       btnBg.disableInteractive();
-      btnLabel.setText('Reiniciando...');
-      if (this.network) {
-        this.network.send({ type: 'match_restart' });
-        this.time.delayedCall(180, () => { if (this.network) this.network.send({ type: 'match_restart' }); });
+      btnLabel.setText(this.isMultiplayer ? 'Voltando...' : 'Recarregando...');
+      if (this.isMultiplayer && this.network) {
+        this.network.send({ type: 'match_return_to_lobby' });
+        this.time.delayedCall(180, () => {
+          if (this.network) this.network.send({ type: 'match_return_to_lobby' });
+        });
+        this.time.delayedCall(260, () => {
+          window.dispatchEvent(new CustomEvent('match-return-to-lobby'));
+        });
+      } else {
+        window.location.reload();
       }
-      this.time.delayedCall(140, () => this.scene.restart(this.initData));
     });
   }
 
@@ -4050,10 +4056,10 @@ export default class GameScene extends Phaser.Scene {
       }
       return;
     }
-    if (data.type === 'match_restart') {
+    if (data.type === 'match_return_to_lobby' || data.type === 'match_restart') {
       if (this._restartingFromNetwork) return;
       this._restartingFromNetwork = true;
-      this.scene.restart(this.initData);
+      window.dispatchEvent(new CustomEvent('match-return-to-lobby'));
       return;
     }
     if (data.type === 'double_jump_fx') {
