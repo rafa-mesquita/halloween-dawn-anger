@@ -162,7 +162,7 @@ const ICE_BEAM_THICKNESS = 22;
 const ICE_BEAM_HIT_RADIUS = 32;
 const ICE_SLOW_DURATION_MS = 700;
 const ICE_FREEZE_DURATION_MS = 4000;
-const ICE_HITS_TO_FREEZE = 12;
+const ICE_HITS_TO_FREEZE = 10;
 const ICE_SLOW_FACTOR_START = 0.55;
 const ICE_SLOW_FACTOR_MIN = 0.15;
 const EYE_ATTACK_HITBOX_FORWARD = 40;
@@ -3000,7 +3000,7 @@ export default class GameScene extends Phaser.Scene {
     target.iceSlowFactor =
       ICE_SLOW_FACTOR_START - progress * (ICE_SLOW_FACTOR_START - ICE_SLOW_FACTOR_MIN);
     target.iceSlowActive = true;
-    if (target.iceTickCount % 3 === 0 && target.shieldCharges > 0) {
+    if (target.iceTickCount % 5 === 0 && target.shieldCharges > 0) {
       target.shieldCharges -= 1;
       if (target.shieldCharges <= 0) {
         this.playSfx('sfx_shield_break');
