@@ -5155,12 +5155,12 @@ export default class GameScene extends Phaser.Scene {
             .setScale(f.sprite.scaleX)
             .setFlipX(f.sprite.flipX)
             .setTintFill(f.char.tintColor)
-            .setAlpha(0.85)
+            .setAlpha(0.3)
             .setDepth(DEFAULT_SPRITE_DEPTH - 0.5);
           this.tweens.add({
             targets: sil,
             alpha: 0,
-            duration: 320,
+            duration: 280,
             onComplete: () => sil.destroy(),
           });
           const tx = fbody.x + fbody.width / 2;
