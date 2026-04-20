@@ -1461,6 +1461,7 @@ export default class GameScene extends Phaser.Scene {
       right: Phaser.Input.Keyboard.KeyCodes.D,
       space: Phaser.Input.Keyboard.KeyCodes.SPACE,
       swapPowers: Phaser.Input.Keyboard.KeyCodes.Q,
+      exitEye: Phaser.Input.Keyboard.KeyCodes.E,
     });
 
     this.switchKeys = this.input.keyboard.addKeys({
@@ -3137,6 +3138,7 @@ export default class GameScene extends Phaser.Scene {
       .setDepth(fighter.sprite.depth + 0.2);
     beam.castFxSprite.play('ice_spell_cast');
 
+    fighter.isCastingIceBeam = true;
     this.iceBeams = this.iceBeams || [];
     this.iceBeams.push(beam);
     return beam;
@@ -3459,6 +3461,7 @@ export default class GameScene extends Phaser.Scene {
     if (b.castSfx) {
       if (b.castSfx.isPlaying) b.castSfx.stop();
     }
+    if (b.caster) b.caster.isCastingIceBeam = false;
   }
 
   updateFrozenStates(time) {
@@ -4511,6 +4514,11 @@ export default class GameScene extends Phaser.Scene {
     if (!fighter.isDead && fighter.isEye && !fighter.isFrozen) {
       const inDash = time < fighter.eyeDashUntil;
 
+      if (Phaser.Input.Keyboard.JustDown(this.keys.exitEye)) {
+        this.revertFromEye(fighter);
+        return;
+      }
+
       if (
         !fighter.isStunned &&
         Phaser.Input.Keyboard.JustDown(this.keys.swapPowers) &&
@@ -4815,7 +4823,7 @@ export default class GameScene extends Phaser.Scene {
       this.powerQueued = false;
 
       const leftmostAvailable = this.attackOrbs.indexOf(true);
-      if (this.attackQueued && !fighter.isAttacking && leftmostAvailable !== -1) {
+      if (this.attackQueued && !fighter.isAttacking && !fighter.isCastingIceBeam && leftmostAvailable !== -1) {
         this.attackOrbs[leftmostAvailable] = false;
         if (this.resetAt === null) {
           this.resetAt = time + ORB_FULL_RESET_MS;
