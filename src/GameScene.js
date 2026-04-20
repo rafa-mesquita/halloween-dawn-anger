@@ -3018,7 +3018,7 @@ export default class GameScene extends Phaser.Scene {
     const sb = fighter.sprite.body;
     const cx = sb.x + sb.width / 2;
     const cy = sb.y + sb.height / 2;
-    this.ensureIceAmbient();
+    this.playSfx('sfx_ice_cast', 0.9);
     const beam = {
       caster: fighter,
       beamId: `ice_${fighter.ownerIndex ?? 0}_${this.time.now}_${Math.floor(Math.random() * 1e6)}`,
@@ -3321,30 +3321,6 @@ export default class GameScene extends Phaser.Scene {
         b.lastTickAt = time;
         this.iceBeamTick(b, cx, cy, end.x, end.y);
       }
-    }
-  }
-
-  ensureIceAmbient() {
-    if (this.iceAmbientSound && this.iceAmbientSound.isPlaying) return;
-    if (this.iceAmbientSound) this.iceAmbientSound.stop();
-    this.iceAmbientSound = this.sound.add('sfx_ice_cast');
-    this.iceAmbientSound.play({
-      volume: this.masterVolume * this.sfxScale * 0.9,
-    });
-  }
-
-  iceActivityActive() {
-    if (this.iceBeams && this.iceBeams.length > 0) return true;
-    for (const f of this.fighters) {
-      if (f.isFrozen || f.iceSlowActive) return true;
-    }
-    return false;
-  }
-
-  updateIceAmbient() {
-    if (!this.iceAmbientSound) return;
-    if (!this.iceActivityActive()) {
-      if (this.iceAmbientSound.isPlaying) this.iceAmbientSound.stop();
     }
   }
 
@@ -4246,7 +4222,6 @@ export default class GameScene extends Phaser.Scene {
     this.updateSelfArrow();
     this.updateIceBeams(time);
     this.updateFrozenStates(time);
-    this.updateIceAmbient();
 
     if (!fighter.isDead && fighter.isEye && !fighter.isFrozen) {
       const inDash = time < fighter.eyeDashUntil;
