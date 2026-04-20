@@ -258,6 +258,7 @@ const LOOT_TYPES = {
     idleKey: 'shield_idle',
     catchKey: 'shield_catch',
     glowKey: 'glow_blue',
+    idleScale: 2.0,
     onPickup: (scene, fighter) => {
       if (fighter.isEye) {
         fighter.eyeHitsRemaining = Math.min(EYE_HITS_HARD_CAP, fighter.eyeHitsRemaining + EYE_HITS_SHIELD_LOOT_BONUS);
