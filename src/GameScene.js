@@ -2283,6 +2283,11 @@ export default class GameScene extends Phaser.Scene {
       }
     }
     fighter.hp = Math.max(0, fighter.hp - finalAmount);
+    if (finalAmount > 0) {
+      const body = fighter.sprite.body;
+      const color = fighter === this.playerFighter ? '#ef4444' : '#ffffff';
+      this.spawnDamageNumber(body.x + body.width / 2, body.y, finalAmount, color);
+    }
     this.triggerHitFlash(fighter);
     if (fighter.hp <= 0) {
       this.killFighter(fighter);
@@ -3942,11 +3947,44 @@ export default class GameScene extends Phaser.Scene {
         if (hit.powerFlashColor !== null && hit.powerFlashColor !== undefined) {
           this.triggerPowerFlash(target, hit.powerFlashColor);
         }
+        if (!target.isEye && hit.damage > 0) {
+          const body = target.sprite.body;
+          this.spawnDamageNumber(
+            body.x + body.width / 2,
+            body.y,
+            hit.damage,
+            '#ffffff',
+          );
+        }
       }
       this.network.send({ type: 'hit', targetIndex: target.ownerIndex, ...hit });
       return;
     }
     this.applyIncomingHit(target, hit);
+  }
+
+  spawnDamageNumber(x, y, amount, color) {
+    if (amount <= 0) return;
+    const rounded = Math.round(amount);
+    if (rounded <= 0) return;
+    const jitter = (Math.random() - 0.5) * 16;
+    const txt = this.add.text(x + jitter, y - 4, String(rounded), {
+      font: 'bold 13px sans-serif',
+      color,
+      stroke: '#000000',
+      strokeThickness: 2,
+    })
+      .setOrigin(0.5, 1)
+      .setDepth(25)
+      .setAlpha(0.95);
+    this.tweens.add({
+      targets: txt,
+      y: y - 32,
+      alpha: 0,
+      duration: 720,
+      ease: 'Quad.easeOut',
+      onComplete: () => txt.destroy(),
+    });
   }
 
   isAuthoritativeOwner(fighter) {
