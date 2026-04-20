@@ -2859,6 +2859,7 @@ export default class GameScene extends Phaser.Scene {
     });
     const beam = {
       caster: fighter,
+      beamId: `ice_${fighter.ownerIndex ?? 0}_${this.time.now}_${Math.floor(Math.random() * 1e6)}`,
       startTime: this.time.now,
       activeStartTime: 0,
       state: 'casting',
@@ -2914,6 +2915,12 @@ export default class GameScene extends Phaser.Scene {
     g.lineBetween(cx, cy, endX, endY);
     g.lineStyle(Math.max(2, thickness * 0.35), 0xffffff, 1);
     g.lineBetween(cx, cy, endX, endY);
+    if (this.hitboxesVisible) {
+      g.lineStyle(ICE_BEAM_HIT_RADIUS * 2, 0xff3344, 0.22);
+      g.lineBetween(cx, cy, endX, endY);
+      g.lineStyle(1, 0xff3344, 0.9);
+      g.lineBetween(cx, cy, endX, endY);
+    }
   }
 
   spawnIceBeamParticle(x, y, angle) {
@@ -2956,6 +2963,7 @@ export default class GameScene extends Phaser.Scene {
           damage: 0,
           ignoreShield: true,
           iceTick: true,
+          iceBeamId: beam.beamId,
           playHitSfx: false,
           powerFlashColor: null,
         });
@@ -2973,12 +2981,17 @@ export default class GameScene extends Phaser.Scene {
     vfx.once('animationcomplete-ice_beam_hit', () => vfx.destroy());
   }
 
-  applyIceTick(target) {
+  applyIceTick(target, beamId) {
     const now = this.time.now;
     if (target.isDead) return;
     if (target.isFrozen) {
       target.frozenUntil = now + ICE_FREEZE_DURATION_MS;
+      target.iceBeamId = beamId || target.iceBeamId;
       return;
+    }
+    if (beamId && target.iceBeamId !== beamId) {
+      target.iceBeamId = beamId;
+      target.iceTickCount = 0;
     }
     target.iceTickCount = (target.iceTickCount || 0) + 1;
     target.iceLastTickAt = now;
@@ -3159,7 +3172,6 @@ export default class GameScene extends Phaser.Scene {
         }
       } else if (f.iceSlowActive && time >= (f.iceSlowUntil || 0)) {
         f.iceSlowActive = false;
-        f.iceTickCount = 0;
         f.iceSlowFactor = 1;
       }
     }
@@ -3642,7 +3654,7 @@ export default class GameScene extends Phaser.Scene {
   applyIncomingHit(target, hit) {
     if (!target || target.isDead) return;
     if (hit.iceTick) {
-      this.applyIceTick(target);
+      this.applyIceTick(target, hit.iceBeamId);
       return;
     }
     if (target.isEye) {
