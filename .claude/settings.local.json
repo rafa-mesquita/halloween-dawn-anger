@@ -38,7 +38,13 @@
       "Bash(node -e \"const fs=require\\('fs'\\); const buf=fs.readFileSync\\('c:/Users/rafam/Desktop/Rpositórios Github - claude/Pessoal/Chaotic Game/public/sprites/Poder 5 \\(fire storm\\)/hit.png'\\); console.log\\(buf.readUInt32BE\\(16\\), 'x', buf.readUInt32BE\\(20\\)\\);\")",
       "Bash(file *.png)",
       "Read(//c/c/Users/rafam/Desktop/Rpositórios Github - claude/Pessoal/Chaotic Game/public/sprites/**)",
-      "Read(//c/c/Users/rafam/Desktop/Rpositórios Github - claude/Pessoal/Chaotic Game/**)"
+      "Read(//c/c/Users/rafam/Desktop/Rpositórios Github - claude/Pessoal/Chaotic Game/**)",
+      "Read(//c/Users/rafam/Desktop/**)",
+      "PowerShell(Add-Type -AssemblyName System.Drawing; $img = [System.Drawing.Image]::FromFile\\(\"C:\\\\Users\\\\rafam\\\\Desktop\\\\Rpositórios Github - claude\\\\Pessoal\\\\Chaotic Game\\\\public\\\\sprites\\\\Power 10 \\(fox\\)\\\\fox.png\"\\); \"W=$\\($img.Width\\) H=$\\($img.Height\\)\"; $img.Dispose\\(\\))",
+      "PowerShell(Add-Type -AssemblyName System.Drawing; $p = \"C:\\\\Users\\\\rafam\\\\Desktop\\\\Rpositórios Github - claude\\\\Pessoal\\\\Chaotic Game\\\\public\\\\sprites\\\\Power 8 \\(fox\\)\\\\fox.png\"; if\\(Test-Path -LiteralPath $p\\){$img=[System.Drawing.Image]::FromFile\\($p\\);\"W=$\\($img.Width\\) H=$\\($img.Height\\)\";$img.Dispose\\(\\)}else{\"missing\"})"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\rafam\\Desktop\\Rpositórios Github - claude\\Pessoal\\Chaotic Game\\public\\sprites\\Power 8 (fox)"
     ]
   }
 }

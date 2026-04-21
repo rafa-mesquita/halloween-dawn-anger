@@ -168,6 +168,43 @@ const EYE_ATTACK_HITBOX_PADDING = 6;
 const EYE_DASH_BAR_WIDTH = 36;
 const EYE_DASH_BAR_HEIGHT = 4;
 
+const SKELETON_FRAME_W = 96;
+const SKELETON_FRAME_H = 64;
+const SKELETON_IDLE_FRAMES = 8;
+const SKELETON_WALK_FRAMES = 10;
+const SKELETON_ATTACK1_FRAMES = 10;
+const SKELETON_ATTACK2_FRAMES = 9;
+const SKELETON_HURT_FRAMES = 5;
+const SKELETON_DIE_FRAMES = 13;
+const SKELETON_IDLE_FPS = 8;
+const SKELETON_WALK_FPS = 12;
+const SKELETON_ATTACK_FPS = 18;
+const SKELETON_HURT_FPS = 14;
+const SKELETON_DIE_FPS = 12;
+const SKELETON_MAX_HP = 150;
+const SKELETON_BITE_DAMAGE = 30;
+const SKELETON_BITE_COOLDOWN_MS = 1200;
+const SKELETON_BITE_WINDUP_MS = 320;
+const SKELETON_DETECT_RADIUS = 320;
+const SKELETON_BITE_REACH = 90;
+const SKELETON_PATROL_SPEED = 90;
+const SKELETON_SCALE = 2.3;
+const SKELETON_HIT_SCALE = 2.5;
+const SKELETON_PLATFORM_Y_TOLERANCE = 110;
+const SKELETON_HP_BAR_WIDTH = 72;
+const SKELETON_HP_BAR_HEIGHT = 6;
+const SKELETON_BALL_SPEED = 520;
+const SKELETON_BALL_VY = -380;
+const SKELETON_BALL_LIFETIME_MS = 4000;
+const SKELETON_POWER_CRIT_MULT = 1.3;
+const SKELETON_POISON_TICK_MS = 500;
+const SKELETON_POISON_TICK_DAMAGE = 12;
+const SKELETON_KNOCKUP_DURATION_MS = 700;
+const SKELETON_KNOCKUP_HEIGHT = 70;
+const SKELETON_STUN_MS = 1100;
+const SKELETON_FREEZE_DURATION_MS = 4000;
+const SKELETON_HITS_TO_FREEZE = 12;
+
 const POWERS = {
   heavens_fury: {
     animKey: 'heavens_fury',
@@ -226,9 +263,20 @@ const POWERS = {
     orbColor: 0x78350f,
     lootGlowKey: 'glow_brown',
   },
+  skeleton_attack: {
+    orbColor: 0xf97316,
+    lootGlowKey: 'glow_orange',
+    lootIdleKey: 'skeleton_attack_loot_idle',
+    lootCatchKey: 'skeleton_attack_loot_catch',
+    lootFrameSize: 48,
+    lootScale: 1.0,
+    lootCatchScale: 2.0,
+    lootGlowScale: 0.7,
+    lootGlowPulseScale: 0.95,
+  },
 };
 
-const WOOD_POWER_POOL = ['heavens_fury', 'skull_curse', 'wheel', 'fire_storm', 'ice_beam'];
+const WOOD_POWER_POOL = ['heavens_fury', 'skull_curse', 'wheel', 'fire_storm', 'ice_beam', 'skeleton_attack'];
 
 const LOOT_TYPES = {
   wood: {
@@ -276,6 +324,15 @@ const LOOT_TYPES = {
     catchScale: EYE_LOOT_CATCH_SCALE,
     onPickup: (scene, fighter) => {
       scene.transformToEye(fighter);
+    },
+  },
+  skeleton_attack: {
+    idleKey: 'skeleton_attack_loot_idle',
+    catchKey: 'skeleton_attack_loot_catch',
+    glowKey: 'glow_orange',
+    onPickup: (scene, fighter, loot) => {
+      if (fighter.specialPowers.length < 2) fighter.specialPowers.push(loot.power);
+      else fighter.specialPowers[1] = loot.power;
     },
   },
 };
@@ -364,6 +421,11 @@ export default class GameScene extends Phaser.Scene {
       }
     }
     this.load.audio('bgm', 'audio/bgm.mp3');
+    this.load.audio('sfx_skeleton_spawn', 'audio/powers/skeleton/skeleton-spawn.mp3');
+    this.load.audio('sfx_skeleton_attack', 'audio/powers/skeleton/atack 2.mp3');
+    this.load.audio('sfx_skeleton_hit', 'audio/powers/skeleton/Skeleton_hit damage.ogg');
+    this.load.audio('sfx_skeleton_death', 'audio/powers/skeleton/skeleton-death.mp3');
+    this.load.audio('sfx_skeleton_skull_curse', 'audio/powers/skeleton/skullcurse in skelleton.mp3');
     this.load.audio('sfx_heavens_fury_cast', 'audio/powers/heavens_fury/Cast.mp3');
     this.load.audio('sfx_heavens_fury_second', 'audio/powers/heavens_fury/Second.mp3');
     this.load.audio('sfx_heavens_fury_belezam', 'audio/powers/heavens_fury/belezam.mp3');
@@ -485,6 +547,30 @@ export default class GameScene extends Phaser.Scene {
     this.load.spritesheet('ice_beam_loot_catch_sheet', 'sprites/Power 7 (ice beam)/loot catch.png', {
       frameWidth: 32,
       frameHeight: 32,
+    });
+    this.load.spritesheet('skeleton_idle', 'sprites/Power 8 (skeleton)/Skeleton_White/Skeleton_With_VFX/Skeleton_01_White_Idle.png', {
+      frameWidth: SKELETON_FRAME_W,
+      frameHeight: SKELETON_FRAME_H,
+    });
+    this.load.spritesheet('skeleton_walk', 'sprites/Power 8 (skeleton)/Skeleton_White/Skeleton_With_VFX/Skeleton_01_White_Walk.png', {
+      frameWidth: SKELETON_FRAME_W,
+      frameHeight: SKELETON_FRAME_H,
+    });
+    this.load.spritesheet('skeleton_attack1', 'sprites/Power 8 (skeleton)/Skeleton_White/Skeleton_With_VFX/Skeleton_01_White_Attack1.png', {
+      frameWidth: SKELETON_FRAME_W,
+      frameHeight: SKELETON_FRAME_H,
+    });
+    this.load.spritesheet('skeleton_attack2', 'sprites/Power 8 (skeleton)/Skeleton_White/Skeleton_With_VFX/Skeleton_01_White_Attack2.png', {
+      frameWidth: SKELETON_FRAME_W,
+      frameHeight: SKELETON_FRAME_H,
+    });
+    this.load.spritesheet('skeleton_hurt', 'sprites/Power 8 (skeleton)/Skeleton_White/Skeleton_With_VFX/Skeleton_01_White_Hurt.png', {
+      frameWidth: SKELETON_FRAME_W,
+      frameHeight: SKELETON_FRAME_H,
+    });
+    this.load.spritesheet('skeleton_die', 'sprites/Power 8 (skeleton)/Skeleton_White/Skeleton_With_VFX/Skeleton_01_White_Die.png', {
+      frameWidth: SKELETON_FRAME_W,
+      frameHeight: SKELETON_FRAME_H,
     });
     this.load.spritesheet('fire_storm_loot_catch', 'sprites/Poder 5 (fire storm)/Fire catch.png', {
       frameWidth: 64,
@@ -824,6 +910,60 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  createSkeletonLootTextures() {
+    const frameW = 48;
+    const frameH = 48;
+    this.createCanvasSpritesheet(
+      'skeleton_attack_loot_idle',
+      frameW, frameH, 8,
+      (ctx, i, total) => {
+        ctx.clearRect(0, 0, frameW, frameH);
+        const cx = frameW / 2;
+        const cy = frameH / 2;
+        const t = i / total;
+        const pulse = 0.85 + Math.sin(t * Math.PI * 2) * 0.15;
+        const r = 11 * pulse;
+        const outerR = r * 2.2;
+        const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, outerR);
+        halo.addColorStop(0, 'rgba(255, 180, 80, 0.75)');
+        halo.addColorStop(0.55, 'rgba(249, 115, 22, 0.35)');
+        halo.addColorStop(1, 'rgba(249, 115, 22, 0)');
+        ctx.fillStyle = halo;
+        ctx.fillRect(0, 0, frameW, frameH);
+        const core = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, 1, cx, cy, r);
+        core.addColorStop(0, '#fff7ed');
+        core.addColorStop(0.35, '#fdba74');
+        core.addColorStop(1, '#c2410c');
+        ctx.fillStyle = core;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 237, 213, 0.8)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.stroke();
+      },
+    );
+    this.createCanvasSpritesheet(
+      'skeleton_attack_loot_catch',
+      frameW, frameH, 7,
+      (ctx, idx, total) => this.drawWhiteCatchFrame(ctx, idx, total, frameW, frameH),
+    );
+    this.anims.create({
+      key: 'skeleton_attack_loot_idle',
+      frames: this.anims.generateFrameNumbers('skeleton_attack_loot_idle', { start: 0, end: 7 }),
+      frameRate: 10,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: 'skeleton_attack_loot_catch',
+      frames: this.anims.generateFrameNumbers('skeleton_attack_loot_catch', { start: 0, end: 6 }),
+      frameRate: 16,
+      repeat: 0,
+    });
+  }
+
   createSnowballLootTextures() {
     const frameW = 64;
     const frameH = 64;
@@ -1070,6 +1210,7 @@ export default class GameScene extends Phaser.Scene {
     this.createHeavensFuryLootTextures();
     this.createWheelLootCatchTexture();
     this.createSnowballLootTextures();
+    this.createSkeletonLootTextures();
     this.createLightBeamTexture('eye_beam', [240, 200, 110]);
 
     const platformZones = [];
@@ -1129,6 +1270,42 @@ export default class GameScene extends Phaser.Scene {
       key: 'player_frozen',
       frames: this.anims.generateFrameNumbers('player_frozen', { start: 0, end: 7 }),
       frameRate: 14,
+      repeat: 0,
+    });
+    this.anims.create({
+      key: 'skeleton_idle',
+      frames: this.anims.generateFrameNumbers('skeleton_idle', { start: 0, end: SKELETON_IDLE_FRAMES - 1 }),
+      frameRate: SKELETON_IDLE_FPS,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: 'skeleton_walk',
+      frames: this.anims.generateFrameNumbers('skeleton_walk', { start: 0, end: SKELETON_WALK_FRAMES - 1 }),
+      frameRate: SKELETON_WALK_FPS,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: 'skeleton_attack1',
+      frames: this.anims.generateFrameNumbers('skeleton_attack1', { start: 0, end: SKELETON_ATTACK1_FRAMES - 1 }),
+      frameRate: SKELETON_ATTACK_FPS,
+      repeat: 0,
+    });
+    this.anims.create({
+      key: 'skeleton_attack2',
+      frames: this.anims.generateFrameNumbers('skeleton_attack2', { start: 0, end: SKELETON_ATTACK2_FRAMES - 1 }),
+      frameRate: SKELETON_ATTACK_FPS,
+      repeat: 0,
+    });
+    this.anims.create({
+      key: 'skeleton_hurt',
+      frames: this.anims.generateFrameNumbers('skeleton_hurt', { start: 0, end: SKELETON_HURT_FRAMES - 1 }),
+      frameRate: SKELETON_HURT_FPS,
+      repeat: 0,
+    });
+    this.anims.create({
+      key: 'skeleton_die',
+      frames: this.anims.generateFrameNumbers('skeleton_die', { start: 0, end: SKELETON_DIE_FRAMES - 1 }),
+      frameRate: SKELETON_DIE_FPS,
       repeat: 0,
     });
     this.anims.create({
@@ -1464,10 +1641,22 @@ export default class GameScene extends Phaser.Scene {
       exitEye: Phaser.Input.Keyboard.KeyCodes.E,
     });
 
-    this.switchKeys = this.input.keyboard.addKeys({
-      one: Phaser.Input.Keyboard.KeyCodes.ONE,
-      two: Phaser.Input.Keyboard.KeyCodes.TWO,
-      three: Phaser.Input.Keyboard.KeyCodes.THREE,
+    this.powerSelectKeys = this.input.keyboard.addKeys({
+      p1: Phaser.Input.Keyboard.KeyCodes.ONE,
+      p2: Phaser.Input.Keyboard.KeyCodes.TWO,
+      p3: Phaser.Input.Keyboard.KeyCodes.THREE,
+      p4: Phaser.Input.Keyboard.KeyCodes.FOUR,
+      p5: Phaser.Input.Keyboard.KeyCodes.FIVE,
+      p6: Phaser.Input.Keyboard.KeyCodes.SIX,
+      p7: Phaser.Input.Keyboard.KeyCodes.SEVEN,
+      p8: Phaser.Input.Keyboard.KeyCodes.EIGHT,
+    });
+
+    this.input.on('wheel', (_pointer, _over, _dx, dy) => {
+      if (this.isMultiplayer) return;
+      if (!dy) return;
+      const dir = dy > 0 ? 1 : -1;
+      this.cycleControlledFighter(dir);
     });
 
     this.input.mouse.disableContextMenu();
@@ -1696,6 +1885,26 @@ export default class GameScene extends Phaser.Scene {
 
     this.fireStormRays = [];
     this.fireStormHitVfx = [];
+
+    this.specialSkeletonSprite = this.add.circle(
+      specialOrbCenterX,
+      orbsY,
+      SPECIAL_ORB_RADIUS,
+      0xf97316
+    )
+      .setStrokeStyle(3, 0x9a3412)
+      .setDepth(22)
+      .setScrollFactor(0)
+      .setVisible(false);
+    this.specialSkeletonPulse = this.tweens.add({
+      targets: this.specialSkeletonSprite,
+      scale: 1.2,
+      duration: 500,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+      paused: true,
+    });
 
     const secondarySlotX = specialOrbCenterX + SPECIAL_ORB_RADIUS + 10;
     this.specialSlot2Sprite = this.add.circle(
@@ -2347,6 +2556,10 @@ export default class GameScene extends Phaser.Scene {
       this.spawnDamageNumber(body.x + body.width / 2, body.y, finalAmount, color);
     }
     this.triggerHitFlash(fighter);
+    const ignoreFreezeBreak = !!(opts && opts.ignoreFreezeBreak);
+    if (finalAmount > 0 && fighter.isFrozen && !ignoreFreezeBreak) {
+      this.removeFreeze(fighter);
+    }
     if (fighter.hp <= 0) {
       this.killFighter(fighter);
     } else if (fighter.isStunned) {
@@ -2486,6 +2699,7 @@ export default class GameScene extends Phaser.Scene {
       null,
       this.oneWayProcessCallback
     );
+    phys.skeletonHitSet = new Set();
 
     this.wheelProjectiles.push(phys);
   }
@@ -2647,7 +2861,6 @@ export default class GameScene extends Phaser.Scene {
     const crow = this.crow;
     if (!crow || crow.isDead || !crow.sprite) return;
     crow.isDead = true;
-    this.playSfx('sfx_hit');
     this.playSfx('sfx_crow_die', 0.2);
     const sprite = crow.sprite;
     sprite.anims.stop();
@@ -2736,6 +2949,7 @@ export default class GameScene extends Phaser.Scene {
     this.removeShield(fighter);
     this.removeSkullCurse(fighter);
     this.removeStun(fighter);
+    this.despawnSkeleton(fighter);
 
     this.spawnDeathMarker(fighter);
 
@@ -2780,6 +2994,7 @@ export default class GameScene extends Phaser.Scene {
     this.removeShield(fighter);
     this.removeSkullCurse(fighter);
     this.removeStun(fighter);
+    this.despawnSkeleton(fighter);
     this.spawnDeathMarker(fighter);
     fighter.sprite.setVisible(false);
     fighter.sprite.body.setVelocity(0, 0);
@@ -3022,7 +3237,7 @@ export default class GameScene extends Phaser.Scene {
         repeat: ticks - 1,
         callback: () => {
           if (!target || target.isDead) return;
-          this.damageFighter(target, tickDamage, { ignoreShield: true, ignoreCurseMultiplier: true });
+          this.damageFighter(target, tickDamage, { ignoreShield: true, ignoreCurseMultiplier: true, ignoreFreezeBreak: true });
         },
       });
     }
@@ -3240,6 +3455,190 @@ export default class GameScene extends Phaser.Scene {
         });
       }
     }
+    if (this.skeletons) {
+      const visualH = SKELETON_FRAME_H * SKELETON_SCALE;
+      const halfW = 28 * SKELETON_HIT_SCALE;
+      for (const fox of this.skeletons) {
+        if (!fox || fox.state === 'dying') continue;
+        if (fox.caster === caster) continue;
+        const fx = fox.x;
+        const ftop = fox.y - visualH * 0.95;
+        const fhigh = fox.y - visualH * 0.7;
+        const fmid = fox.y - visualH * 0.45;
+        const flow = fox.y - visualH * 0.2;
+        const fbot = fox.y - 4;
+        const samples = [
+          [fx, ftop],
+          [fx, fhigh],
+          [fx, fmid],
+          [fx, flow],
+          [fx, fbot],
+          [fx - halfW, fmid],
+          [fx + halfW, fmid],
+          [fx - halfW, flow],
+          [fx + halfW, flow],
+        ];
+        let hit = false;
+        for (const [sx, sy] of samples) {
+          if (pointToSegmentDistance(sx, sy, cx, cy, endX, endY) <= ICE_BEAM_HIT_RADIUS) {
+            hit = true;
+            break;
+          }
+        }
+        if (hit) this.applyIceTickToSkeleton(fox, beam.beamId);
+      }
+    }
+  }
+
+  applyIceTickToSkeleton(fox, beamId) {
+    const now = this.time.now;
+    if (!fox || fox.state === 'dying') return;
+    if (fox.isFrozen) {
+      fox.frozenUntil = now + SKELETON_FREEZE_DURATION_MS;
+      fox.iceBeamId = beamId || fox.iceBeamId;
+      return;
+    }
+    if (beamId && fox.iceBeamId !== beamId) {
+      fox.iceBeamId = beamId;
+      fox.iceTickCount = 0;
+    }
+    fox.iceTickCount = (fox.iceTickCount || 0) + 1;
+    this.damageSkeleton(fox, 3, {
+      numberColor: '#7dd3fc',
+      skipHurtAnim: true,
+      ignoreFreezeBreak: true,
+      silent: true,
+    });
+    if (fox.state === 'dying') return;
+    if (fox.iceTickCount >= SKELETON_HITS_TO_FREEZE) {
+      this.applyFreezeSkeleton(fox);
+    }
+    if (fox.iceTickCount % 3 === 0) {
+      this.spawnIceBeamHitVfx(fox.x, fox.y - 60);
+    }
+  }
+
+  applyFreezeSkeleton(fox) {
+    if (fox.isFrozen || fox.state === 'dying') return;
+    fox.isFrozen = true;
+    fox.frozenUntil = this.time.now + SKELETON_FREEZE_DURATION_MS;
+    if (fox.knockupTween) { fox.knockupTween.stop(); fox.knockupTween = null; }
+    fox.knockupOffset = 0;
+    fox.sprite.anims.pause();
+    fox.sprite.setTint(0x3b82f6);
+    if (fox.frozenTintSprite) fox.frozenTintSprite.destroy();
+    fox.frozenTintSprite = this.add.sprite(
+      fox.sprite.x,
+      fox.sprite.y,
+      fox.sprite.texture.key,
+      fox.sprite.frame.name,
+    )
+      .setScale(fox.sprite.scaleX, fox.sprite.scaleY)
+      .setOrigin(fox.sprite.originX, fox.sprite.originY)
+      .setFlipX(fox.sprite.flipX)
+      .setTintFill(0x7dd3fc)
+      .setAlpha(0.55)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(fox.sprite.depth + 0.05);
+    if (fox.frozenOverlay) fox.frozenOverlay.destroy();
+    fox.frozenOverlay = this.add.sprite(fox.x, fox.y - 60, 'player_frozen', 0)
+      .setDepth(fox.sprite.depth + 0.1)
+      .setScale(3.0)
+      .setAlpha(0.95);
+    fox.frozenOverlay.play('player_frozen');
+  }
+
+  applyPoisonToSkeleton(fox) {
+    if (!fox || fox.state === 'dying' || fox.hp <= 0) return;
+    if (fox.poisonTimer) return;
+    if (!fox.curseTintSprite) {
+      fox.curseTintSprite = this.add.sprite(
+        fox.sprite.x,
+        fox.sprite.y,
+        fox.sprite.texture.key,
+        fox.sprite.frame.name,
+      )
+        .setScale(fox.sprite.scaleX, fox.sprite.scaleY)
+        .setOrigin(fox.sprite.originX, fox.sprite.originY)
+        .setFlipX(fox.sprite.flipX)
+        .setTintFill(0xa855f7)
+        .setAlpha(0.15)
+        .setDepth(fox.sprite.depth + 0.05);
+      fox.cursePulseTween = this.tweens.add({
+        targets: fox.curseTintSprite,
+        alpha: 0.75,
+        duration: 260,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
+    if (!fox.curseVfxSprite && this.anims.exists('skull_curse_vfx')) {
+      fox.curseVfxSprite = this.add.sprite(fox.x, fox.y - 60, 'skull_curse_vfx', 0)
+        .setScale(SKULL_CURSE_VFX_SCALE)
+        .setDepth(fox.sprite.depth + 0.1)
+        .setAlpha(0.9);
+      fox.curseVfxSprite.play('skull_curse_vfx');
+    }
+    if (!fox.curseLoopSound && this.cache.audio.exists('sfx_skeleton_skull_curse')) {
+      fox.curseLoopSound = this.sound.add('sfx_skeleton_skull_curse', {
+        loop: true,
+        volume: this.masterVolume * this.sfxScale * 0.3,
+      });
+      fox.curseLoopSound.play();
+    }
+    fox.poisonTimer = this.time.addEvent({
+      delay: SKELETON_POISON_TICK_MS,
+      loop: true,
+      callback: () => {
+        if (!fox || fox.state === 'dying' || fox.hp <= 0) {
+          if (fox && fox.poisonTimer) { fox.poisonTimer.remove(false); fox.poisonTimer = null; }
+          return;
+        }
+        this.damageSkeleton(fox, SKELETON_POISON_TICK_DAMAGE, {
+          numberColor: '#a855f7',
+          skipHurtAnim: true,
+          ignoreFreezeBreak: true,
+          silent: true,
+        });
+      },
+    });
+  }
+
+  poisonSkeletonsInRect(attacker, left, right, top, bottom) {
+    if (!this.skeletons || this.skeletons.length === 0) return false;
+    let any = false;
+    const halfW = 22 * SKELETON_HIT_SCALE;
+    const bodyH = 96 * SKELETON_HIT_SCALE;
+    for (const fox of this.skeletons) {
+      if (!fox || fox.state === 'dying') continue;
+      if (attacker && fox.caster === attacker) continue;
+      if (fox.poisonTimer) { any = true; continue; }
+      const sLeft = fox.x - halfW;
+      const sRight = fox.x + halfW;
+      const sTop = fox.y - bodyH;
+      const sBottom = fox.y;
+      if (right > sLeft && left < sRight && bottom > sTop && top < sBottom) {
+        this.applyPoisonToSkeleton(fox);
+        any = true;
+      }
+    }
+    return any;
+  }
+
+  removeFreezeSkeleton(fox) {
+    if (!fox || !fox.isFrozen) return;
+    fox.isFrozen = false;
+    fox.frozenUntil = 0;
+    fox.iceTickCount = 0;
+    fox.sprite.clearTint();
+    if (fox.sprite.anims) fox.sprite.anims.resume();
+    if (fox.frozenOverlay) { fox.frozenOverlay.destroy(); fox.frozenOverlay = null; }
+    if (fox.frozenTintSprite) { fox.frozenTintSprite.destroy(); fox.frozenTintSprite = null; }
+    if (!fox.state || fox.state === 'dying') return;
+    fox.state = 'patrol';
+    fox.target = null;
+    this.playSfx('sfx_ice_crash', 0.9);
   }
 
   spawnIceBeamHitVfx(x, y) {
@@ -3464,6 +3863,492 @@ export default class GameScene extends Phaser.Scene {
     if (b.caster) b.caster.isCastingIceBeam = false;
   }
 
+  throwSkeletonBall(caster, targetX, targetY) {
+    if (!caster || caster.isDead) return null;
+    const cb = caster.sprite.body;
+    const startX = cb.x + cb.width / 2;
+    const startY = cb.y + cb.height / 2;
+    const dx = targetX - startX;
+    const dir = dx >= 0 ? 1 : -1;
+    const ball = this.physics.add.sprite(startX, startY, 'skeleton_attack_loot_idle', 0);
+    ball.setScale(1.0).setDepth(ATTACKER_DEPTH);
+    ball.body.setAllowGravity(true);
+    ball.body.setBounce(1, 0);
+    ball.body.setCollideWorldBounds(true);
+    ball.body.onWorldBounds = true;
+    ball.body.setVelocity(SKELETON_BALL_SPEED * dir, SKELETON_BALL_VY);
+    ball.play('skeleton_attack_loot_idle');
+    ball.ownerCaster = caster;
+    ball.spawned = false;
+
+    const onPlatformContact = (b, platformZone) => {
+      if (b.spawned) return;
+      if (!b.body.touching.down) return;
+      b.spawned = true;
+      const px = b.x;
+      const py = platformZone.body.y;
+      this.fireSkeleton(caster, px, py);
+      if (b.platformCollider) this.physics.world.removeCollider(b.platformCollider);
+      b.destroy();
+    };
+    ball.platformCollider = this.physics.add.collider(
+      ball,
+      this.platformZones,
+      onPlatformContact
+    );
+
+    this.time.delayedCall(SKELETON_BALL_LIFETIME_MS, () => {
+      if (ball && ball.scene && !ball.spawned) {
+        if (ball.platformCollider) this.physics.world.removeCollider(ball.platformCollider);
+        ball.destroy();
+      }
+    });
+
+    return ball;
+  }
+
+  spawnSkeletonAppearVfx(x, y) {
+    const flash = this.add.circle(x, y - 30, 18, 0xfde68a, 0.85)
+      .setDepth(DEFAULT_SPRITE_DEPTH + 0.4)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.tweens.add({
+      targets: flash,
+      scale: 4,
+      alpha: 0,
+      duration: 480,
+      ease: 'Cubic.easeOut',
+      onComplete: () => flash.destroy(),
+    });
+    for (let i = 0; i < 8; i++) {
+      const angle = (Math.PI * 2 * i) / 8;
+      const dist = 6 + Math.random() * 8;
+      const px = x + Math.cos(angle) * dist;
+      const py = y - 20 + Math.sin(angle) * dist * 0.4;
+      const puff = this.add.circle(px, py, 5 + Math.random() * 3, 0xe5e7eb, 0.85)
+        .setDepth(DEFAULT_SPRITE_DEPTH + 0.3)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      this.tweens.add({
+        targets: puff,
+        x: px + Math.cos(angle) * 36,
+        y: py + Math.sin(angle) * 22 - 14,
+        scale: 0.2,
+        alpha: 0,
+        duration: 520,
+        ease: 'Cubic.easeOut',
+        onComplete: () => puff.destroy(),
+      });
+    }
+  }
+
+  fireSkeleton(caster, spawnX, spawnY) {
+    const cb = caster.sprite.body;
+    const useGiven = typeof spawnX === 'number' && typeof spawnY === 'number';
+    const cx = useGiven ? spawnX : cb.x + cb.width / 2;
+    const probeY = useGiven ? spawnY : cb.y + cb.height;
+
+    let platform = null;
+    for (const r of PLATFORM_RECTS) {
+      if (cx < r.x || cx > r.x + r.w) continue;
+      if (useGiven) {
+        if (Math.abs(r.y - probeY) > 4) continue;
+        platform = r;
+        break;
+      } else {
+        if (r.y < probeY - 8) continue;
+        if (!platform || r.y < platform.y) platform = r;
+      }
+    }
+    if (!platform) return null;
+
+    const platformY = platform.y;
+    this.spawnSkeletonAppearVfx(cx, platformY);
+    this.playSfx('sfx_skeleton_spawn', 2.0);
+    const sprite = this.add.sprite(cx, platformY, 'skeleton_idle', 0)
+      .setScale(SKELETON_SCALE * 0.4)
+      .setAlpha(0)
+      .setOrigin(0.5, 0.92)
+      .setDepth(DEFAULT_SPRITE_DEPTH - 0.2);
+    sprite.play('skeleton_idle');
+    this.tweens.add({
+      targets: sprite,
+      scaleX: SKELETON_SCALE,
+      scaleY: SKELETON_SCALE,
+      alpha: 1,
+      duration: 320,
+      ease: 'Back.easeOut',
+    });
+
+    const barOffsetY = 130;
+    const hpBarBg = this.add.rectangle(cx, platformY - barOffsetY, SKELETON_HP_BAR_WIDTH, SKELETON_HP_BAR_HEIGHT, 0x000000, 0.7)
+      .setStrokeStyle(1, 0x0f172a)
+      .setDepth(DEFAULT_SPRITE_DEPTH + 0.5);
+    const fillLeftX = cx - (SKELETON_HP_BAR_WIDTH - 2) / 2;
+    const hpBarFill = this.add.rectangle(fillLeftX, platformY - barOffsetY, SKELETON_HP_BAR_WIDTH - 2, SKELETON_HP_BAR_HEIGHT - 2, caster.char.tintColor)
+      .setOrigin(0, 0.5)
+      .setDepth(DEFAULT_SPRITE_DEPTH + 0.6);
+
+    const fox = {
+      sprite,
+      caster,
+      isSkeletonPet: true,
+      x: cx,
+      y: platformY,
+      platformLeft: platform.x + 16,
+      platformRight: platform.x + platform.w - 16,
+      state: 'patrol',
+      currentAnim: 'skeleton_idle',
+      target: null,
+      hp: SKELETON_MAX_HP,
+      maxHp: SKELETON_MAX_HP,
+      nextBiteAt: 0,
+      attackHitAt: 0,
+      attackDoneAt: 0,
+      attackDamageDealt: false,
+      attackVariant: 0,
+      hurtDoneAt: 0,
+      facing: caster.sprite.flipX ? -1 : 1,
+      hpBarBg,
+      hpBarFill,
+    };
+    caster.skeletons = caster.skeletons || [];
+    caster.skeletons.push(fox);
+    this.skeletons = this.skeletons || [];
+    this.skeletons.push(fox);
+    return fox;
+  }
+
+  skeletonPlayAnim(fox, key) {
+    if (fox.currentAnim === key) return;
+    fox.currentAnim = key;
+    fox.sprite.play(key, true);
+  }
+
+  positionSkeletonHpBar(fox) {
+    const barY = fox.y - 130 + (fox.knockupOffset || 0);
+    fox.hpBarBg.setPosition(fox.x, barY);
+    const pct = Math.max(0, Math.min(1, fox.hp / fox.maxHp));
+    const innerW = SKELETON_HP_BAR_WIDTH - 2;
+    const fillW = pct <= 0 ? 0 : Math.max(1, Math.round(innerW * pct));
+    fox.hpBarFill.setPosition(fox.x - innerW / 2, barY);
+    fox.hpBarFill.setDisplaySize(fillW, SKELETON_HP_BAR_HEIGHT - 2);
+    fox.hpBarFill.setVisible(fillW > 0);
+  }
+
+  startSkeletonDeath(fox) {
+    if (fox.state === 'dying') return;
+    fox.state = 'dying';
+    fox.target = null;
+    if (fox.frozenOverlay) { fox.frozenOverlay.destroy(); fox.frozenOverlay = null; }
+    if (fox.frozenTintSprite) { fox.frozenTintSprite.destroy(); fox.frozenTintSprite = null; }
+    fox.isFrozen = false;
+    if (fox.poisonTimer) { fox.poisonTimer.remove(false); fox.poisonTimer = null; }
+    fox.sprite.anims.stop();
+    fox.sprite.clearTint();
+    fox.sprite.play('skeleton_die', true);
+    fox.currentAnim = 'skeleton_die';
+    this.playSfx('sfx_skeleton_death', 0.9);
+    if (fox.cursePulseTween) { fox.cursePulseTween.stop(); fox.cursePulseTween = null; }
+    if (fox.curseTintSprite) { fox.curseTintSprite.destroy(); fox.curseTintSprite = null; }
+    if (fox.curseVfxSprite) { fox.curseVfxSprite.destroy(); fox.curseVfxSprite = null; }
+    if (fox.curseLoopSound) {
+      if (fox.curseLoopSound.isPlaying) fox.curseLoopSound.stop();
+      fox.curseLoopSound.destroy();
+      fox.curseLoopSound = null;
+    }
+    if (fox.hpBarBg) fox.hpBarBg.setVisible(false);
+    if (fox.hpBarFill) fox.hpBarFill.setVisible(false);
+    fox.sprite.once('animationcomplete-skeleton_die', () => {
+      this.despawnSkeletonInstance(fox);
+    });
+  }
+
+  damageSkeleton(fox, amount, opts) {
+    if (!fox || fox.state === 'dying' || fox.hp <= 0) return;
+    const dealt = Math.max(0, amount);
+    fox.hp -= dealt;
+    fox.totalDamageTaken = (fox.totalDamageTaken || 0) + dealt;
+    this.positionSkeletonHpBar(fox);
+    if (dealt > 0) {
+      const numColor = (opts && opts.numberColor) || '#fde047';
+      this.spawnDamageNumber(fox.x, fox.y - 110, dealt, numColor);
+      if (!opts || !opts.silent) this.playSfx('sfx_skeleton_hit', 0.8);
+    }
+    if (fox.isFrozen && (!opts || !opts.ignoreFreezeBreak)) {
+      this.removeFreezeSkeleton(fox);
+    }
+    if (fox.hp <= 0) {
+      this.startSkeletonDeath(fox);
+      return;
+    }
+    if (opts && opts.skipHurtAnim) return;
+    fox.state = 'hurt';
+    fox.target = null;
+    fox.hurtDoneAt = this.time.now + Math.round((SKELETON_HURT_FRAMES / SKELETON_HURT_FPS) * 1000);
+    fox.sprite.play('skeleton_hurt', true);
+    fox.currentAnim = 'skeleton_hurt';
+  }
+
+  applyWheelToSkeleton(wheel, fox) {
+    if (!fox || fox.state === 'dying') return;
+    if (wheel.skeletonHitSet && wheel.skeletonHitSet.has(fox)) return;
+    if (wheel.ownerFighter && fox.caster === wheel.ownerFighter) return;
+    if (wheel.skeletonHitSet) wheel.skeletonHitSet.add(fox);
+    const dmg = Math.round(WHEEL_DAMAGE * SKELETON_POWER_CRIT_MULT);
+    this.damageSkeleton(fox, dmg, { numberColor: '#ffffff', skipHurtAnim: true });
+    if (fox.state === 'dying') return;
+    fox.state = 'stunned';
+    fox.target = null;
+    fox.stunUntil = this.time.now + SKELETON_STUN_MS;
+    fox.sprite.play('skeleton_hurt', true);
+    fox.currentAnim = 'skeleton_hurt';
+    if (fox.knockupTween) fox.knockupTween.stop();
+    fox.knockupOffset = 0;
+    fox.knockupTween = this.tweens.add({
+      targets: fox,
+      knockupOffset: -SKELETON_KNOCKUP_HEIGHT,
+      duration: SKELETON_KNOCKUP_DURATION_MS / 2,
+      yoyo: true,
+      ease: 'Quad.easeOut',
+      onComplete: () => { fox.knockupOffset = 0; fox.knockupTween = null; },
+    });
+  }
+
+  applyWheelToSkeletons(wheel, left, right, top, bottom) {
+    if (!this.skeletons) return;
+    const halfW = 22 * SKELETON_HIT_SCALE;
+    const bodyH = 110 * SKELETON_HIT_SCALE;
+    for (const fox of this.skeletons) {
+      if (!fox || fox.state === 'dying') continue;
+      const sLeft = fox.x - halfW;
+      const sRight = fox.x + halfW;
+      const sTop = fox.y - bodyH;
+      const sBottom = fox.y;
+      if (right > sLeft && left < sRight && bottom > sTop && top < sBottom) {
+        this.applyWheelToSkeleton(wheel, fox);
+      }
+    }
+  }
+
+  damageSkeletonsInRect(attacker, left, right, top, bottom, amount, hitSet, opts) {
+    if (!this.skeletons || this.skeletons.length === 0) return false;
+    let anyHit = false;
+    const halfW = 22 * SKELETON_HIT_SCALE;
+    const bodyH = 96 * SKELETON_HIT_SCALE;
+    for (const fox of this.skeletons) {
+      if (!fox || fox.state === 'dying') continue;
+      if (attacker && fox.caster === attacker) continue;
+      if (hitSet && hitSet.has(fox)) continue;
+      const sLeft = fox.x - halfW;
+      const sRight = fox.x + halfW;
+      const sTop = fox.y - bodyH;
+      const sBottom = fox.y;
+      if (right > sLeft && left < sRight && bottom > sTop && top < sBottom) {
+        if (hitSet) hitSet.add(fox);
+        const finalAmount = (opts && opts.frozenAmount && fox.isFrozen)
+          ? opts.frozenAmount
+          : amount;
+        this.damageSkeleton(fox, finalAmount, opts);
+        anyHit = true;
+      }
+    }
+    return anyHit;
+  }
+
+  despawnSkeletonInstance(fox) {
+    if (!fox) return;
+    if (fox.frozenOverlay) { fox.frozenOverlay.destroy(); fox.frozenOverlay = null; }
+    if (fox.frozenTintSprite) { fox.frozenTintSprite.destroy(); fox.frozenTintSprite = null; }
+    if (fox.poisonTimer) { fox.poisonTimer.remove(false); fox.poisonTimer = null; }
+    if (fox.cursePulseTween) { fox.cursePulseTween.stop(); fox.cursePulseTween = null; }
+    if (fox.curseTintSprite) { fox.curseTintSprite.destroy(); fox.curseTintSprite = null; }
+    if (fox.curseVfxSprite) { fox.curseVfxSprite.destroy(); fox.curseVfxSprite = null; }
+    if (fox.curseLoopSound) {
+      if (fox.curseLoopSound.isPlaying) fox.curseLoopSound.stop();
+      fox.curseLoopSound.destroy();
+      fox.curseLoopSound = null;
+    }
+    if (fox.hpBarBg) fox.hpBarBg.destroy();
+    if (fox.hpBarFill) fox.hpBarFill.destroy();
+    if (fox.sprite) fox.sprite.destroy();
+    if (fox.caster && fox.caster.skeletons) {
+      const cidx = fox.caster.skeletons.indexOf(fox);
+      if (cidx >= 0) fox.caster.skeletons.splice(cidx, 1);
+    }
+    if (this.skeletons) {
+      const idx = this.skeletons.indexOf(fox);
+      if (idx >= 0) this.skeletons.splice(idx, 1);
+    }
+  }
+
+  despawnSkeleton(caster) {
+    if (!caster || !caster.skeletons) return;
+    const list = caster.skeletons.slice();
+    for (const fox of list) this.despawnSkeletonInstance(fox);
+  }
+
+  updateSkeletons(time, delta) {
+    if (!this.skeletons || this.skeletons.length === 0) return;
+    const dt = Math.min(delta, 50) / 1000;
+    for (let i = this.skeletons.length - 1; i >= 0; i--) {
+      const fox = this.skeletons[i];
+      const caster = fox.caster;
+
+      if (fox.state === 'dying') {
+        this.positionSkeletonHpBar(fox);
+        continue;
+      }
+
+      if (!caster || caster.isDead) {
+        this.startSkeletonDeath(fox);
+        continue;
+      }
+
+      if (fox.isFrozen) {
+        if (time >= fox.frozenUntil) {
+          this.removeFreezeSkeleton(fox);
+        } else {
+          if (fox.frozenOverlay) fox.frozenOverlay.setPosition(fox.x, fox.y - 60);
+          if (fox.frozenTintSprite) {
+            fox.frozenTintSprite.setTexture(fox.sprite.texture.key, fox.sprite.frame.name);
+            fox.frozenTintSprite.setPosition(fox.sprite.x, fox.sprite.y);
+            fox.frozenTintSprite.setScale(fox.sprite.scaleX, fox.sprite.scaleY);
+            fox.frozenTintSprite.setFlipX(fox.sprite.flipX);
+          }
+          this.positionSkeletonHpBar(fox);
+          continue;
+        }
+      }
+
+      if (fox.state === 'stunned') {
+        if (time >= fox.stunUntil) {
+          fox.state = 'patrol';
+          fox.nextBiteAt = Math.max(fox.nextBiteAt, time + 200);
+        } else {
+          fox.sprite.setPosition(fox.x, fox.y + (fox.knockupOffset || 0));
+          fox.sprite.setFlipX(fox.facing < 0);
+          this.positionSkeletonHpBar(fox);
+          continue;
+        }
+      }
+
+      if (fox.state === 'hurt') {
+        if (time >= fox.hurtDoneAt) {
+          fox.state = 'patrol';
+          fox.nextBiteAt = Math.max(fox.nextBiteAt, time + 200);
+        } else {
+          fox.sprite.setPosition(fox.x, fox.y + (fox.knockupOffset || 0));
+          fox.sprite.setFlipX(fox.facing < 0);
+          this.positionSkeletonHpBar(fox);
+          continue;
+        }
+      }
+
+      if (fox.state === 'attacking') {
+        const tgt = fox.target;
+        const tgtValid = tgt && !tgt.isSkeletonPet
+          ? !tgt.isDead
+          : tgt && tgt.state !== 'dying' && tgt.hp > 0;
+        if (tgtValid && !fox.attackDamageDealt && time >= fox.attackHitAt) {
+          const tx = tgt.isSkeletonPet
+            ? tgt.x
+            : tgt.sprite.body.x + tgt.sprite.body.width / 2;
+          if (Math.abs(tx - fox.x) <= SKELETON_BITE_REACH + 24) {
+            if (tgt.isSkeletonPet) {
+              this.damageSkeleton(tgt, SKELETON_BITE_DAMAGE);
+            } else {
+              if (this.isAuthoritativeOwner(caster)) {
+                this.damageFighter(tgt, SKELETON_BITE_DAMAGE, { attackerIndex: caster.ownerIndex });
+              }
+              this.triggerHitFlash(tgt);
+            }
+          }
+          fox.attackDamageDealt = true;
+        }
+        if (time >= fox.attackDoneAt) {
+          fox.state = 'patrol';
+          fox.target = null;
+          fox.nextBiteAt = time + SKELETON_BITE_COOLDOWN_MS;
+        } else {
+          fox.sprite.setPosition(fox.x, fox.y + (fox.knockupOffset || 0));
+          fox.sprite.setFlipX(fox.facing < 0);
+          this.positionSkeletonHpBar(fox);
+          continue;
+        }
+      }
+
+      let target = null;
+      if (time >= fox.nextBiteAt) {
+        let best = null;
+        let bestDist = SKELETON_DETECT_RADIUS;
+        for (const f of this.fighters) {
+          if (f === caster || f.isDead || f.isInvulnerable) continue;
+          const tb = f.sprite.body;
+          const tx = tb.x + tb.width / 2;
+          const ty = tb.y + tb.height / 2;
+          if (Math.abs(ty - fox.y) > SKELETON_PLATFORM_Y_TOLERANCE) continue;
+          if (tx < fox.platformLeft - 40 || tx > fox.platformRight + 40) continue;
+          const dx = Math.abs(tx - fox.x);
+          if (dx < bestDist) { bestDist = dx; best = f; }
+        }
+        if (this.skeletons) {
+          for (const other of this.skeletons) {
+            if (other === fox || other.state === 'dying') continue;
+            if (other.caster === caster) continue;
+            if (Math.abs(other.y - fox.y) > SKELETON_PLATFORM_Y_TOLERANCE) continue;
+            if (other.x < fox.platformLeft - 40 || other.x > fox.platformRight + 40) continue;
+            const dx = Math.abs(other.x - fox.x);
+            if (dx < bestDist) { bestDist = dx; best = other; }
+          }
+        }
+        target = best;
+      }
+
+      if (target) {
+        const tx = target.isSkeletonPet
+          ? target.x
+          : target.sprite.body.x + target.sprite.body.width / 2;
+        const dx = tx - fox.x;
+        fox.facing = dx >= 0 ? 1 : -1;
+        if (Math.abs(dx) <= SKELETON_BITE_REACH) {
+          fox.attackVariant = 1 - (fox.attackVariant || 0);
+          const animKey = fox.attackVariant === 0 ? 'skeleton_attack1' : 'skeleton_attack2';
+          const frames = fox.attackVariant === 0 ? SKELETON_ATTACK1_FRAMES : SKELETON_ATTACK2_FRAMES;
+          fox.state = 'attacking';
+          fox.target = target;
+          fox.attackHitAt = time + SKELETON_BITE_WINDUP_MS;
+          fox.attackDoneAt = time + Math.round((frames / SKELETON_ATTACK_FPS) * 1000);
+          fox.attackDamageDealt = false;
+          fox.sprite.play(animKey, true);
+          fox.currentAnim = animKey;
+          this.playSfx('sfx_skeleton_attack', 0.7);
+        } else {
+          const nextX = fox.x + fox.facing * SKELETON_PATROL_SPEED * dt;
+          fox.x = Phaser.Math.Clamp(nextX, fox.platformLeft, fox.platformRight);
+          this.skeletonPlayAnim(fox, 'skeleton_walk');
+        }
+      } else {
+        const nextX = fox.x + fox.facing * SKELETON_PATROL_SPEED * dt;
+        if (nextX <= fox.platformLeft) { fox.x = fox.platformLeft; fox.facing = 1; }
+        else if (nextX >= fox.platformRight) { fox.x = fox.platformRight; fox.facing = -1; }
+        else fox.x = nextX;
+        this.skeletonPlayAnim(fox, 'skeleton_walk');
+      }
+
+      fox.sprite.setPosition(fox.x, fox.y + (fox.knockupOffset || 0));
+      fox.sprite.setFlipX(fox.facing < 0);
+      if (fox.curseTintSprite) {
+        fox.curseTintSprite.setTexture(fox.sprite.texture.key, fox.sprite.frame.name);
+        fox.curseTintSprite.setPosition(fox.sprite.x, fox.sprite.y);
+        fox.curseTintSprite.setScale(fox.sprite.scaleX, fox.sprite.scaleY);
+        fox.curseTintSprite.setFlipX(fox.sprite.flipX);
+      }
+      if (fox.curseVfxSprite) {
+        fox.curseVfxSprite.setPosition(fox.x, fox.y - 60 + (fox.knockupOffset || 0));
+      }
+      this.positionSkeletonHpBar(fox);
+    }
+  }
+
   updateFrozenStates(time) {
     for (const f of this.fighters) {
       if (f.isFrozen) {
@@ -3681,6 +4566,21 @@ export default class GameScene extends Phaser.Scene {
             this.killCrow();
           }
         }
+        if (this.skeletons) {
+          for (const fox of this.skeletons.slice()) {
+            if (!fox || fox.state === 'dying' || fox.caster === fighter) continue;
+            const fx = fox.x;
+            const fy = fox.y - 50;
+            const fdx = Math.abs(fx - worldX);
+            const inGroundZoneF = fy >= groundTop && fy <= groundBottom;
+            if (
+              (inGroundZoneF && fdx <= HEAVENS_FURY_STRIKE_HALF_WIDTH) ||
+              (fy < groundTop && fy >= 0 && fdx <= HEAVENS_FURY_BEAM_HALF_WIDTH)
+            ) {
+              this.damageSkeleton(fox, fox.maxHp + 1, { numberColor: '#fde047' });
+            }
+          }
+        }
         if (this._isLootAuthority) {
           const lootsToKill = [];
           for (const l of this.loots) {
@@ -3740,6 +4640,10 @@ export default class GameScene extends Phaser.Scene {
         beamId: beam?.beamId ?? null,
         facing: beam?.facing ?? 1,
       });
+    } else if (power === 'skeleton_attack') {
+      fighter.specialPowers.shift();
+      this.throwSkeletonBall(fighter, pointer.worldX, pointer.worldY);
+      this.sendPowerCast('skeleton_attack', { worldX: pointer.worldX, worldY: pointer.worldY });
     }
   }
 
@@ -4341,6 +5245,8 @@ export default class GameScene extends Phaser.Scene {
         });
       } else if (data.power === 'fire_storm') {
         this.fireFireStorm(caster);
+      } else if (data.power === 'skeleton_attack') {
+        this.throwSkeletonBall(caster, data.worldX, data.worldY);
       }
       return;
     }
@@ -4448,6 +5354,34 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  selectPower(powerKey) {
+    const f = this.playerFighter;
+    if (!f || f.isDead) return;
+    f.specialPowers = [powerKey];
+    if (this.refreshDevPowerButtons) this.refreshDevPowerButtons();
+  }
+
+  toggleEyeTransform() {
+    const f = this.playerFighter;
+    if (!f || f.isDead) return;
+    if (f.isEye) this.revertFromEye(f);
+    else this.transformToEye(f);
+  }
+
+  cycleControlledFighter(dir) {
+    if (this.isMultiplayer || !this.fighters || this.fighters.length <= 1) return;
+    const currentIdx = this.fighters.indexOf(this.playerFighter);
+    const n = this.fighters.length;
+    for (let step = 1; step <= n; step++) {
+      const candidateIdx = (currentIdx + dir * step + n * n) % n;
+      const candidate = this.fighters[candidateIdx];
+      if (candidate && !candidate.isDead && candidate !== this.playerFighter) {
+        this.setControlledFighter(candidateIdx);
+        return;
+      }
+    }
+  }
+
   setControlledFighter(index) {
     const next = this.fighters[index];
     if (!next || next === this.playerFighter || next.isDead) return;
@@ -4487,9 +5421,14 @@ export default class GameScene extends Phaser.Scene {
     if (this.parallaxNear) this.parallaxNear.tilePositionX += delta * 0.022;
 
     if (!this.isMultiplayer) {
-      if (Phaser.Input.Keyboard.JustDown(this.switchKeys.one)) this.setControlledFighter(0);
-      else if (Phaser.Input.Keyboard.JustDown(this.switchKeys.two)) this.setControlledFighter(1);
-      else if (Phaser.Input.Keyboard.JustDown(this.switchKeys.three)) this.setControlledFighter(2);
+      if (Phaser.Input.Keyboard.JustDown(this.powerSelectKeys.p1)) this.selectPower('heavens_fury');
+      else if (Phaser.Input.Keyboard.JustDown(this.powerSelectKeys.p2)) this.selectPower('shield');
+      else if (Phaser.Input.Keyboard.JustDown(this.powerSelectKeys.p3)) this.selectPower('skull_curse');
+      else if (Phaser.Input.Keyboard.JustDown(this.powerSelectKeys.p4)) this.selectPower('wheel');
+      else if (Phaser.Input.Keyboard.JustDown(this.powerSelectKeys.p5)) this.selectPower('fire_storm');
+      else if (Phaser.Input.Keyboard.JustDown(this.powerSelectKeys.p6)) this.toggleEyeTransform();
+      else if (Phaser.Input.Keyboard.JustDown(this.powerSelectKeys.p7)) this.selectPower('ice_beam');
+      else if (Phaser.Input.Keyboard.JustDown(this.powerSelectKeys.p8)) this.selectPower('skeleton_attack');
     }
 
     if (this.isMultiplayer) {
@@ -4529,6 +5468,7 @@ export default class GameScene extends Phaser.Scene {
     this.updateIceBeams(time);
     this.updateFrozenStates(time);
     this.updateIceAmbientStop();
+    this.updateSkeletons(time, delta);
 
     if (!fighter.isDead && fighter.isEye && !fighter.isFrozen) {
       const inDash = time < fighter.eyeDashUntil;
@@ -4712,6 +5652,7 @@ export default class GameScene extends Phaser.Scene {
           if (this.isCrowHitByRect(hbLeft, hbRight, hbTop, hbBottom)) {
             this.killCrow();
           }
+          this.damageSkeletonsInRect(fighter, hbLeft, hbRight, hbTop, hbBottom, SKELETON_MAX_HP + 1, this.targetsHitThisAttack);
         }
       } else if (
         this.player.anims.currentAnim?.key !== 'eye_flight' &&
@@ -5004,6 +5945,10 @@ export default class GameScene extends Phaser.Scene {
           ) {
             this.killCrow();
           }
+          this.damageSkeletonsInRect(fighter, hbLeft, hbRight, hbTop, hbBottom, ATTACK_DAMAGE, this.targetsHitThisAttack, { frozenAmount: 90 });
+          if (isHorizontal) {
+            this.damageSkeletonsInRect(fighter, backLeft, backRight, backTop, backBottom, ATTACK_DAMAGE, this.targetsHitThisAttack, { frozenAmount: 90 });
+          }
         }
       } else if (!onGround) {
         if (body.velocity.y < 0) {
@@ -5080,6 +6025,22 @@ export default class GameScene extends Phaser.Scene {
         if (!p.hasHit && this.isCrowHitByRect(pLeft, pRight, pTop, pBottom)) {
           this.killCrow();
         }
+        if (!p.hasHit && this.poisonSkeletonsInRect(p.ownerFighter, pLeft, pRight, pTop, pBottom)) {
+          p.hasHit = true;
+          p.body.setVelocityX(0);
+          p.play('skull_curse_hit');
+          if (p.auraPulse) p.auraPulse.stop();
+          if (p.aura) {
+            this.tweens.add({
+              targets: p.aura,
+              alpha: 0,
+              scale: 1.1,
+              duration: 300,
+              onComplete: () => p.aura && p.aura.destroy(),
+            });
+          }
+          p.once('animationcomplete-skull_curse_hit', () => p.destroy());
+        }
       }
     }
 
@@ -5137,6 +6098,7 @@ export default class GameScene extends Phaser.Scene {
       if (this.isCrowHitByRect(rLeft, rRight, rTop, rBottom)) {
         this.killCrow();
       }
+      this.damageSkeletonsInRect(r.ownerFighter, rLeft, rRight, rTop, rBottom, Math.round(FIRE_STORM_DAMAGE * SKELETON_POWER_CRIT_MULT), r.hitSet);
     }
 
     for (let i = this.wheelProjectiles.length - 1; i >= 0; i--) {
@@ -5226,6 +6188,7 @@ export default class GameScene extends Phaser.Scene {
       if (this.isCrowHitByRect(wLeft, wRight, wTop, wBottom)) {
         this.killCrow();
       }
+      this.applyWheelToSkeletons(w, wLeft, wRight, wTop, wBottom);
     }
 
     for (const loot of this.loots) {
@@ -5267,6 +6230,7 @@ export default class GameScene extends Phaser.Scene {
     const hasSkullCurse = slot0 === 'skull_curse';
     const hasWheel = slot0 === 'wheel';
     const hasFireStorm = slot0 === 'fire_storm';
+    const hasSkeleton = slot0 === 'skeleton_attack';
     for (let i = 0; i < this.attackOrbs.length; i++) {
       const available = this.attackOrbs[i];
       const sprite = this.orbSprites[i];
@@ -5308,12 +6272,20 @@ export default class GameScene extends Phaser.Scene {
       this.specialFireStormPulse.pause();
       this.specialFireStormSprite.setScale(1);
     }
+    this.specialSkeletonSprite.setVisible(hasSkeleton);
+    if (hasSkeleton && this.specialSkeletonPulse.paused) {
+      this.specialSkeletonPulse.resume();
+    } else if (!hasSkeleton && !this.specialSkeletonPulse.paused) {
+      this.specialSkeletonPulse.pause();
+      this.specialSkeletonSprite.setScale(1);
+    }
     if (slot1) {
       const slot1Color =
         slot1 === 'heavens_fury' ? 0xfde047
         : slot1 === 'shield' ? 0x3b82f6
         : slot1 === 'skull_curse' ? 0xa855f7
         : slot1 === 'fire_storm' ? 0xff3b30
+        : slot1 === 'skeleton_attack' ? 0xf97316
         : 0xffffff;
       this.specialSlot2Sprite.fillColor = slot1Color;
       this.specialSlot2Sprite.setVisible(true);
