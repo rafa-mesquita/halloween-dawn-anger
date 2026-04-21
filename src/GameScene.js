@@ -4257,9 +4257,15 @@ export default class GameScene extends Phaser.Scene {
               this.damageSkeleton(tgt, SKELETON_BITE_DAMAGE);
             } else {
               if (this.isAuthoritativeOwner(caster)) {
-                this.damageFighter(tgt, SKELETON_BITE_DAMAGE, { attackerIndex: caster.ownerIndex });
+                this.dealHit(tgt, {
+                  damage: SKELETON_BITE_DAMAGE,
+                  ignoreShield: false,
+                  powerFlashColor: POWERS.skeleton_attack.orbColor,
+                  attackerIndex: caster.ownerIndex,
+                });
+              } else {
+                this.triggerHitFlash(tgt);
               }
-              this.triggerHitFlash(tgt);
             }
           }
           fox.attackDamageDealt = true;
