@@ -1,0 +1,112 @@
+[gd_scene format=3 uid="uid://ckwggd2wwu0b3"]
+
+[ext_resource type="Texture2D" uid="uid://c5uapmes2elkk" path="res://assets/maps/map1/background.png" id="1_b7k2u"]
+[ext_resource type="Texture2D" uid="uid://btp1v6aeuye4p" path="res://assets/maps/map1/platforms.png" id="2_fir3t"]
+[ext_resource type="Texture2D" uid="uid://bkpnsunoqw1vk" path="res://assets/maps/map1/hitbox.png" id="3_4wqio"]
+[ext_resource type="Script" uid="uid://bpjm313pg8uv" path="res://scenes/game/KillZone.gd" id="4_by8rq"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_8epdi"]
+size = Vector2(637.625, 30)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ok47y"]
+size = Vector2(637.25, 31)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_5tx2o"]
+size = Vector2(807.3125, 44.25)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ri633"]
+size = Vector2(340.15625, 44.625)
+
+[sub_resource type="WorldBoundaryShape2D" id="WorldBoundaryShape2D_6c5d3"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_hdndc"]
+size = Vector2(1557, 13)
+
+[node name="GravyardOfSouls" type="Node2D" unique_id=1519342458]
+
+[node name="Background" type="Sprite2D" parent="." unique_id=1902459407]
+z_index = -10
+position = Vector2(767, 510)
+texture = ExtResource("1_b7k2u")
+
+[node name="Plataforms" type="Sprite2D" parent="." unique_id=2078718558]
+z_index = -1
+position = Vector2(767, 510)
+texture = ExtResource("2_fir3t")
+
+[node name="Plataform 1" type="StaticBody2D" parent="Plataforms" unique_id=119600089]
+collision_layer = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Plataforms/Plataform 1" unique_id=680537436]
+position = Vector2(-444.8125, 177)
+shape = SubResource("RectangleShape2D_8epdi")
+one_way_collision = true
+
+[node name="Plataform 2" type="StaticBody2D" parent="Plataforms" unique_id=738506512]
+collision_layer = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Plataforms/Plataform 2" unique_id=1297067679]
+position = Vector2(449, 3)
+shape = SubResource("RectangleShape2D_ok47y")
+one_way_collision = true
+
+[node name="Plataform 3" type="StaticBody2D" parent="Plataforms" unique_id=1770325812]
+collision_layer = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Plataforms/Plataform 3" unique_id=252315163]
+position = Vector2(365, 442)
+shape = SubResource("RectangleShape2D_5tx2o")
+one_way_collision = true
+
+[node name="Plataform 4" type="StaticBody2D" parent="Plataforms" unique_id=924092043]
+collision_layer = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Plataforms/Plataform 4" unique_id=1591690878]
+position = Vector2(-596.0781, -259.3125)
+shape = SubResource("RectangleShape2D_ri633")
+one_way_collision = true
+
+[node name="Hitbox" type="Sprite2D" parent="." unique_id=1201791912]
+visible = false
+texture = ExtResource("3_4wqio")
+
+[node name="SpawnPoints" type="Node2D" parent="." unique_id=971005212 groups=["spawn_points"]]
+
+[node name="Spawn1" type="Marker2D" parent="SpawnPoints" unique_id=1836766053]
+position = Vector2(148, 172)
+
+[node name="Spawn2" type="Marker2D" parent="SpawnPoints" unique_id=1530267149]
+position = Vector2(1256, 858)
+
+[node name="Spawn3" type="Marker2D" parent="SpawnPoints" unique_id=679050216]
+position = Vector2(1234, 455)
+
+[node name="Spawn4" type="Marker2D" parent="SpawnPoints" unique_id=157746619]
+position = Vector2(158, 619)
+
+[node name="Boundaries" type="Node2D" parent="." unique_id=406075037]
+
+[node name="LeftBoundary" type="StaticBody2D" parent="Boundaries" unique_id=1719094751]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Boundaries/LeftBoundary" unique_id=2079248922]
+position = Vector2(0.88, 547.61)
+rotation = 1.5707964
+scale = Vector2(13.41, 13.41)
+shape = SubResource("WorldBoundaryShape2D_6c5d3")
+
+[node name="RigthBoundary" type="StaticBody2D" parent="Boundaries" unique_id=766246853]
+position = Vector2(1542.74, 1084.7)
+rotation = 3.1415927
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Boundaries/RigthBoundary" unique_id=1671320234]
+position = Vector2(0.88, 547.61)
+rotation = 1.5707964
+scale = Vector2(13.41, 13.41)
+shape = SubResource("WorldBoundaryShape2D_6c5d3")
+
+[node name="KillZone" type="Area2D" parent="Boundaries" unique_id=1430342949]
+script = ExtResource("4_by8rq")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Boundaries/KillZone" unique_id=222716196]
+position = Vector2(787, 1280)
+shape = SubResource("RectangleShape2D_hdndc")

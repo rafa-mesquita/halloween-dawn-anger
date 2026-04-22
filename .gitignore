@@ -1,7 +1,19 @@
-node_modules
-dist
+# Legacy JS files (não faz parte do port Godot)
+_legacy/
+
+# Godot
+.godot/
+*.import
+export.cfg
+export_presets.cfg
+
+# OS
 .DS_Store
 *.log
+
+# Antigos (JS)
+node_modules
+dist
 .vite
 cloudflared.exe
 config.yml

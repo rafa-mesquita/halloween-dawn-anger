@@ -1,0 +1,22 @@
+[gd_scene format=3 uid="uid://crs4hwqwrj2q1"]
+
+[ext_resource type="Script" uid="uid://bfji50x0sio4v" path="res://scenes/loot/loot.gd" id="1_k18f3"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_r2q37"]
+radius = 16.0
+
+[node name="Area2D" type="Area2D" unique_id=1625415595]
+collision_layer = 0
+script = ExtResource("1_k18f3")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=622013921]
+shape = SubResource("CircleShape2D_r2q37")
+
+[node name="Glow" type="Sprite2D" parent="." unique_id=939233645]
+z_index = -1
+scale = Vector2(0.55, 0.55)
+
+[node name="Sprite" type="AnimatedSprite2D" parent="." unique_id=1880533103]
+
+[node name="TintOverlay" type="AnimatedSprite2D" parent="." unique_id=273185979]
+z_index = 1

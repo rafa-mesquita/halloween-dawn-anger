@@ -1,0 +1,44 @@
+[gd_scene load_steps=2 format=3 uid="uid://main_menu"]
+
+[ext_resource type="Script" path="res://scenes/ui/MainMenu.gd" id="1_mainmenu"]
+
+[node name="MainMenu" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_mainmenu")
+
+[node name="Background" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.05, 0.03, 0.08, 1)
+
+[node name="VBox" type="VBoxContainer" parent="."]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -120.0
+offset_top = -100.0
+offset_right = 120.0
+offset_bottom = 100.0
+alignment = 1
+
+[node name="Title" type="Label" parent="VBox"]
+text = "Halloween Dawn"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 36
+
+[node name="Spacer" type="Control" parent="VBox"]
+custom_minimum_size = Vector2(0, 24)
+
+[node name="BtnPlay" type="Button" parent="VBox"]
+text = "Play"
+custom_minimum_size = Vector2(240, 48)
+
+[node name="BtnSettings" type="Button" parent="VBox"]
+text = "Settings"
+custom_minimum_size = Vector2(240, 48)
+
+[node name="BtnQuit" type="Button" parent="VBox"]
+text = "Quit"
+custom_minimum_size = Vector2(240, 48)

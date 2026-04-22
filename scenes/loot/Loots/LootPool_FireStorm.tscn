@@ -1,0 +1,100 @@
+[gd_scene format=3 uid="uid://crxskebx5k0xv"]
+
+[ext_resource type="PackedScene" uid="uid://crs4hwqwrj2q1" path="res://scenes/loot/Loot.tscn" id="1_hmq2h"]
+[ext_resource type="Texture2D" uid="uid://d0435y53t8upx" path="res://assets/sprites/Poder 5 (fire storm)/Fire loot 3.png" id="2_0w78g"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_l7bb1"]
+atlas = ExtResource("2_0w78g")
+region = Rect2(320, 320, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_jj0vp"]
+atlas = ExtResource("2_0w78g")
+region = Rect2(384, 320, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_vlq6a"]
+atlas = ExtResource("2_0w78g")
+region = Rect2(448, 320, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_2p1a0"]
+atlas = ExtResource("2_0w78g")
+region = Rect2(512, 320, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_sr301"]
+atlas = ExtResource("2_0w78g")
+region = Rect2(576, 320, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_rw8xa"]
+atlas = ExtResource("2_0w78g")
+region = Rect2(0, 320, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_4do0k"]
+atlas = ExtResource("2_0w78g")
+region = Rect2(64, 320, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_cc2ql"]
+atlas = ExtResource("2_0w78g")
+region = Rect2(128, 320, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_rxwja"]
+atlas = ExtResource("2_0w78g")
+region = Rect2(192, 320, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_4feqt"]
+atlas = ExtResource("2_0w78g")
+region = Rect2(256, 320, 64, 64)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_hveew"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_l7bb1")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_jj0vp")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_vlq6a")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_2p1a0")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_sr301")
+}],
+"loop": false,
+"name": &"catch",
+"speed": 7.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_rw8xa")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_4do0k")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_cc2ql")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_rxwja")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_4feqt")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 10.0
+}]
+
+[node name="Area2D" unique_id=1625415595 instance=ExtResource("1_hmq2h")]
+loot_type = "loot_pool"
+power = "fire_storm"
+glow_color = Color(1, 0.23137255, 0.1882353, 1)
+tint_color = Color(1, 0.23137255, 0.1882353, 1)
+sprite_scale = 1.0
+
+[node name="Sprite" parent="." index="2" unique_id=1880533103]
+sprite_frames = SubResource("SpriteFrames_hveew")
+animation = &"catch"
+frame = 4
+frame_progress = 1.0

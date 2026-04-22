@@ -1,0 +1,25 @@
+[gd_scene format=3 uid="uid://btpo7bkdpx4yc"]
+
+[ext_resource type="Script" uid="uid://bp2qtkd7i3hcb" path="res://scenes/game/GameScene.gd" id="1_5xmm1"]
+[ext_resource type="PackedScene" uid="uid://ckwggd2wwu0b3" path="res://scenes/maps/GravyardOfSouls.tscn" id="2_ydf3n"]
+[ext_resource type="Script" uid="uid://cd6c8upc3gf2x" path="res://scenes/loot/LootManager.gd" id="4_6hqhf"]
+[ext_resource type="PackedScene" uid="uid://dua6r5eeejf5m" path="res://scenes/fighter/fighter.tscn" id="5_p0de3"]
+
+[node name="GameScene" type="Node2D" unique_id=933472888 node_paths=PackedStringArray("debug_fighter")]
+script = ExtResource("1_5xmm1")
+debug_fighter = NodePath("Fighter")
+
+[node name="MapContainer" type="Node2D" parent="." unique_id=901376957]
+
+[node name="GravyardOfSouls" parent="MapContainer" unique_id=1519342458 instance=ExtResource("2_ydf3n")]
+
+[node name="Fighter" parent="." unique_id=2453899 instance=ExtResource("5_p0de3")]
+position = Vector2(389, 620)
+char_color = Color(1, 1, 1, 1)
+
+[node name="Fighter2" parent="." unique_id=1928863768 instance=ExtResource("5_p0de3")]
+position = Vector2(1434, 442)
+player_controlled = false
+
+[node name="LootManager" type="Node" parent="." unique_id=1830455524]
+script = ExtResource("4_6hqhf")

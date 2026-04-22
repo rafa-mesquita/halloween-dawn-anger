@@ -1,0 +1,74 @@
+[gd_scene format=3 uid="uid://dp2mu4bs8bbm4"]
+
+[ext_resource type="PackedScene" uid="uid://crs4hwqwrj2q1" path="res://scenes/loot/Loot.tscn" id="1_5ti24"]
+[ext_resource type="Texture2D" uid="uid://233wb7hwoiwl" path="res://assets/sprites/Poder 2 (Shield)/shield carch.png" id="2_16xvi"]
+[ext_resource type="Texture2D" uid="uid://bwem5jqbu1qbl" path="res://assets/sprites/Poder 2 (Shield)/shield icon.png" id="3_pb672"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ogbu4"]
+atlas = ExtResource("2_16xvi")
+region = Rect2(320, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_3f4fc"]
+atlas = ExtResource("2_16xvi")
+region = Rect2(352, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_7h1ts"]
+atlas = ExtResource("2_16xvi")
+region = Rect2(384, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_pip1s"]
+atlas = ExtResource("2_16xvi")
+region = Rect2(416, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_rrwrx"]
+atlas = ExtResource("2_16xvi")
+region = Rect2(448, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_v8jig"]
+atlas = ExtResource("2_16xvi")
+region = Rect2(480, 0, 32, 32)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_lsw16"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ogbu4")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_3f4fc")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_7h1ts")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_pip1s")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_rrwrx")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_v8jig")
+}],
+"loop": true,
+"name": &"catch",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("3_pb672")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 1.0
+}]
+
+[node name="Area2D" unique_id=1625415595 instance=ExtResource("1_5ti24")]
+loot_type = "shield"
+glow_color = Color(0.21960784, 0.7411765, 0.972549, 1)
+sprite_scale = 0.3
+shield_wobble = true
+
+[node name="Sprite" parent="." index="2" unique_id=1880533103]
+scale = Vector2(0.3, 0.3)
+sprite_frames = SubResource("SpriteFrames_lsw16")
+animation = &"idle"

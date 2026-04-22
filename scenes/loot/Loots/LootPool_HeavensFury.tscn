@@ -1,0 +1,121 @@
+[gd_scene format=3 uid="uid://bbv5ju6qe6xqq"]
+
+[ext_resource type="PackedScene" uid="uid://crs4hwqwrj2q1" path="res://scenes/loot/Loot.tscn" id="1_t3k81"]
+[ext_resource type="Texture2D" uid="uid://cen5lswn5m1cd" path="res://assets/sprites/Poder 1/heavens_fury_loot_catch.png" id="2_0ny24"]
+[ext_resource type="Texture2D" uid="uid://hynassfd40td" path="res://assets/sprites/Poder 1/heavens_fury_loot_idle.png" id="3_dv2ug"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_c2ale"]
+atlas = ExtResource("2_0ny24")
+region = Rect2(0, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_oelku"]
+atlas = ExtResource("2_0ny24")
+region = Rect2(64, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ivlpd"]
+atlas = ExtResource("2_0ny24")
+region = Rect2(128, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_kvyu6"]
+atlas = ExtResource("2_0ny24")
+region = Rect2(192, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ky7xk"]
+atlas = ExtResource("2_0ny24")
+region = Rect2(256, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ko68q"]
+atlas = ExtResource("2_0ny24")
+region = Rect2(320, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_r3n21"]
+atlas = ExtResource("2_0ny24")
+region = Rect2(384, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_pakpd"]
+atlas = ExtResource("3_dv2ug")
+region = Rect2(0, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_3o0u6"]
+atlas = ExtResource("3_dv2ug")
+region = Rect2(64, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_kt247"]
+atlas = ExtResource("3_dv2ug")
+region = Rect2(128, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_i3fnd"]
+atlas = ExtResource("3_dv2ug")
+region = Rect2(192, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_bnxs3"]
+atlas = ExtResource("3_dv2ug")
+region = Rect2(256, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_86st2"]
+atlas = ExtResource("3_dv2ug")
+region = Rect2(320, 0, 64, 64)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_o207q"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_c2ale")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_oelku")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ivlpd")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_kvyu6")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ky7xk")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ko68q")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_r3n21")
+}],
+"loop": false,
+"name": &"catch",
+"speed": 10.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_pakpd")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_3o0u6")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_kt247")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_i3fnd")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_bnxs3")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_86st2")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 7.0
+}]
+
+[node name="Area2D" unique_id=1625415595 instance=ExtResource("1_t3k81")]
+loot_type = "loot_pool"
+power = "heavens_fury"
+glow_color = Color(0.99215686, 0.8784314, 0.2784314, 1)
+tint_color = Color(0.99215686, 0.8784314, 0.2784314, 1)
+sprite_scale = 1.5
+
+[node name="Sprite" parent="." index="2" unique_id=1880533103]
+sprite_frames = SubResource("SpriteFrames_o207q")
+animation = &"idle"
+frame_progress = 0.7512965

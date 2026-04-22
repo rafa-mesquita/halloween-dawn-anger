@@ -1,0 +1,145 @@
+[gd_scene format=3 uid="uid://bpdyd15ocst28"]
+
+[ext_resource type="Script" uid="uid://b2g1cqkweolw3" path="res://scenes/powers/SkullCurse.gd" id="1_sc"]
+[ext_resource type="Texture2D" uid="uid://dulqbhotbbu2p" path="res://assets/sprites/Poder 3 (skull curse)/Dark VFX 1 (40x32).png" id="2_7ftls"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_nqc3q"]
+atlas = ExtResource("2_7ftls")
+region = Rect2(0, 0, 40, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_16sbo"]
+atlas = ExtResource("2_7ftls")
+region = Rect2(40, 0, 40, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_c81g8"]
+atlas = ExtResource("2_7ftls")
+region = Rect2(80, 0, 40, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_x1edl"]
+atlas = ExtResource("2_7ftls")
+region = Rect2(120, 0, 40, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_70nvh"]
+atlas = ExtResource("2_7ftls")
+region = Rect2(160, 0, 40, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_fxb52"]
+atlas = ExtResource("2_7ftls")
+region = Rect2(200, 0, 40, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_w4fty"]
+atlas = ExtResource("2_7ftls")
+region = Rect2(240, 0, 40, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_1pqme"]
+atlas = ExtResource("2_7ftls")
+region = Rect2(280, 0, 40, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_0vt8o"]
+atlas = ExtResource("2_7ftls")
+region = Rect2(320, 0, 40, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_tq32c"]
+atlas = ExtResource("2_7ftls")
+region = Rect2(360, 0, 40, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_qbvax"]
+atlas = ExtResource("2_7ftls")
+region = Rect2(0, 32, 40, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_uwexr"]
+atlas = ExtResource("2_7ftls")
+region = Rect2(40, 32, 40, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_sdmng"]
+atlas = ExtResource("2_7ftls")
+region = Rect2(80, 32, 40, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_shdjc"]
+atlas = ExtResource("2_7ftls")
+region = Rect2(120, 32, 40, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_g55s4"]
+atlas = ExtResource("2_7ftls")
+region = Rect2(160, 32, 40, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_sbxki"]
+atlas = ExtResource("2_7ftls")
+region = Rect2(200, 32, 40, 32)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_pfnkx"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_nqc3q")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_16sbo")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_c81g8")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_x1edl")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_70nvh")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_fxb52")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_w4fty")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_1pqme")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_0vt8o")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_tq32c")
+}],
+"loop": true,
+"name": &"fly",
+"speed": 14.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_qbvax")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_uwexr")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_sdmng")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_shdjc")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_g55s4")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_sbxki")
+}],
+"loop": false,
+"name": &"hit",
+"speed": 14.0
+}]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_s5ixi"]
+size = Vector2(28, 22)
+
+[node name="SkullCurse" type="Node2D" unique_id=1770102077]
+script = ExtResource("1_sc")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1156560454]
+scale = Vector2(3, 3)
+sprite_frames = SubResource("SpriteFrames_pfnkx")
+animation = &"hit"
+
+[node name="HitBox" type="Area2D" parent="." unique_id=1618896844]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HitBox" unique_id=1704384467]
+shape = SubResource("RectangleShape2D_s5ixi")

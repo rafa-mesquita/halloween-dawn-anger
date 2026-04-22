@@ -1,0 +1,88 @@
+[gd_scene load_steps=2 format=3 uid="uid://settings_scene"]
+
+[ext_resource type="Script" path="res://scenes/ui/Settings.gd" id="1_settings"]
+
+[node name="Settings" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_settings")
+
+[node name="Background" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.05, 0.03, 0.08, 1)
+
+[node name="Panel" type="PanelContainer" parent="."]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -220.0
+offset_right = 200.0
+offset_bottom = 220.0
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="Panel/VBox"]
+text = "Settings"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 28
+
+[node name="Spacer0" type="Control" parent="Panel/VBox"]
+custom_minimum_size = Vector2(0, 8)
+
+[node name="RowMaster" type="HBoxContainer" parent="Panel/VBox"]
+
+[node name="LblMaster" type="Label" parent="Panel/VBox/RowMaster"]
+text = "Master"
+custom_minimum_size = Vector2(90, 0)
+
+[node name="SliderMaster" type="HSlider" parent="Panel/VBox/RowMaster"]
+custom_minimum_size = Vector2(220, 0)
+min_value = 0.0
+max_value = 1.0
+step = 0.01
+value = 1.0
+
+[node name="RowMusic" type="HBoxContainer" parent="Panel/VBox"]
+
+[node name="LblMusic" type="Label" parent="Panel/VBox/RowMusic"]
+text = "Music"
+custom_minimum_size = Vector2(90, 0)
+
+[node name="SliderMusic" type="HSlider" parent="Panel/VBox/RowMusic"]
+custom_minimum_size = Vector2(220, 0)
+min_value = 0.0
+max_value = 1.0
+step = 0.01
+value = 0.35
+
+[node name="RowSFX" type="HBoxContainer" parent="Panel/VBox"]
+
+[node name="LblSFX" type="Label" parent="Panel/VBox/RowSFX"]
+text = "SFX"
+custom_minimum_size = Vector2(90, 0)
+
+[node name="SliderSFX" type="HSlider" parent="Panel/VBox/RowSFX"]
+custom_minimum_size = Vector2(220, 0)
+min_value = 0.0
+max_value = 1.0
+step = 0.01
+value = 1.0
+
+[node name="RowFullscreen" type="HBoxContainer" parent="Panel/VBox"]
+
+[node name="LblFullscreen" type="Label" parent="Panel/VBox/RowFullscreen"]
+text = "Fullscreen"
+custom_minimum_size = Vector2(90, 0)
+
+[node name="CheckFullscreen" type="CheckBox" parent="Panel/VBox/RowFullscreen"]
+
+[node name="Spacer1" type="Control" parent="Panel/VBox"]
+custom_minimum_size = Vector2(0, 12)
+
+[node name="BtnBack" type="Button" parent="Panel/VBox"]
+text = "Back"
+custom_minimum_size = Vector2(0, 44)

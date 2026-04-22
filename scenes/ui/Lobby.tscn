@@ -1,0 +1,60 @@
+[gd_scene load_steps=2 format=3 uid="uid://lobby_scene"]
+
+[ext_resource type="Script" path="res://scenes/ui/Lobby.gd" id="1_lobby"]
+
+[node name="Lobby" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_lobby")
+
+[node name="Background" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.05, 0.03, 0.08, 1)
+
+[node name="Panel" type="PanelContainer" parent="."]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -180.0
+offset_right = 200.0
+offset_bottom = 180.0
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="Panel/VBox"]
+text = "Lobby"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 28
+
+[node name="Spacer0" type="Control" parent="Panel/VBox"]
+custom_minimum_size = Vector2(0, 8)
+
+[node name="RowNick" type="HBoxContainer" parent="Panel/VBox"]
+
+[node name="LblNick" type="Label" parent="Panel/VBox/RowNick"]
+text = "Nickname"
+custom_minimum_size = Vector2(90, 0)
+
+[node name="InputNick" type="LineEdit" parent="Panel/VBox/RowNick"]
+placeholder_text = "Enter nickname..."
+custom_minimum_size = Vector2(220, 0)
+max_length = 20
+
+[node name="Spacer1" type="Control" parent="Panel/VBox"]
+custom_minimum_size = Vector2(0, 8)
+
+[node name="BtnPlay" type="Button" parent="Panel/VBox"]
+text = "Play"
+custom_minimum_size = Vector2(0, 48)
+
+[node name="BtnSettings" type="Button" parent="Panel/VBox"]
+text = "Settings"
+custom_minimum_size = Vector2(0, 44)
+
+[node name="BtnBack" type="Button" parent="Panel/VBox"]
+text = "Back"
+custom_minimum_size = Vector2(0, 44)

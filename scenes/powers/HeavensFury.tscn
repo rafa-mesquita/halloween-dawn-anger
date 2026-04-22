@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://heavens_fury"]
+
+[ext_resource type="Script" path="res://scenes/powers/HeavensFury.gd" id="1_hf"]
+
+[node name="HeavensFury" type="Node2D"]
+script = ExtResource("1_hf")

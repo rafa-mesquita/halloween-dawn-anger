@@ -1,0 +1,58 @@
+[gd_scene format=3 uid="uid://cld4e4bshsdwj"]
+
+[ext_resource type="Script" uid="uid://bib5a2o1wwsis" path="res://scenes/powers/Wheel.gd" id="1_wh"]
+[ext_resource type="Texture2D" uid="uid://duuhiud7waajq" path="res://assets/sprites/Poder 4 (Wheel)/mid-Attack 5.png" id="2_7r212"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_krl38"]
+atlas = ExtResource("2_7r212")
+region = Rect2(0, 0, 247, 87)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ghn1u"]
+atlas = ExtResource("2_7r212")
+region = Rect2(247, 0, 247, 87)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_e1ipk"]
+atlas = ExtResource("2_7r212")
+region = Rect2(494, 0, 247, 87)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_snabg"]
+atlas = ExtResource("2_7r212")
+region = Rect2(741, 0, 247, 87)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_8loc4"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_krl38")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ghn1u")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_e1ipk")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_snabg")
+}],
+"loop": true,
+"name": &"roll",
+"speed": 14.0
+}]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_hek2l"]
+radius = 33.68
+
+[node name="Wheel" type="Node2D" unique_id=1994437860]
+script = ExtResource("1_wh")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=316522578]
+position = Vector2(23, -27.999998)
+scale = Vector2(1.6, 1.6)
+sprite_frames = SubResource("SpriteFrames_8loc4")
+animation = &"roll"
+frame_progress = 0.016972693
+
+[node name="HitBox" type="Area2D" parent="." unique_id=1123866520]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HitBox" unique_id=1635084532]
+shape = SubResource("CircleShape2D_hek2l")
