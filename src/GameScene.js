@@ -237,7 +237,6 @@ const POWERS = {
     lootFrameSize: 32,
     lootScale: 3.3,
     lootCatchScale: 2.2,
-    lootTintFill: 0xffffff,
   },
   ice_beam: {
     orbColor: 0x7dd3fc,
@@ -396,9 +395,11 @@ export default class GameScene extends Phaser.Scene {
 
   init(data) {
     this.initData = data;
-    this.mode = data?.mode ?? 'single';
+    this.mode = data?.mode ?? 'singleplayer';
     this.network = data?.network ?? null;
     this.isMultiplayer = this.mode === 'host' || this.mode === 'client';
+    this.isTestMode = this.mode === 'test';
+    this.isSinglePlayer = this.mode === 'singleplayer';
     const matchInfo = data?.matchInfo ?? null;
     if (this.isMultiplayer && matchInfo) {
       this.matchPlayers = matchInfo.players;
@@ -452,9 +453,9 @@ export default class GameScene extends Phaser.Scene {
     this.load.audio('sfx_power_pickup', 'audio/power catch/power cath.mp3');
     this.load.audio('sfx_cure', 'audio/heal novo/93eeb9fc-8eab-44db-aa09-270a2550a130.mp3');
     this.load.audio('sfx_jump', 'audio/jump/30_Jump_03.wav');
-    this.load.image('map1_bg', 'maps/map1/background.png');
+    this.load.image('map1_bg', 'maps/Mapa 1 - Graveyard of Souls/Fundo.png');
     this.load.image('self_arrow', 'sprites/seta/seta.png');
-    this.load.image('map1_platforms', 'maps/map1/platforms.png');
+    this.load.image('map1_platforms', 'maps/Mapa 1 - Graveyard of Souls/Plataformas.png');
     this.load.spritesheet('map1_crow', 'maps/map1/Crow.png', {
       frameWidth: 48,
       frameHeight: 48,
@@ -1179,8 +1180,8 @@ export default class GameScene extends Phaser.Scene {
       });
     }
     this.crow = {
-      x: 490,
-      y: 570,
+      x: 515,
+      y: 600,
       scale: 2.5,
       halfW: (48 * 2.5) / 2,
       halfH: 48 * 2.5,
@@ -1549,12 +1550,21 @@ export default class GameScene extends Phaser.Scene {
 
     this.fighters = [];
     this.fightersByIndex = {};
-    const spawnPositions = [
-      { x: 200, y: 100 },
-      { x: 1400, y: 100 },
-      { x: 500, y: 300 },
-      { x: 1100, y: 300 },
-    ];
+    // Spawn cravado na plataforma. Sprite.x precisa compensar o body offset (49) pra que
+    // o BODY (não o sprite) fique centrado horizontalmente na plataforma — caso contrário,
+    // plataformas estreitas não pegam o body e o fighter cai no kill zone.
+    const SPRITE_TO_BODY_CENTER_X =
+      (FRAME_WIDTH / 2 - BODY_OFFSET_X - BODY_WIDTH / 2) * SPRITE_SCALE;
+    // Mapeamento explícito: char 0 (laranja) → plataforma direita-grande, char 1 (roxo) → topo-esquerda,
+    // char 2 (verde) → plataforma flutuante pequena do meio, char 3 → topo-direita pequena
+    const platformIdxByChar = [3, 1, 2, 0];
+    const spawnPositions = platformIdxByChar.map((pi) => {
+      const r = PLATFORM_RECTS[pi];
+      return {
+        x: r.x + r.w / 2 + SPRITE_TO_BODY_CENTER_X,
+        y: r.y - 60,
+      };
+    });
     let playerConfigs;
     if (this.isMultiplayer && this.matchPlayers) {
       playerConfigs = this.matchPlayers.map((p, i) => ({
@@ -1653,7 +1663,7 @@ export default class GameScene extends Phaser.Scene {
     });
 
     this.input.on('wheel', (_pointer, _over, _dx, dy) => {
-      if (this.isMultiplayer) return;
+      if (!this.isTestMode) return;
       if (!dy) return;
       const dir = dy > 0 ? 1 : -1;
       this.cycleControlledFighter(dir);
@@ -5374,8 +5384,409 @@ export default class GameScene extends Phaser.Scene {
     else this.transformToEye(f);
   }
 
+  updateAIFighters(time, delta) {
+    if (!this.fighters) return;
+    for (const f of this.fighters) {
+      if (f === this.playerFighter) continue;
+      if (f.isDead) continue;
+      if (f.isStunned || f.isFrozen) continue;
+      if (f.isEye) continue;
+      this.runFighterAI(f, time, delta);
+    }
+  }
+
+  findNearestEnemy(self) {
+    let best = null;
+    let bestDist = Infinity;
+    const sx = self.sprite.x;
+    const sy = self.sprite.y;
+    for (const f of this.fighters) {
+      if (f === self || f.isDead) continue;
+      const dx = f.sprite.x - sx;
+      const dy = f.sprite.y - sy;
+      const d = dx * dx + dy * dy;
+      if (d < bestDist) {
+        bestDist = d;
+        best = f;
+      }
+    }
+    return best;
+  }
+
+  findInterestingLoot(fighter) {
+    if (!this.loots || this.loots.length === 0) return null;
+    let best = null;
+    let bestDist = Infinity;
+    const sx = fighter.sprite.x;
+    const sy = fighter.sprite.y;
+    for (const loot of this.loots) {
+      if (!loot || loot.isPickedUp) continue;
+      if (!this.isLootBeneficial(fighter, loot)) continue;
+      const dx = loot.x - sx;
+      const dy = loot.y - sy;
+      const d = dx * dx + dy * dy;
+      if (d < bestDist && d < 600 * 600) {
+        bestDist = d;
+        best = loot;
+      }
+    }
+    return best;
+  }
+
+  isLootBeneficial(fighter, loot) {
+    switch (loot.lootType) {
+      case 'hp':
+        return fighter.hp < MAX_HP * 0.85;
+      case 'shield':
+        return (fighter.shieldCharges ?? 0) === 0;
+      case 'wood':
+      case 'skeleton_attack':
+        return (fighter.specialPowers?.length ?? 0) < 2;
+      case 'eye':
+        return false; // AI não lida bem com eye-form ainda
+      default:
+        return false;
+    }
+  }
+
+  shouldPreferLoot(fighter, loot) {
+    if (loot.lootType === 'hp' && fighter.hp < MAX_HP * 0.6) return true;
+    if (loot.lootType === 'shield' && (fighter.shieldCharges ?? 0) === 0) return true;
+    if ((loot.lootType === 'wood' || loot.lootType === 'skeleton_attack') &&
+        (fighter.specialPowers?.length ?? 0) < 2) return true;
+    return false;
+  }
+
+  findNearestSkeletonThreat(self, range) {
+    if (!this.skeletons || this.skeletons.length === 0) return null;
+    const sx = self.sprite.x;
+    const sy = self.sprite.y;
+    let best = null;
+    let bestDist = Infinity;
+    for (const fox of this.skeletons) {
+      if (!fox || fox.state === 'dying') continue;
+      if (fox.caster === self) continue;
+      const dx = fox.x - sx;
+      const dy = fox.y - sy;
+      const d = dx * dx + dy * dy;
+      if (d < range * range && d < bestDist) {
+        bestDist = d;
+        best = fox;
+      }
+    }
+    return best;
+  }
+
+  runFighterAI(fighter, time, delta) {
+    const sprite = fighter.sprite;
+    const body = sprite.body;
+    const target = this.findNearestEnemy(fighter);
+    const loot = this.findInterestingLoot(fighter);
+
+    let desiredFlip = sprite.flipX;
+    const grounded = body.blocked.down;
+
+    if (grounded && body.velocity.y >= 0) {
+      fighter.aiJumpsRemaining = MAX_JUMPS;
+    }
+
+    // Decide alvo de movimento (loot tem prioridade quando útil)
+    let mvX = null, mvY = null;
+    if (loot && (!target || target.isDead || this.shouldPreferLoot(fighter, loot))) {
+      mvX = loot.x;
+      mvY = loot.y;
+    } else if (target && !target.isDead) {
+      mvX = target.sprite.x;
+      mvY = target.sprite.y;
+    }
+
+    if (mvX !== null && !fighter.isAttacking) {
+      const dx = mvX - sprite.x;
+      const dy = mvY - sprite.y;
+      const absDx = Math.abs(dx);
+
+      let speed = MOVE_SPEED;
+      if (fighter.curseSlowed) speed *= SKULL_CURSE_SLOW_FACTOR;
+      if (fighter.iceSlowActive && fighter.iceSlowFactor) speed *= fighter.iceSlowFactor;
+
+      // Quando indo pra loot, parar mais perto. Quando perseguindo enemy, manter range de melee.
+      const stopDist = (mvX === (loot && loot.x) && mvY === (loot && loot.y)) ? 24 : 80;
+
+      if (absDx > stopDist) {
+        body.setVelocityX(dx < 0 ? -speed : speed);
+      } else {
+        body.setVelocityX(0);
+      }
+
+      // Face com histerese de 50px
+      if (sprite.flipX && dx > 50) desiredFlip = false;
+      else if (!sprite.flipX && dx < -50) desiredFlip = true;
+
+      // Pulo (single + double)
+      const jumpsLeft = fighter.aiJumpsRemaining ?? MAX_JUMPS;
+      const wantsJump =
+        (dy < -120 && absDx < 320) ||
+        (grounded && absDx > stopDist && Math.random() < 0.003);
+      if (wantsJump && time > (fighter.aiNextJumpAt || 0) && jumpsLeft > 0) {
+        const isSecond = jumpsLeft < MAX_JUMPS;
+        const slowMult = fighter.curseSlowed ? SKULL_CURSE_SLOW_FACTOR : 1;
+        body.setVelocityY((isSecond ? -DOUBLE_JUMP_VELOCITY : -JUMP_VELOCITY) * slowMult);
+        fighter.aiJumpsRemaining = jumpsLeft - 1;
+        fighter.aiNextJumpAt = time + 220;
+      }
+
+      // Slam quando alvo está abaixo
+      if (!grounded && body.velocity.y > -50 && dy > 100 && Math.random() < 0.05) {
+        const slowMult = fighter.curseSlowed ? SKULL_CURSE_SLOW_FACTOR : 1;
+        body.setVelocityY(SLAM_VELOCITY * slowMult);
+      }
+    } else if (!fighter.isAttacking) {
+      body.setVelocityX(0);
+    }
+
+    // Ataque — escolhe entre enemy fighter ou esqueleto inimigo (o que estiver em range)
+    if (!fighter.isAttacking && time > (fighter.aiAttackCooldownUntil || 0)) {
+      let attackTarget = null;
+      if (target && !target.isDead) {
+        const dxT = target.sprite.x - sprite.x;
+        const dyT = target.sprite.y - sprite.y;
+        if (Math.abs(dxT) < 110 && Math.abs(dyT) < 80) attackTarget = target;
+      }
+      if (!attackTarget) {
+        const fox = this.findNearestSkeletonThreat(fighter, 110);
+        if (fox) {
+          attackTarget = { sprite: { x: fox.x, y: fox.y } };
+        }
+      }
+      if (attackTarget) {
+        this.startAIAttack(fighter, attackTarget, time);
+      }
+    }
+
+    // Cast power
+    if (
+      target && !target.isDead && !fighter.isAttacking &&
+      fighter.specialPowers && fighter.specialPowers.length > 0 &&
+      time > (fighter.aiPowerCooldownUntil || 0)
+    ) {
+      this.tryAICastPower(fighter, target, time);
+    }
+
+    // Dodge — sempre roda
+    this.tryAIDodge(fighter, time);
+
+    if (desiredFlip !== sprite.flipX) {
+      const flipCompensation = (FRAME_WIDTH - 2 * BODY_OFFSET_X - BODY_WIDTH) * SPRITE_SCALE;
+      if (fighter.isAttacking) {
+        sprite.x -= fighter.attackSpriteShift;
+      }
+      sprite.x += desiredFlip ? -flipCompensation : flipCompensation;
+      sprite.setFlipX(desiredFlip);
+      if (fighter.isAttacking) {
+        fighter.attackSpriteShift = -fighter.attackSpriteShift;
+        sprite.x += fighter.attackSpriteShift;
+      }
+    }
+
+    const effectiveFrameOffset = fighter.isAttacking && fighter.currentAttackAnim
+      ? fighter.currentAttackAnim.charFrameOffsetX
+      : BODY_OFFSET_X;
+    body.offset.x = sprite.flipX
+      ? FRAME_WIDTH - effectiveFrameOffset - BODY_WIDTH
+      : effectiveFrameOffset;
+
+    if (!fighter.isAttacking) {
+      let animKey;
+      if (grounded) {
+        animKey = Math.abs(body.velocity.x) > 1 ? fighter.keys.run : fighter.keys.idle;
+      } else {
+        animKey = body.velocity.y > 0 ? fighter.keys.fall : fighter.keys.jump;
+      }
+      if (sprite.anims.currentAnim?.key !== animKey) {
+        sprite.anims.play(animKey, true);
+      }
+    }
+  }
+
+  startAIAttack(fighter, target, time) {
+    const sprite = fighter.sprite;
+    const body = sprite.body;
+    const dx = target.sprite.x - sprite.x;
+    const shouldFlip = dx < 0;
+
+    if (shouldFlip !== sprite.flipX) {
+      const flipCompensation = (FRAME_WIDTH - 2 * BODY_OFFSET_X - BODY_WIDTH) * SPRITE_SCALE;
+      sprite.x += shouldFlip ? -flipCompensation : flipCompensation;
+      sprite.setFlipX(shouldFlip);
+      body.offset.x = shouldFlip ? FRAME_WIDTH - BODY_OFFSET_X - BODY_WIDTH : BODY_OFFSET_X;
+    }
+
+    fighter.currentAttackAnim = fighter.keys.attackHorizontal;
+    const charShift =
+      (fighter.currentAttackAnim.charFrameOffsetX - BODY_OFFSET_X) * SPRITE_SCALE;
+    fighter.attackSpriteShift = sprite.flipX ? charShift : -charShift;
+    sprite.x += fighter.attackSpriteShift;
+
+    fighter.isAttacking = true;
+    fighter.aiAttackCooldownUntil = time + 700 + Math.random() * 400;
+    sprite.anims.play(fighter.currentAttackAnim.animKey, true);
+    this.playSfx('sfx_swing');
+
+    body.setVelocityX(0);
+
+    this.time.delayedCall(160, () => {
+      if (!fighter.isAttacking || fighter.isDead) return;
+      this.aiAttackHitCheck(fighter);
+    });
+
+    this.time.delayedCall(390, () => {
+      if (fighter.isAttacking) {
+        fighter.isAttacking = false;
+        sprite.x -= fighter.attackSpriteShift;
+        fighter.attackSpriteShift = 0;
+      }
+    });
+  }
+
+  aiAttackHitCheck(fighter) {
+    const sprite = fighter.sprite;
+    const body = sprite.body;
+    const facing = sprite.flipX ? -1 : 1;
+    const hbX = body.x + body.width / 2 + facing * 40;
+    const hbY = body.y + body.height / 2;
+    const hbW = ATTACK_HITBOX_WIDTH;
+    const hbH = ATTACK_HITBOX_HEIGHT;
+    const hbLeft = hbX - hbW / 2;
+    const hbRight = hbX + hbW / 2;
+    const hbTop = hbY - hbH / 2;
+    const hbBottom = hbY + hbH / 2;
+
+    for (const t of this.fighters) {
+      if (t === fighter) continue;
+      if (t.isDead || t.isInvulnerable) continue;
+      const tb = t.sprite.body;
+      if (
+        hbRight > tb.x &&
+        hbLeft < tb.x + tb.width &&
+        hbBottom > tb.y &&
+        hbTop < tb.y + tb.height
+      ) {
+        this.applyIncomingHit(t, {
+          damage: ATTACK_DAMAGE,
+          knockbackX: facing * 200,
+          knockupY: -160,
+          attackerIndex: fighter.ownerIndex,
+        });
+        this.playSfx('sfx_hit');
+        if (this.triggerHitFlash) this.triggerHitFlash(t);
+      }
+    }
+    // Também dana esqueletos inimigos no hitbox
+    if (this.skeletons && this.skeletons.length > 0) {
+      this.damageSkeletonsInRect(fighter, hbLeft, hbRight, hbTop, hbBottom, ATTACK_DAMAGE, new Set());
+    }
+  }
+
+  tryAICastPower(fighter, target, time) {
+    if (!target || target.isDead) return;
+    if (fighter.isAttacking || fighter.isStunned || fighter.isFrozen) return;
+    const power = fighter.specialPowers[0];
+    if (!power) return;
+    const sprite = fighter.sprite;
+    const tx = target.sprite.x;
+    const ty = target.sprite.y;
+    const dx = tx - sprite.x;
+    const dy = ty - sprite.y;
+    const absDx = Math.abs(dx);
+    const absDy = Math.abs(dy);
+
+    let cast = false;
+    if (power === 'shield') {
+      if ((fighter.shieldCharges ?? 0) === 0 && fighter.hp < MAX_HP * 0.6) cast = true;
+    } else if (power === 'heavens_fury') {
+      if (absDx < 700 && Math.random() < 0.25) cast = true;
+    } else if (power === 'skull_curse') {
+      if (absDx < 600 && Math.random() < 0.2) cast = true;
+    } else if (power === 'wheel') {
+      if (absDx < 600 && absDy < 100 && Math.random() < 0.35) cast = true;
+    } else if (power === 'fire_storm') {
+      if (absDx < 250 && absDy < 200 && Math.random() < 0.3) cast = true;
+    } else if (power === 'ice_beam') {
+      if (absDx < 500 && Math.random() < 0.18) cast = true;
+    } else if (power === 'skeleton_attack') {
+      if (absDx < 500 && Math.random() < 0.22) cast = true;
+    }
+    if (!cast) return;
+
+    fighter.aiPowerCooldownUntil = time + 1200 + Math.random() * 600;
+
+    if (power === 'heavens_fury') {
+      this.firePower(fighter, tx, ty);
+      fighter.specialPowers.shift();
+    } else if (power === 'shield') {
+      fighter.specialPowers.shift();
+      this.applyShield(fighter);
+    } else if (power === 'skull_curse') {
+      fighter.specialPowers.shift();
+      this.fireSkullCurse(fighter, tx, ty);
+    } else if (power === 'wheel') {
+      fighter.specialPowers.shift();
+      this.fireWheel(fighter, tx);
+    } else if (power === 'fire_storm') {
+      fighter.specialPowers.shift();
+      this.fireFireStorm(fighter);
+    } else if (power === 'ice_beam') {
+      fighter.specialPowers.shift();
+      this.fireIceBeam(fighter, tx, ty);
+    } else if (power === 'skeleton_attack') {
+      fighter.specialPowers.shift();
+      this.throwSkeletonBall(fighter, tx, ty);
+    }
+  }
+
+  tryAIDodge(fighter, time) {
+    if (fighter.isDead || fighter.isAttacking || fighter.isStunned || fighter.isFrozen) return;
+    if (time < (fighter.aiDodgeCooldownUntil || 0)) return;
+    const sprite = fighter.sprite;
+    const body = sprite.body;
+    const sx = sprite.x;
+    const sy = sprite.y;
+
+    const lists = [this.skullProjectiles, this.wheelProjectiles];
+    let nearestThreatDx = null;
+    let nearestThreatDist = Infinity;
+    for (const list of lists) {
+      if (!list) continue;
+      for (const p of list) {
+        if (!p || p.ownerFighter === fighter) continue;
+        const ddx = p.x - sx;
+        const ddy = p.y - sy;
+        const dist = Math.sqrt(ddx * ddx + ddy * ddy);
+        if (dist < 220 && dist < nearestThreatDist) {
+          nearestThreatDist = dist;
+          nearestThreatDx = ddx;
+        }
+      }
+    }
+    if (nearestThreatDx === null) return;
+
+    const grounded = body.blocked.down;
+    const slowMult = fighter.curseSlowed ? SKULL_CURSE_SLOW_FACTOR : 1;
+    if (grounded) {
+      body.setVelocityY(-JUMP_VELOCITY * slowMult);
+      fighter.aiJumpsRemaining = (fighter.aiJumpsRemaining ?? MAX_JUMPS) - 1;
+    } else if ((fighter.aiJumpsRemaining ?? 0) > 0) {
+      body.setVelocityY(-DOUBLE_JUMP_VELOCITY * slowMult);
+      fighter.aiJumpsRemaining -= 1;
+    }
+    // Empurra lateralmente pro lado oposto da ameaça
+    const sidestepDir = nearestThreatDx > 0 ? -1 : 1;
+    body.setVelocityX(sidestepDir * MOVE_SPEED * slowMult);
+    fighter.aiDodgeCooldownUntil = time + 700;
+  }
+
   cycleControlledFighter(dir) {
-    if (this.isMultiplayer || !this.fighters || this.fighters.length <= 1) return;
+    if (!this.isTestMode || !this.fighters || this.fighters.length <= 1) return;
     const currentIdx = this.fighters.indexOf(this.playerFighter);
     const n = this.fighters.length;
     for (let step = 1; step <= n; step++) {
@@ -5426,7 +5837,7 @@ export default class GameScene extends Phaser.Scene {
     if (this.parallaxFar) this.parallaxFar.tilePositionX += delta * 0.008;
     if (this.parallaxNear) this.parallaxNear.tilePositionX += delta * 0.022;
 
-    if (!this.isMultiplayer) {
+    if (this.isTestMode) {
       if (Phaser.Input.Keyboard.JustDown(this.powerSelectKeys.p1)) this.selectPower('heavens_fury');
       else if (Phaser.Input.Keyboard.JustDown(this.powerSelectKeys.p2)) this.selectPower('shield');
       else if (Phaser.Input.Keyboard.JustDown(this.powerSelectKeys.p3)) this.selectPower('skull_curse');
@@ -5435,6 +5846,10 @@ export default class GameScene extends Phaser.Scene {
       else if (Phaser.Input.Keyboard.JustDown(this.powerSelectKeys.p6)) this.toggleEyeTransform();
       else if (Phaser.Input.Keyboard.JustDown(this.powerSelectKeys.p7)) this.selectPower('ice_beam');
       else if (Phaser.Input.Keyboard.JustDown(this.powerSelectKeys.p8)) this.selectPower('skeleton_attack');
+    }
+
+    if (this.isSinglePlayer) {
+      this.updateAIFighters(time, delta);
     }
 
     if (this.isMultiplayer) {
@@ -5733,9 +6148,7 @@ export default class GameScene extends Phaser.Scene {
         fighter.isSlamming = false;
       }
 
-      const jumpPressed =
-        Phaser.Input.Keyboard.JustDown(this.keys.up) ||
-        Phaser.Input.Keyboard.JustDown(this.keys.space);
+      const jumpPressed = Phaser.Input.Keyboard.JustDown(this.keys.space);
 
       if (
         jumpPressed &&

@@ -20,12 +20,13 @@ const CHARACTER_IDLE_URLS = {
 
 const lobby = document.getElementById('lobby');
 const panelChoice = document.getElementById('lobby-choice');
+const panelMultiplayer = document.getElementById('lobby-multiplayer');
 const panelHost = document.getElementById('lobby-host');
 const panelJoin = document.getElementById('lobby-join');
 const panelWaiting = document.getElementById('lobby-waiting');
 
 function showPanel(panel) {
-  [panelChoice, panelHost, panelJoin, panelWaiting].forEach((p) => p.classList.remove('visible'));
+  [panelChoice, panelMultiplayer, panelHost, panelJoin, panelWaiting].forEach((p) => p.classList.remove('visible'));
   panel.classList.add('visible');
 }
 
@@ -102,7 +103,20 @@ function updateStartButton(peers) {
 
 document.getElementById('btn-single').addEventListener('click', () => {
   lobby.style.display = 'none';
-  startGame('single', null, null);
+  startGame('singleplayer', null, null);
+});
+
+document.getElementById('btn-test').addEventListener('click', () => {
+  lobby.style.display = 'none';
+  startGame('test', null, null);
+});
+
+document.getElementById('btn-multiplayer').addEventListener('click', () => {
+  showPanel(panelMultiplayer);
+});
+
+document.getElementById('btn-multiplayer-back').addEventListener('click', () => {
+  showPanel(panelChoice);
 });
 
 let currentGame = null;
@@ -235,7 +249,7 @@ document.getElementById('btn-join').addEventListener('click', () => {
 });
 
 document.getElementById('btn-join-back').addEventListener('click', () => {
-  showPanel(panelChoice);
+  showPanel(panelMultiplayer);
 });
 
 document.getElementById('btn-connect').addEventListener('click', async () => {
@@ -257,7 +271,7 @@ document.getElementById('btn-connect').addEventListener('click', async () => {
 });
 
 function startGame(mode, network, matchInfo) {
-  if (mode !== 'single') {
+  if (mode !== 'test') {
     const hitboxToggle = document.getElementById('hitbox-toggle');
     const devPanel = document.getElementById('dev-power-panel');
     if (hitboxToggle) hitboxToggle.style.display = 'none';
@@ -266,8 +280,8 @@ function startGame(mode, network, matchInfo) {
   const config = {
     type: Phaser.AUTO,
     parent: 'game',
-    width: 1536,
-    height: 1024,
+    width: 1920,
+    height: 1080,
     backgroundColor: '#1a1a2e',
     pixelArt: true,
     scale: {
@@ -278,7 +292,7 @@ function startGame(mode, network, matchInfo) {
       default: 'arcade',
       arcade: {
         gravity: { x: 0, y: 800 },
-        debug: mode === 'single',
+        debug: mode === 'test',
       },
     },
     scene: [],
@@ -288,4 +302,6 @@ function startGame(mode, network, matchInfo) {
   currentGame = game;
   currentMode = mode;
   currentNet = network;
+  window.__phaserGame = game;
+  if (typeof window.__applyMute === 'function') window.__applyMute();
 }

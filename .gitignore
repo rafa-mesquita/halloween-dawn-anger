@@ -6,3 +6,13 @@ dist
 cloudflared.exe
 config.yml
 .claude/scheduled_tasks.lock
+.claude/settings.local.json
+
+# Godot port leftovers (branch godot-port lives separately)
+.godot/
+assets/
+*.import
+icon.svg
+
+# Source art / large binaries
+*.psd

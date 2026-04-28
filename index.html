@@ -14,6 +14,11 @@
         justify-content: center;
         min-height: 100vh;
         font-family: sans-serif;
+        cursor: url('cursor/Halloween.cur'), auto !important;
+      }
+      a, button, input[type="range"], input[type="text"], .char-tile,
+      a:hover, button:hover, input[type="range"]:hover, input[type="text"]:hover, .char-tile:hover {
+        cursor: url('cursor/Halloween-hover-0.cur'), pointer !important;
       }
       #game {
         box-shadow: 0 0 40px rgba(255, 255, 255, 0.1);
@@ -98,35 +103,129 @@
       #lobby {
         position: fixed;
         inset: 0;
-        background: rgba(10, 10, 20, 0.95);
+        background:
+          radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.55) 100%),
+          url('Home%20Page/fundo.png') center / cover no-repeat,
+          #0a0612;
         z-index: 2000;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         color: #fff;
-        font-family: sans-serif;
+        font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
         gap: 16px;
+        overflow: hidden;
+      }
+      /* Home (initial choice) layout — visuals on the path (left), menu on the right */
+      #lobby #lobby-choice.visible {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+        align-items: stretch;
+        justify-items: stretch;
+        gap: clamp(20px, 4vw, 80px);
+        width: 100%;
+        height: 100%;
+        max-width: 1920px;
+        max-height: 1080px;
+        padding: clamp(24px, 4vh, 60px) clamp(40px, 6vw, 120px);
+        box-sizing: border-box;
+      }
+      .home-visuals {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: grid;
+        grid-template-rows: auto 1fr;
+        align-items: end;
+        justify-items: center;
+      }
+      #home-title {
+        width: clamp(360px, 36vw, 620px);
+        max-height: 36vh;
+        object-fit: contain;
+        filter: drop-shadow(0 8px 22px rgba(0, 0, 0, 0.85))
+                drop-shadow(0 0 24px rgba(255, 120, 40, 0.18));
+        animation: title-float 5s ease-in-out infinite;
+        pointer-events: none;
+        user-select: none;
+        align-self: start;
+        justify-self: center;
+      }
+      @keyframes title-float {
+        0%, 100% { transform: translateY(0); }
+        50%      { transform: translateY(-8px); }
+      }
+      #home-character {
+        width: clamp(220px, 22vw, 360px);
+        max-height: 58vh;
+        object-fit: contain;
+        filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.75))
+                drop-shadow(0 0 28px rgba(255, 140, 30, 0.22));
+        animation: char-float 4.2s ease-in-out infinite;
+        pointer-events: none;
+        user-select: none;
+        align-self: end;
+        justify-self: center;
+        margin-bottom: 2vh;
+      }
+      @keyframes char-float {
+        0%, 100% { transform: translateY(0) rotate(-1deg); }
+        50%      { transform: translateY(-10px) rotate(1deg); }
+      }
+      #lobby-choice .home-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        width: 100%;
+        max-width: 380px;
+        align-self: center;
+        justify-self: start;
       }
       #lobby h1 {
-        color: #ff9646;
-        margin: 0 0 24px 0;
-        letter-spacing: 2px;
+        display: none;
       }
       #lobby button {
-        background: rgba(40, 40, 60, 0.9);
-        color: #fff;
-        border: 1px solid #666;
-        padding: 10px 24px;
-        border-radius: 6px;
-        font-size: 14px;
+        background: linear-gradient(180deg, rgba(60, 30, 80, 0.92) 0%, rgba(20, 8, 30, 0.92) 100%);
+        color: #ffe0a8;
+        border: 2px solid #ff8a2c;
+        padding: 12px 26px;
+        border-radius: 8px;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 1px;
         cursor: pointer;
-        font-family: sans-serif;
+        font-family: inherit;
         min-width: 200px;
+        text-transform: uppercase;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.85);
+        box-shadow:
+          0 4px 14px rgba(0, 0, 0, 0.55),
+          inset 0 1px 0 rgba(255, 200, 120, 0.25);
+        transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
       }
       #lobby button:hover {
-        background: rgba(80, 80, 120, 0.9);
-        border-color: #aaa;
+        background: linear-gradient(180deg, rgba(120, 60, 30, 0.95) 0%, rgba(60, 20, 10, 0.95) 100%);
+        border-color: #ffb060;
+        transform: translateY(-2px);
+        box-shadow:
+          0 8px 20px rgba(255, 120, 30, 0.35),
+          inset 0 1px 0 rgba(255, 220, 150, 0.4);
+      }
+      #lobby button:active {
+        transform: translateY(0);
+      }
+      /* Sub-panels (host / join / waiting) — readable card on top of the bg */
+      #lobby-host.visible,
+      #lobby-join.visible,
+      #lobby-waiting.visible {
+        background: rgba(10, 6, 20, 0.82);
+        border: 1px solid rgba(255, 138, 44, 0.35);
+        border-radius: 12px;
+        padding: 28px 36px;
+        backdrop-filter: blur(4px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+        max-width: 92vw;
       }
       #lobby .row {
         display: flex;
@@ -265,15 +364,120 @@
         background: rgba(80, 50, 20, 0.9);
         box-shadow: 0 0 12px rgba(255, 150, 70, 0.5);
       }
+      /* Mute toggle — visível em todos os modos */
+      #mute-toggle {
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        z-index: 9998;
+        width: 42px;
+        height: 42px;
+        border-radius: 8px;
+        border: 2px solid #ff8a2c;
+        background: rgba(15, 8, 25, 0.85);
+        color: #ffe0a8;
+        font-size: 20px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        transition: background 0.15s ease, transform 0.1s ease;
+        user-select: none;
+      }
+      #mute-toggle:hover {
+        background: rgba(60, 30, 15, 0.95);
+        transform: translateY(-1px);
+      }
+      #mute-toggle.muted {
+        border-color: #6b7280;
+        color: #6b7280;
+      }
+      /* Config modal */
+      #home-config {
+        position: fixed;
+        inset: 0;
+        z-index: 2100;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(3px);
+        font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+        color: #fff;
+      }
+      #home-config.visible {
+        display: flex;
+      }
+      #home-config .config-card {
+        background: rgba(15, 8, 25, 0.95);
+        border: 2px solid #ff8a2c;
+        border-radius: 12px;
+        padding: 28px 36px;
+        min-width: 320px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+      #home-config h2 {
+        margin: 0;
+        color: #ff9646;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        font-size: 18px;
+        text-align: center;
+      }
+      #home-config .config-row {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      #home-config label {
+        color: #ddd;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      #home-config .slider-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      #home-config input[type="range"] {
+        flex: 1;
+      }
+      #home-config .slider-value {
+        color: #ffe0a8;
+        font-family: monospace;
+        font-size: 13px;
+        min-width: 36px;
+        text-align: right;
+      }
     </style>
   </head>
   <body>
     <div id="lobby">
+      <audio id="home-music" src="Home%20Page/Moonlit%20Pixel%20Castle.mp3" loop preload="auto"></audio>
       <h1>Halloween Dawn Anger</h1>
       <div id="lobby-choice" class="panel visible">
-        <button id="btn-single" type="button">Single Player</button>
+        <div class="home-visuals">
+          <img id="home-title" src="Home%20Page/Titulo%20do%20jogo.png" alt="Hollowen Dawn Anger" />
+          <img id="home-character" src="Home%20Page/Persoangem.png" alt="" />
+        </div>
+        <div class="home-buttons">
+          <button id="btn-single" type="button">Single Player</button>
+          <button id="btn-multiplayer" type="button">Multiplayer</button>
+          <button id="btn-test" type="button">Test Mode</button>
+          <button id="btn-config" type="button">Configurações</button>
+        </div>
+      </div>
+      <div id="lobby-multiplayer" class="panel">
+        <p class="muted">Escolha como entrar:</p>
         <button id="btn-host" type="button">Criar Partida (Host)</button>
         <button id="btn-join" type="button">Entrar em Partida</button>
+        <button id="btn-multiplayer-back" type="button">Voltar</button>
       </div>
       <div id="lobby-host" class="panel">
         <p class="muted">Envie seu código para o seu amigo:</p>
@@ -333,6 +537,115 @@
         <span id="volume-value">5%</span>
       </div>
     </div>
+    <button id="mute-toggle" type="button" title="Alternar áudio" aria-label="Alternar áudio">🔊</button>
+    <div id="home-config">
+      <div class="config-card">
+        <h2>Configurações</h2>
+        <div class="config-row">
+          <label for="home-music-volume">Volume da música</label>
+          <div class="slider-row">
+            <input id="home-music-volume" type="range" min="0" max="100" value="4" />
+            <span class="slider-value" id="home-music-value">4%</span>
+          </div>
+        </div>
+        <button id="btn-config-close" type="button">Fechar</button>
+      </div>
+    </div>
+    <script>
+      (function () {
+        const music = document.getElementById('home-music');
+        const lobby = document.getElementById('lobby');
+        if (music) {
+          music.volume = 0.04;
+          const tryPlay = () => music.play().catch(() => {});
+          tryPlay();
+          const unlock = () => {
+            tryPlay();
+            window.removeEventListener('pointerdown', unlock);
+            window.removeEventListener('keydown', unlock);
+          };
+          window.addEventListener('pointerdown', unlock, { once: true });
+          window.addEventListener('keydown', unlock, { once: true });
+        }
+        const cfgBtn = document.getElementById('btn-config');
+        const cfgModal = document.getElementById('home-config');
+        const cfgClose = document.getElementById('btn-config-close');
+        if (cfgBtn && cfgModal) {
+          cfgBtn.addEventListener('click', () => cfgModal.classList.add('visible'));
+          cfgClose.addEventListener('click', () => cfgModal.classList.remove('visible'));
+          cfgModal.addEventListener('click', (e) => {
+            if (e.target === cfgModal) cfgModal.classList.remove('visible');
+          });
+        }
+        const volSlider = document.getElementById('home-music-volume');
+        const volValue = document.getElementById('home-music-value');
+        if (volSlider && music) {
+          volSlider.addEventListener('input', () => {
+            const v = Number(volSlider.value);
+            music.volume = v / 100;
+            volValue.textContent = v + '%';
+          });
+        }
+        // Fade out home music when the lobby closes (game starts)
+        if (lobby && music) {
+          let faded = false;
+          const fadeOut = () => {
+            if (faded) return;
+            faded = true;
+            const step = () => {
+              music.volume = Math.max(0, music.volume - 0.005);
+              if (music.volume <= 0.001) {
+                music.pause();
+                return;
+              }
+              setTimeout(step, 80);
+            };
+            step();
+          };
+          const obs = new MutationObserver(() => {
+            if (lobby.style.display === 'none' || getComputedStyle(lobby).display === 'none') {
+              fadeOut();
+            }
+          });
+          obs.observe(lobby, { attributes: true, attributeFilter: ['style', 'class'] });
+        }
+      })();
+    </script>
+    <script>
+      // Mute toggle global (música da home + áudio do jogo via Phaser sound)
+      (function () {
+        const btn = document.getElementById('mute-toggle');
+        if (!btn) return;
+        const music = document.getElementById('home-music');
+        const STORAGE_KEY = 'hda_muted';
+        let muted = localStorage.getItem(STORAGE_KEY) === '1';
+        const apply = () => {
+          if (music) music.muted = muted;
+          if (window.__phaserGame && window.__phaserGame.sound) {
+            window.__phaserGame.sound.mute = muted;
+          }
+          btn.textContent = muted ? '🔇' : '🔊';
+          btn.classList.toggle('muted', muted);
+          btn.title = muted ? 'Áudio desativado (clique pra ativar)' : 'Áudio ativado (clique pra desativar)';
+        };
+        apply();
+        btn.addEventListener('click', () => {
+          muted = !muted;
+          localStorage.setItem(STORAGE_KEY, muted ? '1' : '0');
+          apply();
+        });
+        window.addEventListener('keydown', (e) => {
+          if (e.key === 'm' || e.key === 'M') {
+            if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+            muted = !muted;
+            localStorage.setItem(STORAGE_KEY, muted ? '1' : '0');
+            apply();
+          }
+        });
+        // Re-aplica quando o Phaser game registra (a cena pode subir depois do toggle)
+        window.__applyMute = apply;
+      })();
+    </script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
