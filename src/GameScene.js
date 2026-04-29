@@ -344,7 +344,7 @@ const ARCHER_ROLL_COOLDOWN_MS = 3500;
 const ARCHER_ROLL_DURATION_MS = 580;
 const ARCHER_ROLL_SPEED = 360;
 const ARCHER_ARROW_SPEED = 1100;
-const ARCHER_ARROW_DAMAGE = 22;
+const ARCHER_ARROW_DAMAGE = 17;
 const ARCHER_ARROW_LIFETIME_MS = 1800;
 const FIRE_STORM_L2_DURATION_MS = 13500;
 const FIRE_STORM_L2_WAVES = 4;
@@ -395,13 +395,15 @@ const KILL_CAUSES = {
 
 // Land Mine L2 — "festa de minas": minas materializam em plataformas aleatórias,
 // puxam fighters/pets e explodem após 3s
-const LAND_MINE_L2_DURATION_MS = 11000;
-const LAND_MINE_L2_SPAWN_INTERVAL_MS = 500;
 const LAND_MINE_L2_FUSE_MS = 3200;
-const LAND_MINE_L2_PULL_RADIUS = 180;
+const LAND_MINE_L2_ARMING_MS = 500; // delay antes de puxar/explodir, dá tempo de reação
+const LAND_MINE_L2_WAVE_COUNT = 2;
+const LAND_MINE_L2_WAVE_SIZE = 6;
+const LAND_MINE_L2_WAVE_GAP_MS = 1500; // pausa entre uma wave morrer e a próxima nascer
+const LAND_MINE_L2_PULL_RADIUS = 130;
 const LAND_MINE_L2_PULL_ACCEL = 900; // puxão leve — slow é a trava principal
 const LAND_MINE_L2_GRAVITY_FACTOR = 0.55; // descida 45% mais lenta dentro do raio
-const LAND_MINE_L2_MIN_SPACING = 110;
+const LAND_MINE_L2_MIN_SPACING = 140;
 const LAND_MINE_L2_SCALE = 0.95; // bem maior que a L1 (LAND_MINE_SCALE = 0.6)
 const LAND_MINE_L2_RADIUS_MULT = 1.7; // raio de explosão das minas de festa
 // Slow aplicado enquanto fighter está dentro do raio de puxão (reaproveita o fator do skull curse)
@@ -3811,14 +3813,14 @@ export default class GameScene extends Phaser.Scene {
     const wave1 = 12;
     const wave2 = 6;
     const spacingMs = 40;
-    const initialVy = 140; // slower than the original 320 — gravity does the rest
+    const fallVy = 220; // velocidade constante de queda (sem gravidade) — chuva mais suave
     const rainId = (this._skullRainCounter = (this._skullRainCounter || 0) + 1);
     for (let i = 0; i < wave1; i++) {
       this.time.delayedCall(i * spacingMs, () => {
         if (!fighter || fighter.isDead) return;
         const startX = Phaser.Math.Between(40, MAP_WIDTH - 40);
         const startY = Phaser.Math.Between(-300, -150);
-        const p = this.spawnSkullProjectile(fighter, startX, startY, 0, initialVy, true, Math.PI / 2, 2);
+        const p = this.spawnSkullProjectile(fighter, startX, startY, 0, fallVy, false, Math.PI / 2, 2);
         if (p) p.waveId = `${rainId}-1`;
       });
     }
@@ -3828,7 +3830,7 @@ export default class GameScene extends Phaser.Scene {
         if (!fighter || fighter.isDead) return;
         const startX = Phaser.Math.Between(40, MAP_WIDTH - 40);
         const startY = Phaser.Math.Between(-300, -150);
-        const p = this.spawnSkullProjectile(fighter, startX, startY, 0, initialVy, true, Math.PI / 2, 2);
+        const p = this.spawnSkullProjectile(fighter, startX, startY, 0, fallVy, false, Math.PI / 2, 2);
         if (p) p.waveId = `${rainId}-2`;
       });
     }
@@ -3894,8 +3896,8 @@ export default class GameScene extends Phaser.Scene {
     if (this.isAuthoritativeOwner(target)) {
       if (target.curseDotTimer) target.curseDotTimer.remove(false);
       const ticks = 10;
-      let tickDamage = level >= 2 ? 5 : SKULL_CURSE_DAMAGE / ticks;
-      if ((target.curseL2Stacks || 0) >= 2) tickDamage = 10;
+      let tickDamage = level >= 2 ? 3 : SKULL_CURSE_DAMAGE / ticks;
+      if ((target.curseL2Stacks || 0) >= 2) tickDamage = 6;
       target.curseDotTimer = this.time.addEvent({
         delay: SKULL_CURSE_DEBUFF_DURATION_MS / ticks,
         repeat: ticks - 1,
@@ -5252,7 +5254,7 @@ export default class GameScene extends Phaser.Scene {
           if (a.isPiercing) {
             a.pierceHitSet.add(target);
             this.dealHit(target, {
-              damage: 50,
+              damage: 33,
               ignoreShield: false,
               playHitSfx: true,
               powerFlashColor: 0xc084fc,
@@ -5578,7 +5580,8 @@ export default class GameScene extends Phaser.Scene {
             }
           } else {
             const reach = fox.petType === 'omar' ? OMAR_HIT_REACH : SKELETON_BITE_REACH;
-            const dmg = fox.petType === 'omar' ? OMAR_HIT_DAMAGE : SKELETON_BITE_DAMAGE;
+            const baseDmg = fox.petType === 'omar' ? OMAR_HIT_DAMAGE : SKELETON_BITE_DAMAGE;
+            const dmg = fox.isSpecialAttack ? Math.round(baseDmg * 2) : baseDmg;
             if (Math.abs(tx - fox.x) <= reach + 24) {
               if (tgt.isSkeletonPet) {
                 this.damageSkeleton(tgt, dmg);
@@ -5587,10 +5590,12 @@ export default class GameScene extends Phaser.Scene {
                   this.dealHit(tgt, {
                     damage: dmg,
                     ignoreShield: false,
-                    powerFlashColor: POWERS.skeleton_attack.orbColor,
+                    powerFlashColor: fox.isSpecialAttack ? 0xfde047 : POWERS.skeleton_attack.orbColor,
                     attackerIndex: caster.ownerIndex,
                     useDeath2: true,
                     cause: 'skeleton_bite',
+                    knockbackX: fox.isSpecialAttack ? fox.facing * 220 : undefined,
+                    knockupY: fox.isSpecialAttack ? -180 : undefined,
                   });
                 } else {
                   this.triggerHitFlash(tgt);
@@ -5603,6 +5608,8 @@ export default class GameScene extends Phaser.Scene {
         if (time >= fox.attackDoneAt) {
           fox.state = 'patrol';
           fox.target = null;
+          if (fox.sprite && fox.sprite.clearTint) fox.sprite.clearTint();
+          fox.isSpecialAttack = false;
           const cd = fox.petType === 'archer' ? ARCHER_SHOOT_COOLDOWN_MS
             : fox.petType === 'omar' ? OMAR_HIT_COOLDOWN_MS
             : SKELETON_BITE_COOLDOWN_MS;
@@ -5712,9 +5719,13 @@ export default class GameScene extends Phaser.Scene {
             fox.attackHitAt = time + OMAR_HIT_WINDUP_MS;
             fox.attackDoneAt = time + 720;
             fox.attackDamageDealt = false;
+            fox.meleeAttackCount = (fox.meleeAttackCount || 0) + 1;
+            fox.isSpecialAttack = fox.meleeAttackCount % 3 === 0;
             fox.sprite.play('omar_attack', true);
             fox.currentAnim = 'omar_attack';
-            this.playSfx('sfx_skeleton_attack', 0.7);
+            if (fox.isSpecialAttack) fox.sprite.setTint(0xfde047);
+            else fox.sprite.clearTint();
+            this.playSfx('sfx_skeleton_attack', fox.isSpecialAttack ? 1.0 : 0.7);
           } else {
             const nextX = fox.x + fox.facing * OMAR_CHASE_SPEED * dt;
             fox.x = Phaser.Math.Clamp(nextX, fox.platformLeft, fox.platformRight);
@@ -5730,9 +5741,13 @@ export default class GameScene extends Phaser.Scene {
             fox.attackHitAt = time + SKELETON_BITE_WINDUP_MS;
             fox.attackDoneAt = time + Math.round((frames / SKELETON_ATTACK_FPS) * 1000);
             fox.attackDamageDealt = false;
+            fox.meleeAttackCount = (fox.meleeAttackCount || 0) + 1;
+            fox.isSpecialAttack = fox.meleeAttackCount % 3 === 0;
             fox.sprite.play(animKey, true);
             fox.currentAnim = animKey;
-            this.playSfx('sfx_skeleton_attack', 0.7);
+            if (fox.isSpecialAttack) fox.sprite.setTint(0xfde047);
+            else fox.sprite.clearTint();
+            this.playSfx('sfx_skeleton_attack', fox.isSpecialAttack ? 1.0 : 0.7);
           } else {
             const nextX = fox.x + fox.facing * SKELETON_PATROL_SPEED * dt;
             fox.x = Phaser.Math.Clamp(nextX, fox.platformLeft, fox.platformRight);
@@ -6514,28 +6529,30 @@ export default class GameScene extends Phaser.Scene {
 
   generateLandMinePartySpawns() {
     const spawns = [];
-    const count = Math.floor(LAND_MINE_L2_DURATION_MS / LAND_MINE_L2_SPAWN_INTERVAL_MS);
     const margin = 40;
-    const active = []; // { x, y, deathMs } — minas vivas no momento de cada spawn
-    for (let i = 0; i < count; i++) {
-      const spawnMs = i * LAND_MINE_L2_SPAWN_INTERVAL_MS;
-      // Prune minas que já explodiram antes deste tick
-      for (let j = active.length - 1; j >= 0; j--) {
-        if (active[j].deathMs <= spawnMs) active.splice(j, 1);
+    // Cada wave: arming (0.5s) + fuse (3.2s). Após explodir, gap de 1.5s antes da próxima.
+    const waveLifetimeMs = LAND_MINE_L2_ARMING_MS + LAND_MINE_L2_FUSE_MS;
+    const waveCycleMs = waveLifetimeMs + LAND_MINE_L2_WAVE_GAP_MS;
+    for (let w = 0; w < LAND_MINE_L2_WAVE_COUNT; w++) {
+      const waveStartMs = w * waveCycleMs;
+      const waveSpawns = [];
+      for (let i = 0; i < LAND_MINE_L2_WAVE_SIZE; i++) {
+        let placed = null;
+        for (let tries = 0; tries < 20; tries++) {
+          const rect = Phaser.Math.RND.pick(PLATFORM_RECTS);
+          const x = Phaser.Math.Between(rect.x + margin, rect.x + rect.w - margin);
+          const y = rect.y;
+          const collides = waveSpawns.some(
+            (s) => Math.hypot(s.x - x, s.y - y) < LAND_MINE_L2_MIN_SPACING
+          );
+          if (!collides) { placed = { x, y }; break; }
+        }
+        if (placed) {
+          waveSpawns.push(placed);
+          // Stagger leve dentro da wave (60ms entre cada) só pra animar
+          spawns.push({ x: placed.x, y: placed.y, delayMs: waveStartMs + i * 60 });
+        }
       }
-      let placed = null;
-      for (let tries = 0; tries < 14; tries++) {
-        const rect = Phaser.Math.RND.pick(PLATFORM_RECTS);
-        const x = Phaser.Math.Between(rect.x + margin, rect.x + rect.w - margin);
-        const y = rect.y;
-        const collides = active.some(
-          (m) => Math.hypot(m.x - x, m.y - y) < LAND_MINE_L2_MIN_SPACING
-        );
-        if (!collides) { placed = { x, y }; break; }
-      }
-      if (!placed) continue; // todas plataformas cheias — pula esse tick
-      spawns.push({ x: placed.x, y: placed.y, delayMs: spawnMs });
-      active.push({ x: placed.x, y: placed.y, deathMs: spawnMs + LAND_MINE_L2_FUSE_MS });
     }
     return spawns;
   }
@@ -6570,9 +6587,16 @@ export default class GameScene extends Phaser.Scene {
     sprite.owner = owner;
     sprite.spawnedAt = this.time.now;
     sprite.triggered = false;
-    sprite.armed = true;
+    sprite.armed = false; // arma após LAND_MINE_L2_ARMING_MS — dá tempo de reação
     sprite.partyMine = true;
-    sprite.partyExplodeAt = this.time.now + LAND_MINE_L2_FUSE_MS;
+    sprite.partyExplodeAt = null;
+    sprite.setAlpha(0.55); // visualmente "warming up"
+    this.time.delayedCall(LAND_MINE_L2_ARMING_MS, () => {
+      if (!sprite.active || sprite.triggered) return;
+      sprite.armed = true;
+      sprite.partyExplodeAt = this.time.now + LAND_MINE_L2_FUSE_MS;
+      sprite.setAlpha(1);
+    });
 
     // Glow vermelho/laranja mais intenso
     const glow = this.add.circle(sprite.x, spriteY - 22, 9, 0xff5a2c, 0.95)
@@ -9215,7 +9239,6 @@ export default class GameScene extends Phaser.Scene {
         w.hasHit = true;
         this.dealHit(hitTarget, {
           damage: WHEEL_DAMAGE,
-          stun: true,
           knockupY: WHEEL_KNOCKUP,
           powerFlashColor: 0xffffff,
           cause: 'wheel',
