@@ -44,7 +44,12 @@
       "PowerShell(Add-Type -AssemblyName System.Drawing; $p = \"C:\\\\Users\\\\rafam\\\\Desktop\\\\Rpositórios Github - claude\\\\Pessoal\\\\Chaotic Game\\\\public\\\\sprites\\\\Power 8 \\(fox\\)\\\\fox.png\"; if\\(Test-Path -LiteralPath $p\\){$img=[System.Drawing.Image]::FromFile\\($p\\);\"W=$\\($img.Width\\) H=$\\($img.Height\\)\";$img.Dispose\\(\\)}else{\"missing\"})",
       "Bash(rtk ls *)",
       "Bash(git ls-tree *)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(node --check 'src/GameScene.js')",
+      "PowerShell(Add-Type -AssemblyName System.Drawing; $img = [System.Drawing.Image]::FromFile\\(\"$PWD\\\\public\\\\sprites\\\\Poder 9 \\(landmine\\)\\\\loot\\\\sheet-transparent.png\"\\); \"$\\($img.Width\\)x$\\($img.Height\\)\"; $img.Dispose\\(\\))",
+      "PowerShell(Add-Type -AssemblyName System.Drawing; $img = [System.Drawing.Image]::FromFile\\(\"$PWD\\\\public\\\\sprites\\\\Poder 3 \\(skull curse\\)\\\\skull curse loot catch.png\"\\); \"$\\($img.Width\\)x$\\($img.Height\\)\"; $img.Dispose\\(\\))",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:5173/halloween-dawn-anger/sprites/Poder%203%20\\(skull%20curse\\)/skull%20curse%20loot.png\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:5173/halloween-dawn-anger/sprites/Poder%203%20\\(Skull%20Curse\\)/skull%20curse%20loot.png\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\rafam\\Desktop\\Rpositórios Github - claude\\Pessoal\\Chaotic Game\\public\\sprites\\Power 8 (fox)"

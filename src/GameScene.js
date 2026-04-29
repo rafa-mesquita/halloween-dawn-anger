@@ -122,7 +122,7 @@ const WHEEL_BALL_LOCAL_Y = 45;
 const WHEEL_VISUAL_Y_OFFSET = -14;
 const WHEEL_SPEED = 650;
 const WHEEL_DAMAGE = 25;
-const WHEEL_STUN_MS = 4000;
+const WHEEL_STUN_MS = 3000;
 const WHEEL_KNOCKUP = -380;
 const WHEEL_FRAMERATE = 14;
 
@@ -557,10 +557,24 @@ export default class GameScene extends Phaser.Scene {
     if (this.isMultiplayer && matchInfo) {
       this.matchPlayers = matchInfo.players;
       this.myIndex = matchInfo.myIndex;
+      this.teamMode = !!matchInfo.teamMode;
     } else {
       this.matchPlayers = null;
       this.myIndex = 0;
+      this.teamMode = false;
     }
+  }
+
+  isFriendly(a, b) {
+    if (!a || !b) return false;
+    if (a === b) return true;
+    if (!this.teamMode) return false;
+    return !!a.team && !!b.team && a.team === b.team;
+  }
+
+  canDamage(attacker, victim) {
+    if (!attacker || !victim) return false;
+    return !this.isFriendly(attacker, victim);
   }
 
   preload() {
@@ -1930,27 +1944,63 @@ export default class GameScene extends Phaser.Scene {
         y: r.y - 60,
       };
     });
+    // No modo 2v2: time A spawna nas plataformas da esquerda (idx 1, 4),
+    // time B nas da direita (idx 3, 5).
+    this.teamSpawnPlatforms = { A: [1, 4], B: [3, 5] };
+    const teamSpawnFor = (team, slotInTeam) => {
+      const idxs = this.teamSpawnPlatforms[team] ?? [];
+      const pi = idxs[slotInTeam % idxs.length] ?? 0;
+      const r = PLATFORM_RECTS[pi];
+      return {
+        x: r.x + r.w / 2 + SPRITE_TO_BODY_CENTER_X,
+        y: r.y - 60,
+      };
+    };
     let playerConfigs;
     if (this.isMultiplayer && this.matchPlayers) {
-      playerConfigs = this.matchPlayers.map((p, i) => ({
-        index: p.index,
-        char: CHARACTERS.find((c) => c.id === p.charId) ?? CHARACTERS[i],
-        spawn: spawnPositions[i] ?? spawnPositions[0],
-        nick: p.nick || `Jogador ${p.index + 1}`,
-      }));
+      const teamSlots = { A: 0, B: 0 };
+      playerConfigs = this.matchPlayers.map((p, i) => {
+        let spawn = spawnPositions[i] ?? spawnPositions[0];
+        if (this.teamMode && (p.team === 'A' || p.team === 'B')) {
+          spawn = teamSpawnFor(p.team, teamSlots[p.team]++);
+        }
+        return {
+          index: p.index,
+          char: CHARACTERS.find((c) => c.id === p.charId) ?? CHARACTERS[i],
+          spawn,
+          nick: p.nick || `Jogador ${p.index + 1}`,
+          team: p.team ?? null,
+          isBot: !!p.isBot,
+        };
+      });
     } else {
       playerConfigs = CHARACTERS.slice(0, SINGLE_PLAYER_CHARACTER_COUNT).map((char, i) => ({
         index: i,
         char,
         spawn: spawnPositions[i] ?? spawnPositions[0],
         nick: `P${i + 1}`,
+        team: null,
       }));
     }
     for (const cfg of playerConfigs) {
       const fighter = this.createFighter(cfg.char, cfg.spawn.x, cfg.spawn.y);
       fighter.ownerIndex = cfg.index;
       fighter.nick = cfg.nick;
+      fighter.team = cfg.team;
+      fighter.isBot = !!cfg.isBot;
       fighter.kills = 0;
+      if (this.teamMode && (cfg.team === 'A' || cfg.team === 'B')) {
+        const teamStrokeColor = cfg.team === 'A' ? 0x38bdf8 : 0xf87171;
+        fighter.hpBarBg.setStrokeStyle(2, teamStrokeColor, 1);
+        const teamColorHex = cfg.team === 'A' ? '#38bdf8' : '#f87171';
+        const teamBadge = this.add.text(0, 0, cfg.team, {
+          font: 'bold 12px sans-serif',
+          color: teamColorHex,
+          stroke: '#000000',
+          strokeThickness: 3,
+        }).setOrigin(1, 0.5).setDepth(17);
+        fighter.teamBadge = teamBadge;
+      }
       this.fighters.push(fighter);
       this.fightersByIndex[cfg.index] = fighter;
       this.physics.add.collider(
@@ -1974,9 +2024,12 @@ export default class GameScene extends Phaser.Scene {
       .setDepth(24);
     this._selfArrowBaseScale = 0.175;
 
+    this.isHost = this.mode === 'host';
     if (this.isMultiplayer) {
       for (const f of this.fighters) {
         if (f === this.playerFighter) continue;
+        // Host mantém física ativa nos bots para rodar IA local
+        if (this.isHost && f.isBot) continue;
         const rb = f.sprite.body;
         rb.setAllowGravity(false);
         rb.setImmovable(true);
@@ -2171,6 +2224,10 @@ export default class GameScene extends Phaser.Scene {
 
     const specialOrbCenterX =
       orbsStartX + MAX_ATTACK_ORBS * ORB_SPACING + ORB_RADIUS + 12;
+    // Timer de reset dos orbs — relógio que enche conforme o cooldown corre.
+    // Renderiza no mundo, ao lado da barra de HP do jogador local.
+    this.resetTimerRadius = 4;
+    this.resetTimerGfx = this.add.graphics().setDepth(17);
     this.specialOrbSprite = this.add.circle(
       specialOrbCenterX,
       orbsY,
@@ -3605,17 +3662,37 @@ export default class GameScene extends Phaser.Scene {
   checkMatchOver() {
     if (!this.isMultiplayer || this.matchOver) return;
     const alive = this.fighters.filter((f) => f.lives > 0);
-    if (alive.length > 1) return;
+    let winningTeam = null;
+    if (this.teamMode) {
+      const aliveTeams = new Set(alive.map((f) => f.team).filter(Boolean));
+      // Em 2v2, partida acaba quando só um time tem jogadores vivos
+      if (aliveTeams.size > 1) return;
+      if (alive.length === 0) {
+        // Empate (todo mundo morto)
+      } else {
+        winningTeam = aliveTeams.values().next().value ?? null;
+      }
+    } else {
+      if (alive.length > 1) return;
+    }
     this.matchOver = true;
     if (this.spectatorBanner) {
       this.spectatorBanner.destroy();
       this.spectatorBanner = null;
     }
     const winner = alive[0] ?? null;
-    const isLocalWinner = winner === this.playerFighter;
-    const label = winner
-      ? (isLocalWinner ? 'Você venceu!' : 'Você perdeu')
-      : 'Empate';
+    const isLocalWinner = this.teamMode
+      ? !!winningTeam && this.playerFighter?.team === winningTeam
+      : winner === this.playerFighter;
+    let label;
+    if (this.teamMode) {
+      if (!winningTeam) label = 'Empate';
+      else label = isLocalWinner ? `Sua dupla venceu! (Time ${winningTeam})` : `Time ${winningTeam} venceu`;
+    } else {
+      label = winner
+        ? (isLocalWinner ? 'Você venceu!' : 'Você perdeu')
+        : 'Empate';
+    }
     const cam = this.cameras.main;
     this.add.rectangle(cam.width / 2, cam.height / 2, cam.width, cam.height, 0x000000, 0.55)
       .setScrollFactor(0).setDepth(100);
@@ -3660,7 +3737,13 @@ export default class GameScene extends Phaser.Scene {
   }
 
   respawnFighter(fighter) {
-    const rect = Phaser.Math.RND.pick(PLATFORM_RECTS);
+    let candidates = PLATFORM_RECTS;
+    if (this.teamMode && (fighter.team === 'A' || fighter.team === 'B')) {
+      const idxs = this.teamSpawnPlatforms?.[fighter.team] ?? [];
+      const teamRects = idxs.map((i) => PLATFORM_RECTS[i]).filter(Boolean);
+      if (teamRects.length) candidates = teamRects;
+    }
+    const rect = Phaser.Math.RND.pick(candidates);
     const spawnX = rect.x + rect.w / 2;
     const spawnY = rect.y - 100;
 
@@ -3878,6 +3961,10 @@ export default class GameScene extends Phaser.Scene {
   }
 
   applySkullCurse(target, level = 1, waveId = null) {
+    // No L2, só as 2 primeiras caveiras a acertar aplicam efeito; da 3ª em diante é no-op.
+    if (level >= 2 && (target.curseL2Stacks || 0) >= 2) {
+      return;
+    }
     target.curseMultiplier = SKULL_CURSE_DEBUFF_MULTIPLIER;
     if (target.curseTimer) target.curseTimer.remove(false);
     target.curseTimer = this.time.delayedCall(SKULL_CURSE_DEBUFF_DURATION_MS, () => {
@@ -3889,9 +3976,8 @@ export default class GameScene extends Phaser.Scene {
       target.curseSlowed = false;
       target.curseSlowTimer = null;
     });
-    if (level >= 2 && waveId && waveId !== target.curseLastWaveId) {
+    if (level >= 2) {
       target.curseL2Stacks = (target.curseL2Stacks || 0) + 1;
-      target.curseLastWaveId = waveId;
     }
     if (this.isAuthoritativeOwner(target)) {
       if (target.curseDotTimer) target.curseDotTimer.remove(false);
@@ -4094,7 +4180,7 @@ export default class GameScene extends Phaser.Scene {
   iceBeamTick(beam, cx, cy, endX, endY) {
     const caster = beam.caster;
     for (const target of this.fighters) {
-      if (target === caster) continue;
+      if (this.isFriendly(target, caster)) continue;
       if (target.isDead || target.isInvulnerable) continue;
       const tb = target.sprite.body;
       const dx = tb.x + tb.width / 2;
@@ -4129,7 +4215,7 @@ export default class GameScene extends Phaser.Scene {
       const halfW = 28 * SKELETON_HIT_SCALE;
       for (const fox of this.skeletons) {
         if (!fox || fox.state === 'dying') continue;
-        if (fox.caster === caster) continue;
+        if (this.isFriendly(fox.caster, caster)) continue;
         const fx = fox.x;
         const ftop = fox.y - visualH * 0.95;
         const fhigh = fox.y - visualH * 0.7;
@@ -5243,7 +5329,7 @@ export default class GameScene extends Phaser.Scene {
       const aTop = ab.y;
       const aBottom = ab.y + ab.height;
       for (const target of this.fighters) {
-        if (target === a.ownerCaster) continue;
+        if (this.isFriendly(target, a.ownerCaster)) continue;
         if (target.isDead || target.isInvulnerable) continue;
         if (a.isPiercing && a.pierceHitSet.has(target)) continue;
         const tb = target.sprite.body;
@@ -5441,7 +5527,7 @@ export default class GameScene extends Phaser.Scene {
     const bodyH = 96 * SKELETON_HIT_SCALE;
     for (const fox of this.skeletons) {
       if (!fox || fox.state === 'dying') continue;
-      if (attacker && fox.caster === attacker) continue;
+      if (attacker && this.isFriendly(fox.caster, attacker)) continue;
       if (hitSet && hitSet.has(fox)) continue;
       const sLeft = fox.x - halfW;
       const sRight = fox.x + halfW;
@@ -5646,7 +5732,7 @@ export default class GameScene extends Phaser.Scene {
         if (this.skeletons) {
           for (const other of this.skeletons) {
             if (other === fox || other.state === 'dying') continue;
-            if (other.caster === caster) continue;
+            if (this.isFriendly(other.caster, caster)) continue;
             if (Math.abs(other.y - fox.y) > SKELETON_PLATFORM_Y_TOLERANCE) continue;
             if (fox.petType !== 'archer') {
               if (other.x < fox.platformLeft - 40 || other.x > fox.platformRight + 40) continue;
@@ -6238,7 +6324,7 @@ export default class GameScene extends Phaser.Scene {
         const groundTop = surfaceY - HEAVENS_FURY_GROUND_ZONE_HEIGHT;
         const groundBottom = surfaceY + 40;
         for (const target of this.fighters) {
-          if (target === fighter) continue;
+          if (this.isFriendly(target, fighter)) continue;
           if (target.isInvulnerable || target.isDead) continue;
           const tx = target.sprite.body.x + target.sprite.body.width / 2;
           const ty = target.sprite.body.y + target.sprite.body.height / 2;
@@ -6726,7 +6812,7 @@ export default class GameScene extends Phaser.Scene {
         // Pull em fighters (caster imune)
         for (const f of this.fighters) {
           if (!f || f.isDead || f.isInvulnerable || f.isFrozen) continue;
-          if (f === mine.owner) continue;
+          if (this.isFriendly(f, mine.owner)) continue;
           const fb = f.sprite.body;
           const fcx = fb.x + fb.width / 2;
           const fcy = fb.y + fb.height / 2;
@@ -6767,7 +6853,7 @@ export default class GameScene extends Phaser.Scene {
       let triggered = false;
       for (const f of this.fighters) {
         if (!f || f.isDead || f.isInvulnerable) continue;
-        if (f === mine.owner) continue; // owner sempre imune à própria mina
+        if (this.isFriendly(f, mine.owner)) continue; // owner e dupla imunes à própria mina
         const fb = f.sprite.body;
         const fcx = fb.x + fb.width / 2;
         const ffeet = fb.y + fb.height;
@@ -6780,11 +6866,11 @@ export default class GameScene extends Phaser.Scene {
         }
       }
       if (triggered) continue;
-      // Esqueletos inimigos também ativam (caster ≠ mine.owner)
+      // Esqueletos inimigos também ativam (caster ≠ mine.owner e fora da dupla)
       if (this.skeletons) {
         for (const fox of this.skeletons) {
           if (!fox || fox.state === 'dying') continue;
-          if (fox.caster === mine.owner) continue;
+          if (this.isFriendly(fox.caster, mine.owner)) continue;
           const dx = fox.x - mine.x;
           const dy = fox.y - mine.y; // fox.y é o pé do esqueleto
           if (Math.abs(dx) < LAND_MINE_TRIGGER_DX && Math.abs(dy) < LAND_MINE_TRIGGER_DY + 20) {
@@ -7297,14 +7383,26 @@ export default class GameScene extends Phaser.Scene {
       strokeThickness: 2,
     }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(23);
     this.killHudLines = [];
-    const sorted = this.fighters.slice().sort((a, b) => a.ownerIndex - b.ownerIndex);
+    const sorted = this.fighters.slice().sort((a, b) => {
+      if (this.teamMode) {
+        const ta = a.team || 'Z';
+        const tb = b.team || 'Z';
+        if (ta !== tb) return ta.localeCompare(tb);
+      }
+      return a.ownerIndex - b.ownerIndex;
+    });
     for (let i = 0; i < sorted.length; i++) {
       const f = sorted[i];
       const row = y + 22 + i * lineH;
       const colorHex = `#${(f.char.tintColor || 0xffffff).toString(16).padStart(6, '0')}`;
-      const label = this.add.text(x + 10, row, f.nick || `P${f.ownerIndex + 1}`, {
+      const teamPrefix = this.teamMode && f.team ? `[${f.team}] ` : '';
+      const teamLabelColor =
+        this.teamMode && f.team === 'A' ? '#38bdf8' :
+        this.teamMode && f.team === 'B' ? '#f87171' :
+        colorHex;
+      const label = this.add.text(x + 10, row, `${teamPrefix}${f.nick || `P${f.ownerIndex + 1}`}`, {
         font: 'bold 13px sans-serif',
-        color: colorHex,
+        color: this.teamMode && f.team ? teamLabelColor : colorHex,
         stroke: '#000000',
         strokeThickness: 2,
       }).setOrigin(0, 0).setScrollFactor(0).setDepth(23);
@@ -7422,6 +7520,10 @@ export default class GameScene extends Phaser.Scene {
 
   applyIncomingHit(target, hit) {
     if (!target || target.isDead) return;
+    if (this.teamMode && hit && hit.attackerIndex !== undefined) {
+      const attacker = this.fightersByIndex?.[hit.attackerIndex];
+      if (attacker && attacker !== target && this.isFriendly(attacker, target)) return;
+    }
     if (hit.iceTick) {
       this.applyIceTick(target, hit.iceBeamId, hit.iceCasterIndex);
       return;
@@ -7508,8 +7610,29 @@ export default class GameScene extends Phaser.Scene {
 
   dealHit(target, hit) {
     if (hit.playHitSfx) this.playSfx('sfx_hit');
-    hit.attackerIndex = this.playerFighter?.ownerIndex ?? this.myIndex ?? 0;
+    if (hit.attackerIndex === undefined) {
+      hit.attackerIndex = this.playerFighter?.ownerIndex ?? this.myIndex ?? 0;
+    }
     if (this.isMultiplayer && target !== this.playerFighter) {
+      // Host é dono autoritativo dos próprios bots — aplica dano local e avisa clientes pra VFX.
+      const targetIsOwnedBot = !!(this.isHost && target.isBot);
+      if (targetIsOwnedBot) {
+        if (!target.isDead) {
+          this.triggerHitFlash(target);
+          if (!target.isEye && hit.damage > 0) {
+            const body = target.sprite.body;
+            this.spawnDamageNumber(
+              body.x + body.width / 2,
+              body.y,
+              hit.damage,
+              '#ffffff',
+            );
+          }
+        }
+        this.applyIncomingHit(target, hit);
+        this.network.send({ type: 'hit', targetIndex: target.ownerIndex, ...hit });
+        return;
+      }
       if (!target.isDead) {
         this.triggerHitFlash(target);
         if (hit.powerFlashColor !== null && hit.powerFlashColor !== undefined) {
@@ -7556,7 +7679,11 @@ export default class GameScene extends Phaser.Scene {
   }
 
   isAuthoritativeOwner(fighter) {
-    return !this.isMultiplayer || fighter === this.playerFighter;
+    if (!this.isMultiplayer) return true;
+    if (fighter === this.playerFighter) return true;
+    // Host roda física/IA dos bots; é o dono autoritativo deles.
+    if (this.isHost && fighter && fighter.isBot) return true;
+    return false;
   }
 
   sendPowerCast(power, params) {
@@ -7564,38 +7691,47 @@ export default class GameScene extends Phaser.Scene {
     this.network.send({ type: 'power_cast', casterIndex: this.myIndex, power, ...params });
   }
 
+  buildFighterStatePayload(fighter, ownerIndex) {
+    const sprite = fighter.sprite;
+    const currentAnim = sprite.anims.currentAnim?.key ?? fighter.keys.idle;
+    return {
+      type: 'state',
+      index: ownerIndex,
+      x: sprite.x - (fighter.attackSpriteShift || 0),
+      y: sprite.y,
+      flipX: sprite.flipX,
+      anim: currentAnim,
+      frame: sprite.anims.currentFrame?.index ?? 0,
+      hp: fighter.hp,
+      lives: fighter.lives,
+      isDead: fighter.isDead,
+      shielded: fighter.shieldCharges > 0,
+      stunned: fighter.isStunned,
+      cursed: (fighter.curseMultiplier || 1) > 1,
+      powers: fighter.specialPowers.slice(),
+      upgraded: fighter.upgradedPowers ? Array.from(fighter.upgradedPowers) : [],
+      isEye: !!fighter.isEye,
+      eyeHits: fighter.eyeHitsRemaining || 0,
+      eyeFacing: fighter.eyeFacing || 1,
+      eyeDashing: fighter.isEye && this.time.now < (fighter.eyeDashUntil || 0),
+      eyeRemainingMs: fighter.isEye ? Math.max(0, (fighter.eyeTransformUntil || 0) - this.time.now) : 0,
+      frozen: !!fighter.isFrozen,
+      slamming: !!fighter.isSlamming,
+    };
+  }
+
   syncNetwork(time) {
     if (!this.network || !this.network.isConnected) return;
     if (!this._lastNetSend) this._lastNetSend = 0;
     if (time - this._lastNetSend < 33) return;
     this._lastNetSend = time;
-    const f = this.playerFighter;
-    const sprite = f.sprite;
-    const currentAnim = sprite.anims.currentAnim?.key ?? f.keys.idle;
-    this.network.send({
-      type: 'state',
-      index: this.myIndex,
-      x: sprite.x - (f.attackSpriteShift || 0),
-      y: sprite.y,
-      flipX: sprite.flipX,
-      anim: currentAnim,
-      frame: sprite.anims.currentFrame?.index ?? 0,
-      hp: f.hp,
-      lives: f.lives,
-      isDead: f.isDead,
-      shielded: f.shieldCharges > 0,
-      stunned: f.isStunned,
-      cursed: (f.curseMultiplier || 1) > 1,
-      powers: f.specialPowers.slice(),
-      upgraded: f.upgradedPowers ? Array.from(f.upgradedPowers) : [],
-      isEye: !!f.isEye,
-      eyeHits: f.eyeHitsRemaining || 0,
-      eyeFacing: f.eyeFacing || 1,
-      eyeDashing: f.isEye && this.time.now < (f.eyeDashUntil || 0),
-      eyeRemainingMs: f.isEye ? Math.max(0, (f.eyeTransformUntil || 0) - this.time.now) : 0,
-      frozen: !!f.isFrozen,
-      slamming: !!f.isSlamming,
-    });
+    this.network.send(this.buildFighterStatePayload(this.playerFighter, this.myIndex));
+    if (this.isHost) {
+      for (const f of this.fighters) {
+        if (!f.isBot || f.isDead) continue;
+        this.network.send(this.buildFighterStatePayload(f, f.ownerIndex));
+      }
+    }
   }
 
   handleNetState(data) {
@@ -7606,8 +7742,12 @@ export default class GameScene extends Phaser.Scene {
         data.targetIndex === this.myIndex
           ? this.playerFighter
           : this.fightersByIndex[data.targetIndex];
+      // Host é o dono autoritativo dos bots; aplica dano localmente quando bot é alvo.
+      const targetIsOwnedBot = !!(target && target !== this.playerFighter && this.isHost && target.isBot);
       if (data.targetIndex === this.myIndex) {
         this.applyIncomingHit(this.playerFighter, data);
+      } else if (targetIsOwnedBot && !target.isDead) {
+        this.applyIncomingHit(target, data);
       } else if (target && !target.isDead) {
         this.triggerHitFlash(target);
         if (data.powerFlashColor !== null && data.powerFlashColor !== undefined) {
@@ -7908,6 +8048,9 @@ export default class GameScene extends Phaser.Scene {
     for (const f of this.fighters) {
       if (f === this.playerFighter) continue;
       if (f.isDead) continue;
+      // Em multiplayer, só roda IA em bots (e só no host) — humanos remotos vêm pela rede.
+      if (this.isMultiplayer && !f.isBot) continue;
+      if (this.isMultiplayer && !this.isHost) continue;
       if (f.isStunned || f.isFrozen) continue;
       if (f.isEye) continue;
       this.runFighterAI(f, time, delta);
@@ -7921,6 +8064,7 @@ export default class GameScene extends Phaser.Scene {
     const sy = self.sprite.y;
     for (const f of this.fighters) {
       if (f === self || f.isDead) continue;
+      if (this.isFriendly(f, self)) continue;
       const dx = f.sprite.x - sx;
       const dy = f.sprite.y - sy;
       const d = dx * dx + dy * dy;
@@ -7984,7 +8128,7 @@ export default class GameScene extends Phaser.Scene {
     let bestDist = Infinity;
     for (const fox of this.skeletons) {
       if (!fox || fox.state === 'dying') continue;
-      if (fox.caster === self) continue;
+      if (this.isFriendly(fox.caster, self)) continue;
       const dx = fox.x - sx;
       const dy = fox.y - sy;
       const d = dx * dx + dy * dy;
@@ -8183,7 +8327,7 @@ export default class GameScene extends Phaser.Scene {
     const hbBottom = hbY + hbH / 2;
 
     for (const t of this.fighters) {
-      if (t === fighter) continue;
+      if (this.isFriendly(t, fighter)) continue;
       if (t.isDead || t.isInvulnerable) continue;
       const tb = t.sprite.body;
       if (
@@ -8192,14 +8336,20 @@ export default class GameScene extends Phaser.Scene {
         hbBottom > tb.y &&
         hbTop < tb.y + tb.height
       ) {
-        this.applyIncomingHit(t, {
+        const hit = {
           damage: ATTACK_DAMAGE,
           knockbackX: facing * 200,
           knockupY: -160,
           attackerIndex: fighter.ownerIndex,
           burn: !!fighter.fireStormBuff,
           cause: 'basic_attack',
-        });
+        };
+        // Em MP, bots no host roteiam pelo dealHit (cobre alvo local, bot próprio e remoto).
+        if (this.isMultiplayer) {
+          this.dealHit(t, hit);
+        } else {
+          this.applyIncomingHit(t, hit);
+        }
         this.playSfx('sfx_hit');
         if (this.triggerHitFlash) this.triggerHitFlash(t);
       }
@@ -8413,7 +8563,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.updateLandMines(time, delta);
 
-    if (this.isSinglePlayer) {
+    if (this.isSinglePlayer || (this.isMultiplayer && this.isHost)) {
       this.updateAIFighters(time, delta);
     }
 
@@ -8619,7 +8769,7 @@ export default class GameScene extends Phaser.Scene {
           const hbTop = hitboxY - physH / 2;
           const hbBottom = hitboxY + physH / 2;
           for (const target of this.fighters) {
-            if (target === fighter) continue;
+            if (this.isFriendly(target, fighter)) continue;
             if (this.targetsHitThisAttack.has(target)) continue;
             if (target.isInvulnerable || target.isDead) continue;
             const tb = target.sprite.body;
@@ -8919,7 +9069,7 @@ export default class GameScene extends Phaser.Scene {
           const backBottom = backY + backHbH / 2;
 
           for (const target of this.fighters) {
-            if (target === fighter) continue;
+            if (this.isFriendly(target, fighter)) continue;
             if (this.targetsHitThisAttack.has(target)) continue;
             if (target.isInvulnerable || target.isDead) continue;
             const tb = target.sprite.body;
@@ -9002,7 +9152,7 @@ export default class GameScene extends Phaser.Scene {
         const pBottom = pb.y + pb.height;
         if (!this.isAuthoritativeOwner(p.ownerFighter)) continue;
         for (const target of this.fighters) {
-          if (target === p.ownerFighter) continue;
+          if (this.isFriendly(target, p.ownerFighter)) continue;
           if (target.isDead || target.isInvulnerable) continue;
           const tb = target.sprite.body;
           const hit =
@@ -9117,7 +9267,7 @@ export default class GameScene extends Phaser.Scene {
       const rBottom = rb.y + rb.height;
       if (!this.isAuthoritativeOwner(r.ownerFighter)) continue;
       for (const target of this.fighters) {
-        if (target === r.ownerFighter) continue;
+        if (this.isFriendly(target, r.ownerFighter)) continue;
         if (target.isDead || target.isInvulnerable) continue;
         if (r.hitSet.has(target)) continue;
         const tb = target.sprite.body;
@@ -9221,7 +9371,7 @@ export default class GameScene extends Phaser.Scene {
 
       let hitTarget = null;
       for (const target of this.fighters) {
-        if (target === w.ownerFighter) continue;
+        if (this.isFriendly(target, w.ownerFighter)) continue;
         if (target.isDead || target.isInvulnerable) continue;
         const tb = target.sprite.body;
         if (
@@ -9240,6 +9390,7 @@ export default class GameScene extends Phaser.Scene {
         this.dealHit(hitTarget, {
           damage: WHEEL_DAMAGE,
           knockupY: WHEEL_KNOCKUP,
+          stun: !w.isL2,
           powerFlashColor: 0xffffff,
           cause: 'wheel',
         });
@@ -9310,6 +9461,32 @@ export default class GameScene extends Phaser.Scene {
       const sprite = this.orbSprites[i];
       sprite.fillColor = available ? 0x38bdf8 : 0x1e293b;
       sprite.setAlpha(available ? 1 : 0.6);
+    }
+    // Atualiza o relógio de reset dos orbs — só pro player local, ao lado da barra de HP.
+    if (this.resetTimerGfx) {
+      const g = this.resetTimerGfx;
+      g.clear();
+      const localF = this.playerFighter;
+      const visible = localF && !localF.isDead && !localF.isEye;
+      if (visible) {
+        const lb = localF.sprite.body;
+        const cx = lb.x + lb.width / 2 + localF.hpBarWidth / 2 + this.resetTimerRadius + 4;
+        const cy = lb.y - 12;
+        const r = this.resetTimerRadius;
+        g.lineStyle(1.5, 0x0ea5e9, 0.7);
+        g.strokeCircle(cx, cy, r);
+        g.fillStyle(0x0f172a, 0.7);
+        g.fillCircle(cx, cy, r);
+        if (this.resetAt !== null) {
+          const elapsed = ORB_FULL_RESET_MS - Math.max(0, this.resetAt - time);
+          const pct = Math.max(0, Math.min(1, elapsed / ORB_FULL_RESET_MS));
+          const startAngle = -Math.PI / 2;
+          const endAngle = startAngle + pct * Math.PI * 2;
+          g.fillStyle(0x38bdf8, 0.95);
+          g.slice(cx, cy, r - 1, startAngle, endAngle, false);
+          g.fillPath();
+        }
+      }
     }
     this.specialOrbSprite.setVisible(hasHeavensFury);
     if (hasHeavensFury && this.specialOrbPulse.paused) {
@@ -9503,6 +9680,11 @@ export default class GameScene extends Phaser.Scene {
         f.hpBarFill.setPosition(barX - (f.hpBarWidth - 2) / 2, barY);
         f.hpBarFill.width = (f.hpBarWidth - 2) * pct;
         f.hpBarFill.fillColor = pct > 0.5 ? 0x22c55e : pct > 0.25 ? 0xeab308 : 0xef4444;
+      }
+      if (f.teamBadge) {
+        // Posiciona à esquerda da barra de HP pra não sobrepor os ícones de poder (que ficam centralizados acima da barra).
+        f.teamBadge.setPosition(barX - f.hpBarWidth / 2 - 10, barY + 1);
+        f.teamBadge.setVisible(!f.isDead);
       }
 
       const iconY = f.isEye

@@ -25,7 +25,8 @@ export class NetworkManager {
   host() {
     this.isHost = true;
     this.myIndex = 0;
-    this.peers = [{ index: 0, charId: 'p1', nick: '' }];
+    this.peers = [{ index: 0, charId: 'p1', nick: '', team: null }];
+    this.teamMode = false;
     return new Promise((resolve, reject) => {
       let attempts = 0;
       const tryOpen = () => {
@@ -51,7 +52,7 @@ export class NetworkManager {
   }
 
   acceptClient(conn) {
-    if (this.clients.length >= MAX_PLAYERS - 1) {
+    if (this.peers.length >= MAX_PLAYERS) {
       conn.on('open', () => {
         conn.send({ type: '_reject', reason: 'full' });
         setTimeout(() => conn.close(), 200);
@@ -64,7 +65,7 @@ export class NetworkManager {
     const defaultChars = ['p1', 'p2', 'p3', 'p4'];
     const client = { conn, index };
     this.clients.push(client);
-    this.peers.push({ index, charId: defaultChars[index] ?? 'p1', nick: '' });
+    this.peers.push({ index, charId: defaultChars[index] ?? 'p1', nick: '', team: null });
     conn.on('open', () => {
       this.isConnected = true;
       conn.send({ type: '_assign', index });
@@ -81,7 +82,7 @@ export class NetworkManager {
   }
 
   broadcastPeers() {
-    const payload = { type: '_peers', peers: this.peers.slice() };
+    const payload = { type: '_peers', peers: this.peers.slice(), teamMode: !!this.teamMode };
     for (const c of this.clients) {
       if (c.conn.open) c.conn.send(payload);
     }
@@ -102,6 +103,15 @@ export class NetworkManager {
       const peer = this.peers.find((p) => p.index === client.index);
       if (peer && typeof data.nick === 'string') {
         peer.nick = data.nick.slice(0, 12);
+        this.broadcastPeers();
+        if (this.onPeersCallback) this.onPeersCallback(this.peers.slice());
+      }
+      return;
+    }
+    if (data.type === '_team') {
+      const peer = this.peers.find((p) => p.index === client.index);
+      if (peer) {
+        peer.team = data.team === 'A' || data.team === 'B' ? data.team : null;
         this.broadcastPeers();
         if (this.onPeersCallback) this.onPeersCallback(this.peers.slice());
       }
@@ -136,13 +146,86 @@ export class NetworkManager {
     }
   }
 
+  setMyTeam(team) {
+    const clean = team === 'A' || team === 'B' ? team : null;
+    if (this.isHost) {
+      const me = this.peers.find((p) => p.index === this.myIndex);
+      if (me) me.team = clean;
+      this.broadcastPeers();
+      if (this.onPeersCallback) this.onPeersCallback(this.peers.slice());
+    } else if (this.hostConn && this.hostConn.open) {
+      this.hostConn.send({ type: '_team', team: clean });
+    }
+  }
+
+  setTeamMode(enabled) {
+    if (!this.isHost) return;
+    this.teamMode = !!enabled;
+    if (!this.teamMode) {
+      for (const p of this.peers) p.team = null;
+    }
+    this.broadcastPeers();
+    if (this.onPeersCallback) this.onPeersCallback(this.peers.slice());
+  }
+
+  addBot() {
+    if (!this.isHost) return null;
+    if (this.peers.length >= MAX_PLAYERS) return null;
+    const used = new Set(this.peers.map((p) => p.index));
+    let index = 1;
+    while (used.has(index)) index += 1;
+    if (index >= MAX_PLAYERS) return null;
+    const defaultChars = ['p1', 'p2', 'p3', 'p4'];
+    const botCount = this.peers.filter((p) => p.isBot).length + 1;
+    const bot = {
+      index,
+      charId: defaultChars[index] ?? 'p1',
+      nick: `Bot ${botCount}`,
+      team: null,
+      isBot: true,
+    };
+    this.peers.push(bot);
+    this.broadcastPeers();
+    if (this.onPeersCallback) this.onPeersCallback(this.peers.slice());
+    return bot;
+  }
+
+  removeBot(index) {
+    if (!this.isHost) return;
+    const p = this.peers.find((x) => x.index === index);
+    if (!p || !p.isBot) return;
+    this.peers = this.peers.filter((x) => x !== p);
+    this.broadcastPeers();
+    if (this.onPeersCallback) this.onPeersCallback(this.peers.slice());
+  }
+
+  setBotTeam(index, team) {
+    if (!this.isHost) return;
+    const p = this.peers.find((x) => x.index === index);
+    if (!p || !p.isBot) return;
+    p.team = team === 'A' || team === 'B' ? team : null;
+    this.broadcastPeers();
+    if (this.onPeersCallback) this.onPeersCallback(this.peers.slice());
+  }
+
+  setBotCharacter(index, charId) {
+    if (!this.isHost) return;
+    const p = this.peers.find((x) => x.index === index);
+    if (!p || !p.isBot) return;
+    if (typeof charId === 'string') {
+      p.charId = charId;
+      this.broadcastPeers();
+      if (this.onPeersCallback) this.onPeersCallback(this.peers.slice());
+    }
+  }
+
   startMatch(players) {
     if (!this.isHost) return;
-    const payload = { type: '_start', players };
+    const payload = { type: '_start', players, teamMode: !!this.teamMode };
     for (const c of this.clients) {
       if (c.conn.open) c.conn.send(payload);
     }
-    if (this.onStartCallback) this.onStartCallback(players);
+    if (this.onStartCallback) this.onStartCallback(players, !!this.teamMode);
   }
 
   join(code) {
@@ -173,11 +256,13 @@ export class NetworkManager {
     }
     if (data.type === '_peers') {
       this.peers = data.peers || [];
+      this.teamMode = !!data.teamMode;
       if (this.onPeersCallback) this.onPeersCallback(this.peers.slice());
       return;
     }
     if (data.type === '_start') {
-      if (this.onStartCallback) this.onStartCallback(data.players || []);
+      this.teamMode = !!data.teamMode;
+      if (this.onStartCallback) this.onStartCallback(data.players || [], !!data.teamMode);
       return;
     }
     if (data.type === '_reject') {

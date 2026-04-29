@@ -54,20 +54,108 @@ function renderPicker(containerId, selectedCharId, onPick) {
   }
 }
 
-function renderPlayersList(containerId, peers, myIndex) {
+function renderTeamPicker(containerId, selectedTeam, onPick) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  for (const btn of container.querySelectorAll('.team-btn')) {
+    btn.classList.toggle('selected', btn.dataset.team === selectedTeam);
+    btn.onclick = () => onPick(btn.dataset.team);
+  }
+}
+
+function renderPlayersList(containerId, peers, myIndex, teamMode, opts) {
   const container = document.getElementById(containerId);
   if (!container) return;
   container.innerHTML = '';
-  const sorted = peers.slice().sort((a, b) => a.index - b.index);
+  const isHost = !!(opts && opts.isHost);
+  const net = opts && opts.net;
+  const sorted = peers.slice().sort((a, b) => {
+    if (teamMode) {
+      const ta = a.team || 'Z';
+      const tb = b.team || 'Z';
+      if (ta !== tb) return ta.localeCompare(tb);
+    }
+    return a.index - b.index;
+  });
   for (const p of sorted) {
     const row = document.createElement('div');
     row.className = 'player-row';
 
     const left = document.createElement('span');
+    if (teamMode) {
+      const teamTag = document.createElement('span');
+      teamTag.className = 'team-tag ' + (p.team === 'A' ? 'team-a' : p.team === 'B' ? 'team-b' : '');
+      teamTag.textContent = p.team ? p.team : '?';
+      if (!p.team) {
+        teamTag.style.background = 'rgba(120,120,120,0.25)';
+        teamTag.style.color = '#999';
+        teamTag.style.border = '1px solid #555';
+      }
+      left.appendChild(teamTag);
+    }
+    if (p.isBot) {
+      const botTag = document.createElement('span');
+      botTag.className = 'bot-tag';
+      botTag.textContent = 'BOT';
+      left.appendChild(botTag);
+    }
     const youTag = p.index === myIndex ? ' (você)' : '';
     const hostTag = p.index === 0 ? ' [host]' : '';
     const nickTag = p.nick ? ` "${p.nick}"` : ' (sem nick)';
-    left.textContent = `Jogador ${p.index + 1}${hostTag}${youTag}${nickTag}`;
+    const txt = document.createElement('span');
+    txt.textContent = `Jogador ${p.index + 1}${hostTag}${youTag}${nickTag}`;
+    left.appendChild(txt);
+
+    if (p.isBot && isHost && net) {
+      const actions = document.createElement('span');
+      actions.className = 'bot-actions';
+      if (teamMode) {
+        const aBtn = document.createElement('button');
+        aBtn.textContent = 'A';
+        aBtn.className = 'team-a-mini' + (p.team === 'A' ? ' active' : '');
+        aBtn.onclick = (e) => { e.stopPropagation(); net.setBotTeam(p.index, 'A'); };
+        const bBtn = document.createElement('button');
+        bBtn.textContent = 'B';
+        bBtn.className = 'team-b-mini' + (p.team === 'B' ? ' active' : '');
+        bBtn.onclick = (e) => { e.stopPropagation(); net.setBotTeam(p.index, 'B'); };
+        actions.appendChild(aBtn);
+        actions.appendChild(bBtn);
+      }
+      const cycleCharBtn = document.createElement('button');
+      cycleCharBtn.textContent = '↻';
+      cycleCharBtn.title = 'Trocar personagem';
+      cycleCharBtn.onclick = (e) => {
+        e.stopPropagation();
+        const idx = CHARACTER_IDS.indexOf(p.charId);
+        const next = CHARACTER_IDS[(idx + 1) % CHARACTER_IDS.length];
+        net.setBotCharacter(p.index, next);
+      };
+      actions.appendChild(cycleCharBtn);
+      const rmBtn = document.createElement('button');
+      rmBtn.textContent = '×';
+      rmBtn.className = 'remove-bot';
+      rmBtn.title = 'Remover bot';
+      rmBtn.onclick = (e) => { e.stopPropagation(); net.removeBot(p.index); };
+      actions.appendChild(rmBtn);
+      row.appendChild(left);
+      row.appendChild(actions);
+      const right = document.createElement('span');
+      right.style.display = 'flex';
+      right.style.alignItems = 'center';
+      right.style.gap = '6px';
+      const mini = document.createElement('div');
+      mini.className = 'char-mini';
+      const charId = p.charId ?? CHARACTER_IDS[p.index] ?? 'p1';
+      mini.style.backgroundImage = `url('${CHARACTER_IDLE_URLS[charId]}')`;
+      const charLabel = document.createElement('span');
+      charLabel.className = 'tag';
+      charLabel.textContent = CHARACTER_LABELS[charId] ?? charId;
+      right.appendChild(mini);
+      right.appendChild(charLabel);
+      row.appendChild(right);
+      container.appendChild(row);
+      continue;
+    }
 
     const right = document.createElement('span');
     right.style.display = 'flex';
@@ -92,13 +180,38 @@ function renderPlayersList(containerId, peers, myIndex) {
   }
 }
 
-function updateStartButton(peers) {
+function updateStartButton(peers, teamMode) {
   const btn = document.getElementById('btn-start-match');
   const count = peers.length;
   btn.textContent = `Iniciar partida (${count}/${MAX_PLAYERS})`;
   const allHaveNick = peers.every((p) => (p.nick || '').trim().length > 0);
-  btn.disabled = count < 2 || !allHaveNick;
-  btn.title = !allHaveNick ? 'Aguardando todos escolherem um nick' : '';
+  let teamsOk = true;
+  let teamsHint = '';
+  if (teamMode) {
+    const teamA = peers.filter((p) => p.team === 'A').length;
+    const teamB = peers.filter((p) => p.team === 'B').length;
+    const noTeam = peers.filter((p) => !p.team).length;
+    if (noTeam > 0) {
+      teamsOk = false;
+      teamsHint = `${noTeam} jogador(es) sem dupla`;
+    } else if (teamA < 1 || teamB < 1) {
+      teamsOk = false;
+      teamsHint = 'Cada dupla precisa de pelo menos 1 jogador';
+    }
+  }
+  btn.disabled = count < 2 || !allHaveNick || !teamsOk;
+  if (!allHaveNick) btn.title = 'Aguardando todos escolherem um nick';
+  else if (!teamsOk) btn.title = teamsHint;
+  else btn.title = '';
+}
+
+const btnStory = document.getElementById('btn-story');
+if (btnStory) {
+  btnStory.addEventListener('click', () => {
+    if (btnStory.classList.contains('coming-soon')) return;
+    lobby.style.display = 'none';
+    startGame('singleplayer', null, null);
+  });
 }
 
 document.getElementById('btn-single').addEventListener('click', () => {
@@ -125,14 +238,42 @@ let currentMode = null;
 
 function setupHostLobbyUI(net) {
   const myPeer = () => net.peers.find((p) => p.index === net.myIndex);
+  const teamPickerWrap = document.getElementById('host-team-picker-wrap');
+  const tabs = document.querySelectorAll('#lobby-host .lobby-tab');
+  const syncTabs = () => {
+    tabs.forEach((t) => {
+      const active = (t.dataset.mode === '2v2') === !!net.teamMode;
+      t.classList.toggle('active', active);
+    });
+  };
+  tabs.forEach((tab) => {
+    tab.onclick = () => {
+      const wantTeam = tab.dataset.mode === '2v2';
+      if (wantTeam !== !!net.teamMode) {
+        net.setTeamMode(wantTeam);
+      }
+      syncTabs();
+      refresh();
+    };
+  });
   const refresh = () => {
-    renderPlayersList('host-players', net.peers, net.myIndex);
-    updateStartButton(net.peers);
+    renderPlayersList('host-players', net.peers, net.myIndex, !!net.teamMode, { isHost: true, net });
+    updateStartButton(net.peers, !!net.teamMode);
+    const addBotBtn = document.getElementById('btn-add-bot');
+    if (addBotBtn) addBotBtn.disabled = net.peers.length >= MAX_PLAYERS;
     const me = myPeer();
     renderPicker('host-picker', me?.charId ?? 'p1', (charId) => {
       net.setMyCharacter(charId);
       refresh();
     });
+    if (teamPickerWrap) teamPickerWrap.style.display = net.teamMode ? '' : 'none';
+    if (net.teamMode) {
+      renderTeamPicker('host-team-picker', me?.team ?? null, (team) => {
+        net.setMyTeam(team);
+        refresh();
+      });
+    }
+    syncTabs();
   };
   const nickInput = document.getElementById('host-nick');
   if (nickInput) {
@@ -160,21 +301,38 @@ function setupHostLobbyUI(net) {
         index: p.index,
         charId: p.charId ?? CHARACTER_IDS[p.index] ?? 'p1',
         nick: (p.nick || '').trim() || `Jogador ${p.index + 1}`,
+        team: net.teamMode ? (p.team ?? null) : null,
+        isBot: !!p.isBot,
       }));
     net.startMatch(players);
     lobby.style.display = 'none';
-    startGame('host', net, { players, myIndex: net.myIndex });
+    startGame('host', net, { players, myIndex: net.myIndex, teamMode: !!net.teamMode });
   };
+  const addBotBtn = document.getElementById('btn-add-bot');
+  if (addBotBtn) {
+    addBotBtn.onclick = () => {
+      net.addBot();
+      refresh();
+    };
+  }
 }
 
 function setupClientWaitingUI(net) {
   const myPeer = () => net.peers.find((p) => p.index === net.myIndex);
+  const teamPickerWrap = document.getElementById('waiting-team-picker-wrap');
   const refresh = () => {
-    renderPlayersList('waiting-players', net.peers, net.myIndex);
+    renderPlayersList('waiting-players', net.peers, net.myIndex, !!net.teamMode, { isHost: false });
     const me = myPeer();
     renderPicker('waiting-picker', me?.charId ?? CHARACTER_IDS[net.myIndex] ?? 'p1', (charId) => {
       net.setMyCharacter(charId);
     });
+    if (teamPickerWrap) teamPickerWrap.style.display = net.teamMode ? '' : 'none';
+    if (net.teamMode) {
+      renderTeamPicker('waiting-team-picker', me?.team ?? null, (team) => {
+        net.setMyTeam(team);
+        refresh();
+      });
+    }
   };
   const nickInput = document.getElementById('waiting-nick');
   if (nickInput) {
@@ -186,9 +344,9 @@ function setupClientWaitingUI(net) {
   }
   refresh();
   net.onPeers(() => refresh());
-  net.onStart((players) => {
+  net.onStart((players, teamMode) => {
     lobby.style.display = 'none';
-    startGame('client', net, { players, myIndex: net.myIndex });
+    startGame('client', net, { players, myIndex: net.myIndex, teamMode: !!teamMode });
   });
 }
 

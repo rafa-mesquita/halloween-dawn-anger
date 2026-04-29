@@ -119,73 +119,142 @@
       }
       /* Home (initial choice) layout — visuals on the path (left), menu on the right */
       #lobby #lobby-choice.visible {
-        display: grid;
-        grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-        align-items: stretch;
-        justify-items: stretch;
-        gap: clamp(20px, 4vw, 80px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
         width: 100%;
         height: 100%;
         max-width: 1920px;
         max-height: 1080px;
-        padding: clamp(24px, 4vh, 60px) clamp(40px, 6vw, 120px);
+        padding: clamp(16px, 3vh, 36px) clamp(24px, 4vw, 80px);
         box-sizing: border-box;
-      }
-      .home-visuals {
-        position: relative;
-        width: 100%;
-        height: 100%;
-        display: grid;
-        grid-template-rows: auto 1fr;
-        align-items: end;
-        justify-items: center;
+        gap: clamp(12px, 2vh, 24px);
       }
       #home-title {
-        width: clamp(360px, 36vw, 620px);
-        max-height: 36vh;
+        flex: 0 0 auto;
+        width: clamp(280px, 32vw, 540px);
+        max-height: 22vh;
         object-fit: contain;
         filter: drop-shadow(0 8px 22px rgba(0, 0, 0, 0.85))
                 drop-shadow(0 0 24px rgba(255, 120, 40, 0.18));
         animation: title-float 5s ease-in-out infinite;
         pointer-events: none;
         user-select: none;
-        align-self: start;
-        justify-self: center;
       }
       @keyframes title-float {
         0%, 100% { transform: translateY(0); }
         50%      { transform: translateY(-8px); }
       }
       #home-character {
-        width: clamp(220px, 22vw, 360px);
-        max-height: 58vh;
+        flex: 0 0 auto;
+        width: clamp(120px, 12vw, 200px);
+        max-height: 22vh;
         object-fit: contain;
         filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.75))
                 drop-shadow(0 0 28px rgba(255, 140, 30, 0.22));
-        animation: char-drift 8s ease-in-out infinite;
+        animation: char-drift 15s ease-in-out infinite;
         pointer-events: none;
         user-select: none;
-        align-self: end;
-        justify-self: center;
-        margin-bottom: 2vh;
       }
       @keyframes char-drift {
-        0%      { transform: translateX(-15vw) translateY(0) rotate(-2deg) scaleX(1); }
+        0%      { transform: translateX(-42vw) translateY(0) rotate(-2deg) scaleX(1); }
         25%     { transform: translateX(0)     translateY(-12px) rotate(0deg) scaleX(1); }
-        49.99%  { transform: translateX(15vw)  translateY(0) rotate(2deg) scaleX(1); }
-        50%     { transform: translateX(15vw)  translateY(0) rotate(2deg) scaleX(-1); }
+        49.99%  { transform: translateX(42vw)  translateY(0) rotate(2deg) scaleX(1); }
+        50%     { transform: translateX(42vw)  translateY(0) rotate(2deg) scaleX(-1); }
         75%     { transform: translateX(0)     translateY(-12px) rotate(0deg) scaleX(-1); }
-        99.99%  { transform: translateX(-15vw) translateY(0) rotate(-2deg) scaleX(-1); }
-        100%    { transform: translateX(-15vw) translateY(0) rotate(-2deg) scaleX(1); }
+        99.99%  { transform: translateX(-42vw) translateY(0) rotate(-2deg) scaleX(-1); }
+        100%    { transform: translateX(-42vw) translateY(0) rotate(-2deg) scaleX(1); }
       }
       #lobby-choice .home-buttons {
+        flex: 0 1 auto;
         display: flex;
-        flex-direction: column;
-        gap: 14px;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: clamp(10px, 1.5vw, 20px);
         width: 100%;
-        max-width: 380px;
-        align-self: center;
-        justify-self: start;
+        max-width: 1480px;
+      }
+      .mode-card {
+        position: relative;
+        flex: 1 1 0;
+        min-width: 0;
+        height: clamp(340px, 52vh, 500px);
+        background: transparent;
+        border: 2px solid rgba(255, 138, 44, 0.5);
+        border-radius: 10px;
+        cursor: pointer;
+        overflow: hidden;
+        padding: 0;
+        margin: 0;
+        box-sizing: border-box;
+        appearance: none;
+        -webkit-appearance: none;
+        font-family: inherit;
+        font-size: 0;
+        line-height: 0;
+        transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
+      }
+      .mode-card img.mode-card-image {
+        display: block;
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center 78%;
+        margin: 0;
+        padding: 0;
+        pointer-events: none;
+        user-select: none;
+      }
+      .mode-card .mode-card-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(180deg, rgba(8, 4, 18, 0.95) 0%, rgba(8, 4, 18, 0.7) 60%, rgba(8, 4, 18, 0) 100%);
+        padding: 12px 12px 24px 12px;
+        text-align: center;
+        pointer-events: none;
+      }
+      .mode-card .mode-card-title {
+        color: #ffe0a8;
+        font-size: clamp(12px, 1.1vw, 16px);
+        font-weight: 700;
+        letter-spacing: 1.2px;
+        text-transform: uppercase;
+        text-shadow:
+          0 2px 6px rgba(0, 0, 0, 0.95),
+          0 0 12px rgba(255, 120, 40, 0.4);
+        line-height: 1.1;
+      }
+      .mode-card .mode-card-subtitle {
+        color: rgba(255, 220, 180, 0.7);
+        font-size: clamp(9px, 0.75vw, 11px);
+        margin-top: 4px;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+        letter-spacing: 0.5px;
+      }
+      .mode-card:hover {
+        transform: translateY(-6px) scale(1.03);
+        border-color: #ffb060;
+        box-shadow: 0 12px 28px rgba(255, 120, 30, 0.5);
+      }
+      .mode-card:active {
+        transform: translateY(-2px) scale(1.0);
+      }
+      .mode-card.coming-soon {
+        cursor: not-allowed;
+        filter: grayscale(45%) brightness(0.7);
+      }
+      .mode-card.coming-soon:hover {
+        transform: none;
+        border-color: rgba(255, 138, 44, 0.5);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
       }
       #lobby h1 {
         display: none;
@@ -227,10 +296,162 @@
         background: rgba(10, 6, 20, 0.82);
         border: 1px solid rgba(255, 138, 44, 0.35);
         border-radius: 12px;
-        padding: 28px 36px;
+        padding: 22px 28px;
         backdrop-filter: blur(4px);
         box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
         max-width: 92vw;
+        max-height: 90vh;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 138, 44, 0.6) rgba(10, 6, 20, 0.4);
+      }
+      #lobby-host.visible::-webkit-scrollbar,
+      #lobby-waiting.visible::-webkit-scrollbar {
+        width: 8px;
+      }
+      #lobby-host.visible::-webkit-scrollbar-thumb,
+      #lobby-waiting.visible::-webkit-scrollbar-thumb {
+        background: rgba(255, 138, 44, 0.5);
+        border-radius: 4px;
+      }
+      /* Host & waiting two-column layout */
+      #lobby-host.visible {
+        width: min(900px, 92vw);
+        align-items: stretch;
+        gap: 14px;
+      }
+      .lobby-tabs {
+        display: flex;
+        gap: 4px;
+        background: rgba(30, 20, 40, 0.7);
+        border: 1px solid rgba(255, 138, 44, 0.25);
+        border-radius: 8px;
+        padding: 4px;
+        align-self: center;
+      }
+      #lobby .lobby-tab {
+        background: transparent;
+        color: #c9c0d8;
+        border: none;
+        padding: 8px 22px;
+        border-radius: 6px;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        cursor: pointer;
+        min-width: 0;
+        transition: background 0.15s ease, color 0.15s ease;
+      }
+      .lobby-tab:hover {
+        color: #ffe0a8;
+      }
+      .lobby-tab.active {
+        background: linear-gradient(180deg, rgba(120, 60, 30, 0.9) 0%, rgba(60, 20, 10, 0.9) 100%);
+        color: #ffe0a8;
+        box-shadow: inset 0 1px 0 rgba(255, 220, 150, 0.4);
+      }
+      .lobby-grid {
+        display: grid;
+        grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.4fr);
+        gap: 18px;
+        align-items: start;
+      }
+      .lobby-col {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-width: 0;
+      }
+      .lobby-section {
+        background: rgba(20, 12, 30, 0.55);
+        border: 1px solid rgba(255, 138, 44, 0.2);
+        border-radius: 8px;
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .lobby-section .section-label {
+        color: #b89d80;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        font-weight: 700;
+      }
+      .code-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      #host-id {
+        flex: 1;
+        text-align: center;
+        font-size: 18px;
+        letter-spacing: 4px;
+        padding: 10px 14px;
+      }
+      #lobby #btn-copy-id {
+        min-width: 0;
+        padding: 10px 16px;
+        font-size: 12px;
+      }
+      #lobby-host .picker-tiles {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      #lobby-host .char-tile {
+        padding: 2px;
+      }
+      #lobby-host .char-preview {
+        width: 96px;
+        height: 64px;
+        background-size: 1152px 128px;
+      }
+      @keyframes idle-anim-host {
+        from { background-position: -9px -36px; }
+        to { background-position: -1161px -36px; }
+      }
+      #lobby-host .char-preview {
+        animation: idle-anim-host 0.6s steps(6) infinite;
+      }
+      #lobby-host .char-name {
+        font-size: 11px;
+      }
+      .team-picker-big {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .team-picker-big .team-btn {
+        padding: 14px 8px;
+        font-size: 14px;
+      }
+      #host-players {
+        max-height: 320px;
+        overflow-y: auto;
+      }
+      .lobby-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      #lobby .lobby-actions button,
+      #lobby #btn-add-bot {
+        min-width: 0;
+        width: 100%;
+      }
+      #btn-start-match {
+        background: linear-gradient(180deg, rgba(34, 197, 94, 0.85) 0%, rgba(15, 81, 50, 0.9) 100%);
+        border-color: #22c55e;
+      }
+      #btn-start-match:hover {
+        background: linear-gradient(180deg, rgba(74, 222, 128, 0.95) 0%, rgba(22, 101, 60, 0.95) 100%);
+      }
+      #btn-start-match:disabled {
+        background: linear-gradient(180deg, rgba(60, 60, 60, 0.7) 0%, rgba(30, 30, 30, 0.7) 100%);
+        border-color: #555;
       }
       #lobby .row {
         display: flex;
@@ -369,6 +590,114 @@
         background: rgba(80, 50, 20, 0.9);
         box-shadow: 0 0 12px rgba(255, 150, 70, 0.5);
       }
+      /* Team mode UI */
+      .team-toggle-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: rgba(30, 30, 40, 0.6);
+        padding: 8px 14px;
+        border-radius: 6px;
+        border: 1px solid #444;
+      }
+      .team-toggle-row label {
+        color: #ddd;
+        font-size: 13px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .team-picker {
+        display: flex;
+        gap: 8px;
+      }
+      #lobby .team-btn {
+        background: rgba(30, 30, 40, 0.9);
+        border: 2px solid #555;
+        color: #ddd;
+        border-radius: 6px;
+        padding: 6px 16px;
+        font-size: 13px;
+        font-weight: bold;
+        cursor: pointer;
+        font-family: inherit;
+        letter-spacing: 1px;
+        min-width: 0;
+      }
+      .team-btn:hover {
+        border-color: #888;
+      }
+      .team-btn.team-a.selected {
+        border-color: #38bdf8;
+        background: rgba(20, 60, 90, 0.9);
+        color: #bae6fd;
+        box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+      }
+      .team-btn.team-b.selected {
+        border-color: #f87171;
+        background: rgba(90, 20, 30, 0.9);
+        color: #fecaca;
+        box-shadow: 0 0 12px rgba(248, 113, 113, 0.5);
+      }
+      .player-row .team-tag {
+        font-weight: bold;
+        font-size: 12px;
+        padding: 2px 6px;
+        border-radius: 3px;
+        margin-right: 4px;
+      }
+      .player-row .team-tag.team-a {
+        background: rgba(56, 189, 248, 0.25);
+        color: #bae6fd;
+        border: 1px solid #38bdf8;
+      }
+      .player-row .team-tag.team-b {
+        background: rgba(248, 113, 113, 0.25);
+        color: #fecaca;
+        border: 1px solid #f87171;
+      }
+      .player-row .bot-tag {
+        font-weight: bold;
+        font-size: 11px;
+        padding: 1px 5px;
+        border-radius: 3px;
+        background: rgba(16, 185, 129, 0.2);
+        color: #6ee7b7;
+        border: 1px solid #10b981;
+        margin-right: 4px;
+      }
+      .player-row .bot-actions {
+        display: flex;
+        gap: 3px;
+        margin-left: auto;
+      }
+      #lobby .player-row .bot-actions button {
+        background: rgba(40, 40, 60, 0.9);
+        border: 1px solid #555;
+        color: #ddd;
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-family: inherit;
+        min-width: 22px;
+      }
+      .player-row .bot-actions button:hover {
+        border-color: #888;
+      }
+      .player-row .bot-actions button.team-a-mini.active {
+        background: rgba(20, 60, 90, 0.9);
+        border-color: #38bdf8;
+        color: #bae6fd;
+      }
+      .player-row .bot-actions button.team-b-mini.active {
+        background: rgba(90, 20, 30, 0.9);
+        border-color: #f87171;
+        color: #fecaca;
+      }
+      .player-row .bot-actions button.remove-bot {
+        color: #fecaca;
+        border-color: #7f1d1d;
+      }
       /* Mute toggle — visível em todos os modos */
       #mute-toggle {
         position: fixed;
@@ -467,16 +796,45 @@
       <audio id="home-music" src="Home%20Page/Moonlit%20Pixel%20Castle.mp3" loop preload="auto"></audio>
       <h1>Halloween Dawn Anger</h1>
       <div id="lobby-choice" class="panel visible">
-        <div class="home-visuals">
-          <img id="home-title" src="Home%20Page/Titulo%20do%20jogo.png" alt="Hollowen Dawn Anger" />
-          <img id="home-character" src="Home%20Page/Persoangem.png" alt="" />
-        </div>
+        <img id="home-title" src="Home%20Page/Titulo%20do%20jogo.png" alt="Hollowen Dawn Anger" />
         <div class="home-buttons">
-          <button id="btn-single" type="button">Single Player</button>
-          <button id="btn-multiplayer" type="button">Multiplayer</button>
-          <button id="btn-test" type="button">Test Mode</button>
-          <button id="btn-config" type="button">Configurações</button>
+          <button class="mode-card coming-soon" id="btn-story" type="button">
+            <img class="mode-card-image" src="Home%20Page/capas%20modo%20de%20jogo/Modo%20Historia.png" alt="" />
+            <div class="mode-card-overlay">
+              <div class="mode-card-title">Modo História</div>
+              <div class="mode-card-subtitle">Em breve</div>
+            </div>
+          </button>
+          <button class="mode-card" id="btn-single" type="button">
+            <img class="mode-card-image" src="Home%20Page/capas%20modo%20de%20jogo/Single%20Player%20(Vs%20Bot).png" alt="" />
+            <div class="mode-card-overlay">
+              <div class="mode-card-title">Single Player</div>
+              <div class="mode-card-subtitle">vs Bots</div>
+            </div>
+          </button>
+          <button class="mode-card" id="btn-multiplayer" type="button">
+            <img class="mode-card-image" src="Home%20Page/capas%20modo%20de%20jogo/Multiplayer.png" alt="" />
+            <div class="mode-card-overlay">
+              <div class="mode-card-title">Multiplayer</div>
+              <div class="mode-card-subtitle">P2P online</div>
+            </div>
+          </button>
+          <button class="mode-card" id="btn-test" type="button">
+            <img class="mode-card-image" src="Home%20Page/capas%20modo%20de%20jogo/Dev%20Mode.png" alt="" />
+            <div class="mode-card-overlay">
+              <div class="mode-card-title">Dev Mode</div>
+              <div class="mode-card-subtitle">Sandbox de testes</div>
+            </div>
+          </button>
+          <button class="mode-card" id="btn-config" type="button">
+            <img class="mode-card-image" src="Home%20Page/capas%20modo%20de%20jogo/Configura%C3%A7%C3%B5es.png" alt="" />
+            <div class="mode-card-overlay">
+              <div class="mode-card-title">Configurações</div>
+              <div class="mode-card-subtitle">Volume, controles</div>
+            </div>
+          </button>
         </div>
+        <img id="home-character" src="Home%20Page/Persoangem.png" alt="" />
       </div>
       <div id="lobby-multiplayer" class="panel">
         <p class="muted">Escolha como entrar:</p>
@@ -485,21 +843,54 @@
         <button id="btn-multiplayer-back" type="button">Voltar</button>
       </div>
       <div id="lobby-host" class="panel">
-        <p class="muted">Envie seu código para o seu amigo:</p>
-        <div class="id-display" id="host-id">gerando...</div>
-        <button id="btn-copy-id" type="button">Copiar código</button>
-        <p class="muted" id="host-status">Aguardando conexão...</p>
-        <div class="picker">
-          <div class="picker-label">Seu nick</div>
-          <input id="host-nick" type="text" maxlength="12" placeholder="Seu nick" />
+        <div class="lobby-tabs">
+          <button class="lobby-tab active" data-mode="ffa" type="button">Free for all</button>
+          <button class="lobby-tab" data-mode="2v2" type="button">2v2 (em duplas)</button>
         </div>
-        <div class="picker">
-          <div class="picker-label">Seu personagem</div>
-          <div class="picker-tiles" id="host-picker"></div>
+
+        <div class="lobby-grid">
+          <div class="lobby-col">
+            <div class="lobby-section">
+              <div class="section-label">Código da sala</div>
+              <div class="code-row">
+                <div class="id-display" id="host-id">gerando...</div>
+                <button id="btn-copy-id" type="button">Copiar</button>
+              </div>
+              <p class="muted" id="host-status">Aguardando conexão...</p>
+            </div>
+
+            <div class="lobby-section" id="host-team-picker-wrap" style="display:none;">
+              <div class="section-label">Sua dupla</div>
+              <div class="team-picker team-picker-big" id="host-team-picker">
+                <button class="team-btn team-a" data-team="A" type="button">Time A</button>
+                <button class="team-btn team-b" data-team="B" type="button">Time B</button>
+              </div>
+            </div>
+
+            <div class="lobby-section">
+              <div class="section-label">Seu nick</div>
+              <input id="host-nick" type="text" maxlength="12" placeholder="Seu nick" />
+            </div>
+
+            <div class="lobby-section">
+              <div class="section-label">Seu personagem</div>
+              <div class="picker-tiles" id="host-picker"></div>
+            </div>
+          </div>
+
+          <div class="lobby-col">
+            <div class="lobby-section">
+              <div class="section-label">Jogadores na sala</div>
+              <div class="players-list" id="host-players"></div>
+              <button id="btn-add-bot" type="button">+ Adicionar bot</button>
+            </div>
+
+            <div class="lobby-actions">
+              <button id="btn-start-match" type="button" disabled>Iniciar partida (1/4)</button>
+              <button id="btn-host-back" type="button">Voltar</button>
+            </div>
+          </div>
         </div>
-        <div class="players-list" id="host-players"></div>
-        <button id="btn-start-match" type="button" disabled>Iniciar partida (1/4)</button>
-        <button id="btn-host-back" type="button">Voltar</button>
       </div>
       <div id="lobby-join" class="panel">
         <p class="muted">Digite o código do host (5 dígitos):</p>
@@ -510,6 +901,13 @@
       </div>
       <div id="lobby-waiting" class="panel">
         <p class="muted">Conectado. Aguardando o host iniciar a partida...</p>
+        <div class="picker" id="waiting-team-picker-wrap" style="display:none;">
+          <div class="picker-label">Sua dupla</div>
+          <div class="team-picker" id="waiting-team-picker">
+            <button class="team-btn team-a" data-team="A" type="button">Time A</button>
+            <button class="team-btn team-b" data-team="B" type="button">Time B</button>
+          </div>
+        </div>
         <div class="picker">
           <div class="picker-label">Seu nick</div>
           <input id="waiting-nick" type="text" maxlength="12" placeholder="Seu nick" />
