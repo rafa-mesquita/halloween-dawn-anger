@@ -1,0 +1,219 @@
+{
+  "target": "asset",
+  "mode": "idle",
+  "prompt": "Create a pixel art animation sprite sheet: exactly 1 row x 6 equal cells, a horizontal strip of 6 frames, no borders or dividers between cells. Subject: Halloween-themed cursed STONE circular saw blade loot, shown in a slight 3/4 angle but mostly the saw face. The blade is heavy solid dark gray stone, not metal, not iron, not steel. It has sharp triangular stone teeth around the entire outer rim. Weathered stone texture with light gray, mid gray, dark gray, and near-black cracks only. Crisp near-black pixel outlines.\n\nCenter detail: a stylized skull engraving carved INTO the stone, upright and centered. The skull engraving must stay upright in every frame, identical position and silhouette. Recessed eye sockets glow with a small dim orange-red ember light. Between skull and tooth ring, simple BLACK rune etchings incised into the gray stone; runes are black carved lines only, no colored glow.\n\nAnimation across the 6 frames: the saw blade does NOT rotate. Keep the saw silhouette, skull engraving, rune etchings, blade position, bounding box, and pixel scale identical in all 6 frames. Only two things change: (1) tiny orange/yellow sparks fly off DIFFERENT outer teeth each frame, tightly grouped near the rim and fully inside the cell; (2) skull eye glow pulses smoothly frame by frame: frame 1 dim, frame 2 medium, frame 3 bright, frame 4 bright, frame 5 medium, frame 6 dim. Add only a few small sparks.\n\nStrict palette constraints for the saw itself: ONLY light gray, mid gray, dark gray, and near-black for outlines, cracks, skull carving, and rune carvings. Small subtle orange-red/yellow only in the deep skull eye sockets and a few sparks. Absolutely NO purple, NO pink, NO violet, NO blue tones on the saw, runes, cracks, shadows, highlights, or glow.\n\nStyle: readable dark fantasy Halloween pixel art, solid stone weight feel, crisp dark outlines, controlled pixel texture. No text, no UI, no labels, no extra objects.\n\nLayout and background: one horizontal strip with exactly 6 equal cells. Solid flat #FF00FF magenta background only, no gradients. Each frame must fit fully inside its cell with clear magenta margin on all four sides. Nothing crosses cell edges. Same asset identity, same bounding box, same pixel scale in every frame.",
+  "role": "",
+  "input": "C:\\Users\\rafam\\.codex\\generated_images\\019dd6ce-8469-79d3-b653-5b99120bb0d0\\ig_088156c2984d8c7f0169f15bde42ac8198b4bfcabcd57e1ef8.png",
+  "threshold": 100,
+  "edge_threshold": 150,
+  "duration": 140,
+  "rows": 1,
+  "cols": 6,
+  "cell_size": 128,
+  "fit_scale": 0.82,
+  "trim_border": 4,
+  "edge_clean_depth": 2,
+  "align": "center",
+  "shared_scale": true,
+  "component_mode": "all",
+  "component_padding": 0,
+  "min_component_area": 1,
+  "edge_touch_margin": 2,
+  "frame_labels": [
+    "frame-1",
+    "frame-2",
+    "frame-3",
+    "frame-4",
+    "frame-5",
+    "frame-6"
+  ],
+  "frames": [
+    {
+      "grid": [
+        0,
+        0
+      ],
+      "source_box": [
+        0,
+        0,
+        362,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 5,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        9,
+        159,
+        344,
+        556
+      ],
+      "edge_touch": false,
+      "output_size": [
+        82,
+        98
+      ],
+      "paste_position": [
+        23,
+        15
+      ]
+    },
+    {
+      "grid": [
+        0,
+        1
+      ],
+      "source_box": [
+        362,
+        0,
+        724,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 6,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        9,
+        159,
+        344,
+        556
+      ],
+      "edge_touch": false,
+      "output_size": [
+        82,
+        98
+      ],
+      "paste_position": [
+        23,
+        15
+      ]
+    },
+    {
+      "grid": [
+        0,
+        2
+      ],
+      "source_box": [
+        724,
+        0,
+        1086,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 6,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        9,
+        159,
+        344,
+        556
+      ],
+      "edge_touch": false,
+      "output_size": [
+        82,
+        98
+      ],
+      "paste_position": [
+        23,
+        15
+      ]
+    },
+    {
+      "grid": [
+        0,
+        3
+      ],
+      "source_box": [
+        1086,
+        0,
+        1448,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 6,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        9,
+        131,
+        343,
+        556
+      ],
+      "edge_touch": false,
+      "output_size": [
+        82,
+        104
+      ],
+      "paste_position": [
+        23,
+        12
+      ]
+    },
+    {
+      "grid": [
+        0,
+        4
+      ],
+      "source_box": [
+        1448,
+        0,
+        1810,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 6,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        9,
+        159,
+        343,
+        556
+      ],
+      "edge_touch": false,
+      "output_size": [
+        82,
+        98
+      ],
+      "paste_position": [
+        23,
+        15
+      ]
+    },
+    {
+      "grid": [
+        0,
+        5
+      ],
+      "source_box": [
+        1810,
+        0,
+        2172,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 6,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        9,
+        159,
+        343,
+        556
+      ],
+      "edge_touch": false,
+      "output_size": [
+        82,
+        98
+      ],
+      "paste_position": [
+        23,
+        15
+      ]
+    }
+  ],
+  "edge_touch_frames": []
+}

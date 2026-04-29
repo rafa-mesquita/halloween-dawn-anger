@@ -1,0 +1,219 @@
+{
+  "target": "asset",
+  "mode": "idle",
+  "prompt": "Create a production-ready pixel art sprite animation sheet: exactly 1 row x 6 equal cells, horizontal strip, no borders or dividers. Subject: Halloween dark fantasy cursed mini coffin loot prop, small UPRIGHT traditional hexagonal coffin silhouette made of dark charcoal-brown weathered wood, cracks and iron nails at corners, crisp dark outline. Fixed slight 3/4 angle from slightly above. CRITICAL: the coffin viewing angle, position, camera-relative orientation, perspective, silhouette outline, size, and base footprint must be IDENTICAL in all six frames. Do not rotate, tilt, slide, resize, reshape, or change the coffin silhouette between frames. Only the top lid hinge angle, skeletal hand pose/visibility, necrotic green glow intensity, and pale green vapor shape may change. The top lid is partially pried up at the upper edge, leaving a horizontal gap. A PROMINENT bone-white skeletal hand emerges from inside: phalanges and palm bones clearly readable, bright bone-white against dark wood. At full extension, the entire hand and most of the wrist are visible above the lid line, and the hand is at least one third the height of the coffin lid opening/coffin visible height. Five fingers visible and curled like an undead hand. Frame 1 lid almost closed fingertips only dim green glow. Frame 2 lid lifting hand halfway medium glow. Frame 3 lid open most hand fully extended palm and 5 fingers bright green glow small vapor. Frame 4 lid still open fingers re-curling glow brightest larger vapor. Frame 5 lid closing hand retracting medium glow. Frame 6 lid almost closed again hand nearly inside dim glow. Style: crisp pixel art, dark fantasy Halloween aesthetic, palette limited to dark wood browns/charcoal, iron gray, bone white, necrotic green, pale green vapor. NO orange, NO red, NO purple. Solid flat #FF00FF magenta background only. No UI, no text. Clear margin on all sides.",
+  "role": "",
+  "input": "raw-sheet.png",
+  "threshold": 34,
+  "edge_threshold": 10,
+  "duration": 140,
+  "rows": 1,
+  "cols": 6,
+  "cell_size": 128,
+  "fit_scale": 0.92,
+  "trim_border": 4,
+  "edge_clean_depth": 2,
+  "align": "center",
+  "shared_scale": true,
+  "component_mode": "all",
+  "component_padding": 10,
+  "min_component_area": 1,
+  "edge_touch_margin": 2,
+  "frame_labels": [
+    "frame-1",
+    "frame-2",
+    "frame-3",
+    "frame-4",
+    "frame-5",
+    "frame-6"
+  ],
+  "frames": [
+    {
+      "grid": [
+        0,
+        0
+      ],
+      "source_box": [
+        0,
+        0,
+        362,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 29,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        45,
+        213,
+        305,
+        616
+      ],
+      "edge_touch": false,
+      "output_size": [
+        52,
+        81
+      ],
+      "paste_position": [
+        38,
+        23
+      ]
+    },
+    {
+      "grid": [
+        0,
+        1
+      ],
+      "source_box": [
+        362,
+        0,
+        724,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 38,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        45,
+        206,
+        317,
+        616
+      ],
+      "edge_touch": false,
+      "output_size": [
+        55,
+        83
+      ],
+      "paste_position": [
+        36,
+        22
+      ]
+    },
+    {
+      "grid": [
+        0,
+        2
+      ],
+      "source_box": [
+        724,
+        0,
+        1086,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 37,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        50,
+        75,
+        319,
+        616
+      ],
+      "edge_touch": false,
+      "output_size": [
+        54,
+        109
+      ],
+      "paste_position": [
+        37,
+        9
+      ]
+    },
+    {
+      "grid": [
+        0,
+        3
+      ],
+      "source_box": [
+        1086,
+        0,
+        1448,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 37,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        53,
+        35,
+        324,
+        616
+      ],
+      "edge_touch": false,
+      "output_size": [
+        54,
+        117
+      ],
+      "paste_position": [
+        37,
+        5
+      ]
+    },
+    {
+      "grid": [
+        0,
+        4
+      ],
+      "source_box": [
+        1448,
+        0,
+        1810,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 28,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        52,
+        205,
+        322,
+        616
+      ],
+      "edge_touch": false,
+      "output_size": [
+        54,
+        83
+      ],
+      "paste_position": [
+        37,
+        22
+      ]
+    },
+    {
+      "grid": [
+        0,
+        5
+      ],
+      "source_box": [
+        1810,
+        0,
+        2172,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 32,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        55,
+        213,
+        320,
+        616
+      ],
+      "edge_touch": false,
+      "output_size": [
+        53,
+        81
+      ],
+      "paste_position": [
+        37,
+        23
+      ]
+    }
+  ],
+  "edge_touch_frames": []
+}

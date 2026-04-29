@@ -1,0 +1,11 @@
+Create a pixel art animation sprite sheet: exactly 1 row x 6 equal cells, a horizontal strip of 6 frames, no borders or dividers between cells. Subject: Halloween-themed cursed STONE circular saw blade loot, shown in a slight 3/4 angle but mostly the saw face. The blade is heavy solid dark gray stone, not metal, not iron, not steel. It has sharp triangular stone teeth around the entire outer rim. Weathered stone texture with light gray, mid gray, dark gray, and near-black cracks only. Crisp near-black pixel outlines.
+
+Center detail: a stylized skull engraving carved INTO the stone, upright and centered. The skull engraving must stay upright in every frame, identical position and silhouette. Recessed eye sockets glow with a small dim orange-red ember light. Between skull and tooth ring, simple BLACK rune etchings incised into the gray stone; runes are black carved lines only, no colored glow.
+
+Animation across the 6 frames: the saw blade does NOT rotate. Keep the saw silhouette, skull engraving, rune etchings, blade position, bounding box, and pixel scale identical in all 6 frames. Only two things change: (1) tiny orange/yellow sparks fly off DIFFERENT outer teeth each frame, tightly grouped near the rim and fully inside the cell; (2) skull eye glow pulses smoothly frame by frame: frame 1 dim, frame 2 medium, frame 3 bright, frame 4 bright, frame 5 medium, frame 6 dim. Add only a few small sparks.
+
+Strict palette constraints for the saw itself: ONLY light gray, mid gray, dark gray, and near-black for outlines, cracks, skull carving, and rune carvings. Small subtle orange-red/yellow only in the deep skull eye sockets and a few sparks. Absolutely NO purple, NO pink, NO violet, NO blue tones on the saw, runes, cracks, shadows, highlights, or glow.
+
+Style: readable dark fantasy Halloween pixel art, solid stone weight feel, crisp dark outlines, controlled pixel texture. No text, no UI, no labels, no extra objects.
+
+Layout and background: one horizontal strip with exactly 6 equal cells. Solid flat #FF00FF magenta background only, no gradients. Each frame must fit fully inside its cell with clear magenta margin on all four sides. Nothing crosses cell edges. Same asset identity, same bounding box, same pixel scale in every frame.

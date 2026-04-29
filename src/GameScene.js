@@ -29,6 +29,18 @@ const ORB_SPACING = 28;
 
 const MAX_HP = 100;
 const ATTACK_DAMAGE = 17;
+
+// Land Mine
+const LAND_MINE_FRAME = 128;
+const LAND_MINE_SCALE = 0.6;
+const LAND_MINE_BODY = 50;
+const LAND_MINE_DAMAGE = 35;
+const LAND_MINE_RADIUS = 80;
+const LAND_MINE_TRIGGER_DX = 38;
+const LAND_MINE_TRIGGER_DY = 50;
+const LAND_MINE_THROW_VX = 380;
+const LAND_MINE_THROW_VY_BIAS = -320;
+const LAND_MINE_BOUNCE_X = 0.55;
 const STARTING_LIVES = 3;
 const MULTIPLAYER_LIVES = 5;
 const RESPAWN_DELAY_MS = 1500;
@@ -231,15 +243,20 @@ const POWERS = {
     lootGlowPulseScale: 1.15,
   },
   wheel: {
-    orbColor: 0xffffff,
+    orbColor: 0x9ca3af,
     lootIdleKey: 'wheel_loot_idle',
     lootCatchKey: 'wheel_loot_catch',
-    lootFrameSize: 32,
-    lootScale: 3.3,
+    lootFrameSize: 128,
+    lootScale: 0.85,
     lootCatchScale: 2.2,
+    lootBodyYOffset: 30,
+    lootGlowKey: 'glow_orange',
+    lootGlowScale: 0.6,
+    lootGlowPulseScale: 0.85,
+    lootShadow: { width: 80, height: 16, alpha: 0.5 },
   },
   ice_beam: {
-    orbColor: 0x7dd3fc,
+    orbColor: 0x22d3ee,
     lootGlowKey: 'glow_blue',
     lootIdleKey: 'ice_beam_loot_idle',
     lootCatchKey: 'ice_beam_loot_catch',
@@ -263,19 +280,34 @@ const POWERS = {
     lootGlowKey: 'glow_brown',
   },
   skeleton_attack: {
-    orbColor: 0xf97316,
-    lootGlowKey: 'glow_orange',
+    orbColor: 0x4ade80,
+    lootGlowKey: 'glow_green',
     lootIdleKey: 'skeleton_attack_loot_idle',
     lootCatchKey: 'skeleton_attack_loot_catch',
-    lootFrameSize: 48,
-    lootScale: 1.0,
-    lootCatchScale: 2.0,
-    lootGlowScale: 0.7,
-    lootGlowPulseScale: 0.95,
+    lootFrameSize: 128,
+    lootScale: 0.85,
+    lootCatchScale: 2.6,
+    lootBodyYOffset: 30,
+    lootGlowScale: 0.6,
+    lootGlowPulseScale: 0.85,
+    lootShadow: { width: 80, height: 16, alpha: 0.5 },
+  },
+  land_mine: {
+    orbColor: 0xdc2626,
+    lootGlowKey: 'glow_orange',
+    lootIdleKey: 'land_mine_loot_idle',
+    lootCatchKey: 'skull_curse_loot_catch',
+    lootFrameSize: 128,
+    lootScale: 0.85,
+    lootCatchScale: 2.6,
+    lootBodyYOffset: 30,  // empurra body pra baixo no sprite → loot renderiza mais alto
+    lootGlowScale: 0.6,
+    lootGlowPulseScale: 0.85,
+    lootShadow: { width: 80, height: 16, alpha: 0.5 },
   },
 };
 
-const WOOD_POWER_POOL = ['heavens_fury', 'skull_curse', 'wheel', 'fire_storm', 'ice_beam', 'skeleton_attack'];
+const WOOD_POWER_POOL = ['heavens_fury', 'skull_curse', 'wheel', 'fire_storm', 'ice_beam', 'skeleton_attack', 'land_mine'];
 
 const LOOT_TYPES = {
   wood: {
@@ -283,6 +315,14 @@ const LOOT_TYPES = {
     catchKey: 'wood_catch',
     glowKey: 'glow_orange',
     onPickup: (scene, fighter, loot) => {
+      if (loot.power === 'land_mine') {
+        if (!fighter.specialPowers.includes('land_mine')) {
+          if (fighter.specialPowers.length < 2) fighter.specialPowers.push('land_mine');
+          else fighter.specialPowers[1] = 'land_mine';
+        }
+        fighter.landMineCharges = 2;
+        return;
+      }
       if (fighter.specialPowers.length < 2) fighter.specialPowers.push(loot.power);
       else fighter.specialPowers[1] = loot.power;
     },
@@ -420,6 +460,11 @@ export default class GameScene extends Phaser.Scene {
           frameHeight: FRAME_HEIGHT,
         });
       }
+      // Death 2 (heavy-death anim): 12 cols x 9 rows of 192x128, animation lives on row 9 (frames 96-107)
+      this.load.spritesheet(`${char.id}_death_2`, `sprites/${char.folder}player_death 2.png`, {
+        frameWidth: FRAME_WIDTH,
+        frameHeight: FRAME_HEIGHT,
+      });
     }
     this.load.audio('bgm', 'audio/bgm.mp3');
     this.load.audio('sfx_skeleton_spawn', 'audio/powers/skeleton/skeleton-spawn.mp3');
@@ -453,12 +498,21 @@ export default class GameScene extends Phaser.Scene {
     this.load.audio('sfx_power_pickup', 'audio/power catch/power cath.mp3');
     this.load.audio('sfx_cure', 'audio/heal novo/93eeb9fc-8eab-44db-aa09-270a2550a130.mp3');
     this.load.audio('sfx_jump', 'audio/jump/30_Jump_03.wav');
+    this.load.audio('sfx_landmine_explode', 'audio/landmine/ES_Explosions, Real, Small, Short 02 - Epidemic Sound.mp3');
     this.load.image('map1_bg', 'maps/Mapa 1 - Graveyard of Souls/Fundo.png');
     this.load.image('self_arrow', 'sprites/seta/seta.png');
     this.load.image('map1_platforms', 'maps/Mapa 1 - Graveyard of Souls/Plataformas.png');
-    this.load.spritesheet('map1_crow', 'maps/map1/Crow.png', {
+    this.load.spritesheet('map1_crow', 'maps/Mapa 1 - Graveyard of Souls/Crow.png', {
       frameWidth: 48,
       frameHeight: 48,
+    });
+    this.load.spritesheet('land_mine_idle', 'sprites/Poder 9 (landmine)/sheet-transparent.png', {
+      frameWidth: LAND_MINE_FRAME,
+      frameHeight: LAND_MINE_FRAME,
+    });
+    this.load.spritesheet('land_mine_loot_idle', 'sprites/Poder 9 (landmine)/loot/sheet-transparent.png', {
+      frameWidth: 128,
+      frameHeight: 128,
     });
     this.load.spritesheet('wood_idle', 'sprites/Wood/wood on map.png', {
       frameWidth: LOOT_FRAME_SIZE,
@@ -480,11 +534,11 @@ export default class GameScene extends Phaser.Scene {
       frameWidth: LOOT_FRAME_SIZE,
       frameHeight: LOOT_FRAME_SIZE,
     });
-    this.load.spritesheet('heavens_fury', 'sprites/Poder 1/HeavensFury_spritesheet.png', {
+    this.load.spritesheet('heavens_fury', 'sprites/Poder 1 (Heavens Fury)/HeavensFury_spritesheet.png', {
       frameWidth: HEAVENS_FURY_FRAME_SIZE,
       frameHeight: HEAVENS_FURY_FRAME_SIZE,
     });
-    this.load.spritesheet('smite', 'sprites/Poder 1/Smite_spritesheet.png', {
+    this.load.spritesheet('smite', 'sprites/Poder 1 (Heavens Fury)/Smite_spritesheet.png', {
       frameWidth: SMITE_FRAME_SIZE,
       frameHeight: SMITE_FRAME_SIZE,
     });
@@ -521,9 +575,13 @@ export default class GameScene extends Phaser.Scene {
       frameWidth: 64,
       frameHeight: 64,
     });
-    this.load.spritesheet('wheel_loot_idle', 'sprites/Poder 4 (Wheel)/Wheel loot.png', {
-      frameWidth: 32,
-      frameHeight: 32,
+    this.load.spritesheet('wheel_loot_idle', 'sprites/Poder 4 (Wheel)/loot/sheet-transparent.png', {
+      frameWidth: 128,
+      frameHeight: 128,
+    });
+    this.load.spritesheet('skeleton_attack_loot_idle', 'sprites/Power 8 (skeleton)/loot/sheet-transparent.png', {
+      frameWidth: 128,
+      frameHeight: 128,
     });
     this.load.spritesheet('ice_beam_hit', 'sprites/Power 7 (ice beam)/Ice VFX 1 Hit.png', {
       frameWidth: 32,
@@ -914,8 +972,9 @@ export default class GameScene extends Phaser.Scene {
   createSkeletonLootTextures() {
     const frameW = 48;
     const frameH = 48;
+    // Green necrotic orb used as the thrown skeleton ball
     this.createCanvasSpritesheet(
-      'skeleton_attack_loot_idle',
+      'skeleton_ball',
       frameW, frameH, 8,
       (ctx, i, total) => {
         ctx.clearRect(0, 0, frameW, frameH);
@@ -926,20 +985,20 @@ export default class GameScene extends Phaser.Scene {
         const r = 11 * pulse;
         const outerR = r * 2.2;
         const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, outerR);
-        halo.addColorStop(0, 'rgba(255, 180, 80, 0.75)');
-        halo.addColorStop(0.55, 'rgba(249, 115, 22, 0.35)');
-        halo.addColorStop(1, 'rgba(249, 115, 22, 0)');
+        halo.addColorStop(0, 'rgba(134, 239, 172, 0.75)');
+        halo.addColorStop(0.55, 'rgba(34, 197, 94, 0.35)');
+        halo.addColorStop(1, 'rgba(22, 163, 74, 0)');
         ctx.fillStyle = halo;
         ctx.fillRect(0, 0, frameW, frameH);
         const core = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, 1, cx, cy, r);
-        core.addColorStop(0, '#fff7ed');
-        core.addColorStop(0.35, '#fdba74');
-        core.addColorStop(1, '#c2410c');
+        core.addColorStop(0, '#f0fdf4');
+        core.addColorStop(0.35, '#86efac');
+        core.addColorStop(1, '#15803d');
         ctx.fillStyle = core;
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = 'rgba(255, 237, 213, 0.8)';
+        ctx.strokeStyle = 'rgba(220, 252, 231, 0.8)';
         ctx.lineWidth = 1.2;
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -952,9 +1011,15 @@ export default class GameScene extends Phaser.Scene {
       (ctx, idx, total) => this.drawWhiteCatchFrame(ctx, idx, total, frameW, frameH),
     );
     this.anims.create({
-      key: 'skeleton_attack_loot_idle',
-      frames: this.anims.generateFrameNumbers('skeleton_attack_loot_idle', { start: 0, end: 7 }),
+      key: 'skeleton_ball',
+      frames: this.anims.generateFrameNumbers('skeleton_ball', { start: 0, end: 7 }),
       frameRate: 10,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: 'skeleton_attack_loot_idle',
+      frames: this.anims.generateFrameNumbers('skeleton_attack_loot_idle', { start: 0, end: 5 }),
+      frameRate: 6,
       repeat: -1,
     });
     this.anims.create({
@@ -1237,6 +1302,22 @@ export default class GameScene extends Phaser.Scene {
       frameRate: 6,
       repeat: -1,
     });
+    if (!this.anims.exists('land_mine_idle')) {
+      this.anims.create({
+        key: 'land_mine_idle',
+        frames: this.anims.generateFrameNumbers('land_mine_idle', { start: 0, end: 3 }),
+        frameRate: 6,
+        repeat: -1,
+      });
+    }
+    if (!this.anims.exists('land_mine_loot_idle')) {
+      this.anims.create({
+        key: 'land_mine_loot_idle',
+        frames: this.anims.generateFrameNumbers('land_mine_loot_idle', { start: 0, end: 5 }),
+        frameRate: 6,
+        repeat: -1,
+      });
+    }
     this.anims.create({
       key: 'wood_catch',
       frames: this.anims.generateFrameNumbers('wood_catch', { start: 0, end: WOOD_CATCH_FRAMES - 1 }),
@@ -1251,8 +1332,8 @@ export default class GameScene extends Phaser.Scene {
     });
     this.anims.create({
       key: 'wheel_loot_idle',
-      frames: this.anims.generateFrameNumbers('wheel_loot_idle', { start: 0, end: 8 }),
-      frameRate: 10,
+      frames: this.anims.generateFrameNumbers('wheel_loot_idle', { start: 0, end: 5 }),
+      frameRate: 6,
       repeat: -1,
     });
     this.anims.create({
@@ -1535,6 +1616,12 @@ export default class GameScene extends Phaser.Scene {
         frameRate: 5,
         repeat: 0,
       });
+      this.anims.create({
+        key: `${char.id}_death_2`,
+        frames: this.anims.generateFrameNumbers(`${char.id}_death_2`, { start: 96, end: 107 }),
+        frameRate: 9,
+        repeat: 0,
+      });
       for (const atkCfg of [keys.attackHorizontal, keys.attackUp, keys.attackDown]) {
         this.anims.create({
           key: atkCfg.animKey,
@@ -1660,6 +1747,7 @@ export default class GameScene extends Phaser.Scene {
       p6: Phaser.Input.Keyboard.KeyCodes.SIX,
       p7: Phaser.Input.Keyboard.KeyCodes.SEVEN,
       p8: Phaser.Input.Keyboard.KeyCodes.EIGHT,
+      p9: Phaser.Input.Keyboard.KeyCodes.NINE,
     });
 
     this.input.on('wheel', (_pointer, _over, _dx, dy) => {
@@ -1740,8 +1828,13 @@ export default class GameScene extends Phaser.Scene {
       btn.addEventListener('click', () => {
         if (!this.playerFighter) return;
         const selected = btn.dataset.power;
-        if (selected === 'none') this.playerFighter.specialPowers = [];
-        else this.playerFighter.specialPowers = [selected];
+        if (selected === 'none') {
+          this.playerFighter.specialPowers = [];
+          this.playerFighter.landMineCharges = 0;
+        } else {
+          this.playerFighter.specialPowers = [selected];
+          this.playerFighter.landMineCharges = selected === 'land_mine' ? 2 : 0;
+        }
         refreshPowerButtons();
       });
     });
@@ -2185,10 +2278,18 @@ export default class GameScene extends Phaser.Scene {
       loot.whitePulse = whitePulse;
     }
     loot.body.setSize(LOOT_BODY_SIZE, LOOT_BODY_SIZE);
+    const bodyYExtra = powerDef?.lootBodyYOffset ?? 0;
     loot.body.setOffset(
       (idleFrameSize - LOOT_BODY_SIZE) / 2,
-      (idleFrameHeight - LOOT_BODY_SIZE) / 2
+      (idleFrameHeight - LOOT_BODY_SIZE) / 2 + bodyYExtra
     );
+
+    if (powerDef?.lootShadow) {
+      const cfg = powerDef.lootShadow;
+      const shadow = this.add.ellipse(x, y, cfg.width, cfg.height, 0x000000, cfg.alpha)
+        .setDepth(DEFAULT_SPRITE_DEPTH - 0.6);
+      loot.shadow = shadow;
+    }
 
     if (lootType === 'eye') {
       const beam = this.add.image(x, 0, 'eye_beam')
@@ -2277,7 +2378,7 @@ export default class GameScene extends Phaser.Scene {
       loot.body.enable = false;
       if (loot.glowPulse) loot.glowPulse.stop();
       this.tweens.add({
-        targets: [loot.glow, loot.tintOverlay, loot.beam, loot.footGlow].filter(Boolean),
+        targets: [loot.glow, loot.tintOverlay, loot.beam, loot.footGlow, loot.shadow].filter(Boolean),
         alpha: 0,
         duration: 200,
       });
@@ -2297,7 +2398,7 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
     this.tweens.add({
-      targets: [loot, loot.glow, loot.tintOverlay, loot.beam, loot.footGlow].filter(Boolean),
+      targets: [loot, loot.glow, loot.tintOverlay, loot.beam, loot.footGlow, loot.shadow].filter(Boolean),
       alpha: 0,
       duration: 400,
       onComplete: () => {
@@ -2386,6 +2487,7 @@ export default class GameScene extends Phaser.Scene {
     if (loot.tintOverlay) loot.tintOverlay.destroy();
     if (loot.beam) loot.beam.destroy();
     if (loot.footGlow) loot.footGlow.destroy();
+    if (loot.shadow) loot.shadow.destroy();
     loot.destroy();
   }
 
@@ -2547,6 +2649,7 @@ export default class GameScene extends Phaser.Scene {
     if (fighter.isInvulnerable || fighter.isDead) return;
     const ignoreShield = !!(opts && opts.ignoreShield);
     const ignoreCurseMultiplier = !!(opts && opts.ignoreCurseMultiplier);
+    if (opts && opts.useDeath2) fighter.pendingDeath2 = true;
     if (opts && opts.attackerIndex !== undefined) {
       fighter.lastAttackerIndex = opts.attackerIndex;
     }
@@ -2637,16 +2740,20 @@ export default class GameScene extends Phaser.Scene {
 
   spawnDeathMarker(fighter) {
     if (fighter.sprite.y > MAP_HEIGHT + 100) return;
+    const useDeath2 = !!fighter.pendingDeath2;
+    fighter.pendingDeath2 = false;
+    const animKey = useDeath2 ? `${fighter.char.id}_death_2` : `${fighter.char.id}_death`;
+    const startFrame = useDeath2 ? 96 : 0;
     const marker = this.add.sprite(
       fighter.sprite.x,
       fighter.sprite.y,
-      `${fighter.char.id}_death`,
-      0
+      animKey,
+      startFrame
     )
       .setScale(SPRITE_SCALE)
       .setDepth(DEFAULT_SPRITE_DEPTH - 1)
       .setFlipX(fighter.sprite.flipX);
-    marker.play(`${fighter.char.id}_death`);
+    marker.play(animKey);
     marker.once('animationcomplete', () => {
       this.tweens.add({
         targets: marker,
@@ -3106,6 +3213,7 @@ export default class GameScene extends Phaser.Scene {
     fighter.sprite.setVisible(true);
     fighter.hp = MAX_HP;
     fighter.isDead = false;
+    fighter.pendingDeath2 = false;
     fighter.hpBarBg.setVisible(true);
     fighter.hpBarFill.setVisible(true);
     fighter.glow.setVisible(true);
@@ -3247,7 +3355,7 @@ export default class GameScene extends Phaser.Scene {
         repeat: ticks - 1,
         callback: () => {
           if (!target || target.isDead) return;
-          this.damageFighter(target, tickDamage, { ignoreShield: true, ignoreCurseMultiplier: true, ignoreFreezeBreak: true });
+          this.damageFighter(target, tickDamage, { ignoreShield: true, ignoreCurseMultiplier: true, ignoreFreezeBreak: true, useDeath2: true });
         },
       });
     }
@@ -3880,14 +3988,14 @@ export default class GameScene extends Phaser.Scene {
     const startY = cb.y + cb.height / 2;
     const dx = targetX - startX;
     const dir = dx >= 0 ? 1 : -1;
-    const ball = this.physics.add.sprite(startX, startY, 'skeleton_attack_loot_idle', 0);
+    const ball = this.physics.add.sprite(startX, startY, 'skeleton_ball', 0);
     ball.setScale(1.0).setDepth(ATTACKER_DEPTH);
     ball.body.setAllowGravity(true);
     ball.body.setBounce(1, 0);
     ball.body.setCollideWorldBounds(true);
     ball.body.onWorldBounds = true;
     ball.body.setVelocity(SKELETON_BALL_SPEED * dir, SKELETON_BALL_VY);
-    ball.play('skeleton_attack_loot_idle');
+    ball.play('skeleton_ball');
     ball.ownerCaster = caster;
     ball.spawned = false;
 
@@ -4272,6 +4380,7 @@ export default class GameScene extends Phaser.Scene {
                   ignoreShield: false,
                   powerFlashColor: POWERS.skeleton_attack.orbColor,
                   attackerIndex: caster.ownerIndex,
+                  useDeath2: true,
                 });
               } else {
                 this.triggerHitFlash(tgt);
@@ -4582,6 +4691,14 @@ export default class GameScene extends Phaser.Scene {
             this.killCrow();
           }
         }
+        // Mines no caminho do feixe / na zona do impacto (ignora as próprias)
+        this.checkLandMineHitByRect(
+          worldX - HEAVENS_FURY_STRIKE_HALF_WIDTH,
+          worldX + HEAVENS_FURY_STRIKE_HALF_WIDTH,
+          0,
+          surfaceY + 40,
+          fighter
+        );
         if (this.skeletons) {
           for (const fox of this.skeletons.slice()) {
             if (!fox || fox.state === 'dying' || fox.caster === fighter) continue;
@@ -4660,7 +4777,244 @@ export default class GameScene extends Phaser.Scene {
       fighter.specialPowers.shift();
       this.throwSkeletonBall(fighter, pointer.worldX, pointer.worldY);
       this.sendPowerCast('skeleton_attack', { worldX: pointer.worldX, worldY: pointer.worldY });
+    } else if (power === 'land_mine') {
+      this.throwLandMine(fighter, pointer.worldX, pointer.worldY);
+      fighter.landMineCharges = Math.max(0, (fighter.landMineCharges ?? 1) - 1);
+      if (fighter.landMineCharges <= 0) fighter.specialPowers.shift();
+      this.sendPowerCast('land_mine', { worldX: pointer.worldX, worldY: pointer.worldY });
     }
+  }
+
+  throwLandMine(fighter, targetX, targetY) {
+    if (!this.landMines) this.landMines = [];
+    const fb = fighter.sprite.body;
+    const cx = fb.x + fb.width / 2;
+    const cy = fb.y + fb.height / 2 - 8;
+    let dx = targetX - cx;
+    let dy = targetY - cy;
+    const dist = Math.max(Math.hypot(dx, dy), 1);
+    const nx = dx / dist;
+    const ny = dy / dist;
+    // Curto alcance — velocidade horizontal direção do clique + sempre boost pra cima
+    const vx = nx * LAND_MINE_THROW_VX;
+    const vy = ny * LAND_MINE_THROW_VX * 0.4 + LAND_MINE_THROW_VY_BIAS;
+    this.createLandMine(
+      cx + Math.sign(nx || 1) * 14,
+      cy,
+      fighter,
+      { vx, vy }
+    );
+    this.playSfx('sfx_swing', 0.7);
+  }
+
+  createLandMine(x, y, owner, opts) {
+    const sprite = this.physics.add.sprite(x, y, 'land_mine_idle', 0);
+    sprite.setScale(LAND_MINE_SCALE);
+    sprite.setDepth(DEFAULT_SPRITE_DEPTH + 1.5); // à frente do player pra não esconder atrás do corpo
+    sprite.body.setSize(LAND_MINE_BODY, LAND_MINE_BODY);
+    sprite.body.setOffset(
+      (LAND_MINE_FRAME - LAND_MINE_BODY) / 2,
+      (LAND_MINE_FRAME - LAND_MINE_BODY) / 2 + 28
+    );
+    sprite.body.setCollideWorldBounds(true);  // bate nas bordas do mapa
+    sprite.body.setBounce(LAND_MINE_BOUNCE_X, 0); // X bate, Y não (queremos parar no chão)
+    sprite.body.setDragX(120);
+    const v = opts || {};
+    sprite.body.setVelocity(v.vx ?? 0, v.vy ?? 0);
+    if (this.platformZones) {
+      this.physics.add.collider(sprite, this.platformZones, null, this.oneWayProcessCallback);
+    }
+    sprite.play('land_mine_idle');
+    sprite.owner = owner;
+    sprite.spawnedAt = this.time.now;
+    sprite.triggered = false;
+    sprite.armed = false;
+    // Glow pulsante no topo (cor do owner)
+    const glowColor = owner?.char?.tintColor ?? 0xff2222;
+    const glow = this.add.circle(x, y - 22, 7, glowColor, 0.95)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(DEFAULT_SPRITE_DEPTH + 1.6); // junto com a mina, à frente do player
+    sprite.glow = glow;
+    sprite.glowPulse = this.tweens.add({
+      targets: glow,
+      scale: 1.7,
+      alpha: 0.35,
+      duration: 460,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+    this.landMines.push(sprite);
+  }
+
+  destroyLandMineGlow(mine) {
+    if (mine.glowPulse) {
+      mine.glowPulse.stop();
+      mine.glowPulse = null;
+    }
+    if (mine.glow) {
+      mine.glow.destroy();
+      mine.glow = null;
+    }
+  }
+
+  updateLandMines(time) {
+    if (!this.landMines || this.landMines.length === 0) return;
+    for (let i = this.landMines.length - 1; i >= 0; i--) {
+      const mine = this.landMines[i];
+      if (!mine || !mine.active) {
+        this.landMines.splice(i, 1);
+        continue;
+      }
+      if (mine.triggered) continue;
+      // Glow segue a mina
+      if (mine.glow) mine.glow.setPosition(mine.x, mine.y - 22);
+      // Fora do mapa
+      if (mine.y > MAP_HEIGHT + 200) {
+        this.destroyLandMineGlow(mine);
+        mine.destroy();
+        this.landMines.splice(i, 1);
+        continue;
+      }
+      // Stops on first ground — congela imediatamente no primeiro contato vertical
+      if (!mine.armed && (mine.body.blocked.down || mine.body.touching.down)) {
+        mine.armed = true;
+        mine.body.setVelocity(0, 0);
+        mine.body.setAllowGravity(false);
+        mine.body.setDragX(0);
+        mine.body.setBounce(0, 0);
+      }
+      // Verifica fighters pisando — só dispara se já armada
+      if (!mine.armed) continue;
+      let triggered = false;
+      for (const f of this.fighters) {
+        if (!f || f.isDead || f.isInvulnerable) continue;
+        if (f === mine.owner) continue; // owner sempre imune à própria mina
+        const fb = f.sprite.body;
+        const fcx = fb.x + fb.width / 2;
+        const ffeet = fb.y + fb.height;
+        const dx = fcx - mine.x;
+        const dy = ffeet - mine.y;
+        if (Math.abs(dx) < LAND_MINE_TRIGGER_DX && Math.abs(dy) < LAND_MINE_TRIGGER_DY) {
+          this.triggerLandMine(mine);
+          triggered = true;
+          break;
+        }
+      }
+      if (triggered) continue;
+      // Esqueletos inimigos também ativam (caster ≠ mine.owner)
+      if (this.skeletons) {
+        for (const fox of this.skeletons) {
+          if (!fox || fox.state === 'dying') continue;
+          if (fox.caster === mine.owner) continue;
+          const dx = fox.x - mine.x;
+          const dy = fox.y - mine.y; // fox.y é o pé do esqueleto
+          if (Math.abs(dx) < LAND_MINE_TRIGGER_DX && Math.abs(dy) < LAND_MINE_TRIGGER_DY + 20) {
+            this.triggerLandMine(mine);
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // Verifica se um retângulo (de wheel, heavens fury, etc.) atinge alguma mina e detona.
+  // `caster` (opcional) — se passado, ignora minas do próprio caster (não quebra as próprias).
+  checkLandMineHitByRect(left, right, top, bottom, caster) {
+    if (!this.landMines || this.landMines.length === 0) return false;
+    let any = false;
+    for (const mine of this.landMines.slice()) {
+      if (!mine || !mine.active || mine.triggered) continue;
+      if (caster && mine.owner === caster) continue;
+      if (mine.x > left && mine.x < right && mine.y > top && mine.y < bottom) {
+        this.triggerLandMine(mine);
+        any = true;
+      }
+    }
+    return any;
+  }
+
+  triggerLandMine(mine) {
+    if (mine.triggered) return;
+    mine.triggered = true;
+    const cx = mine.x;
+    const cy = mine.y;
+
+    // Visual: flash + expanding ring
+    const flash = this.add.circle(cx, cy, LAND_MINE_RADIUS, 0xffd166, 0.95)
+      .setDepth(15)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.tweens.add({
+      targets: flash,
+      scale: 2.4,
+      alpha: 0,
+      duration: 480,
+      ease: 'Cubic.easeOut',
+      onComplete: () => flash.destroy(),
+    });
+    const ring = this.add.circle(cx, cy, LAND_MINE_RADIUS, 0xff6a00, 0)
+      .setDepth(14)
+      .setStrokeStyle(4, 0xff8a2c, 0.85);
+    this.tweens.add({
+      targets: ring,
+      scale: 2.0,
+      alpha: 0,
+      duration: 600,
+      ease: 'Cubic.easeOut',
+      onComplete: () => ring.destroy(),
+    });
+    // Sparks
+    for (let i = 0; i < 10; i++) {
+      const ang = (Math.PI * 2 * i) / 10 + Math.random() * 0.4;
+      const spark = this.add.circle(cx, cy, 4, 0xff8a2c, 0.95)
+        .setDepth(15)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      this.tweens.add({
+        targets: spark,
+        x: cx + Math.cos(ang) * (LAND_MINE_RADIUS + 30),
+        y: cy + Math.sin(ang) * (LAND_MINE_RADIUS + 30) - 20,
+        alpha: 0,
+        scale: 0.3,
+        duration: 480,
+        ease: 'Cubic.easeOut',
+        onComplete: () => spark.destroy(),
+      });
+    }
+
+    // Damage in radius
+    for (const f of this.fighters) {
+      if (!f || f.isDead || f.isInvulnerable) continue;
+      const fb = f.sprite.body;
+      const fcx = fb.x + fb.width / 2;
+      const fcy = fb.y + fb.height / 2;
+      const dist = Math.hypot(fcx - cx, fcy - cy);
+      if (dist < LAND_MINE_RADIUS * 1.4) {
+        this.dealHit(f, {
+          damage: LAND_MINE_DAMAGE,
+          knockbackX: (fcx > cx ? 1 : -1) * 280,
+          knockupY: -340,
+          attackerIndex: mine.owner?.ownerIndex,
+          playHitSfx: true,
+          powerFlashColor: 0xff8a2c,
+        });
+      }
+    }
+    // Esqueletos no raio morrem instantaneamente
+    if (this.skeletons && this.skeletons.length > 0) {
+      this.damageSkeletonsInRect(
+        mine.owner,
+        cx - LAND_MINE_RADIUS,
+        cx + LAND_MINE_RADIUS,
+        cy - LAND_MINE_RADIUS,
+        cy + LAND_MINE_RADIUS,
+        SKELETON_MAX_HP + 1,
+        new Set()
+      );
+    }
+
+    this.playSfx('sfx_landmine_explode', 1.2);
+    this.destroyLandMineGlow(mine);
+    mine.destroy();
   }
 
   spawnDoubleJumpEffect(fighter) {
@@ -5010,6 +5364,7 @@ export default class GameScene extends Phaser.Scene {
     this.damageFighter(target, hit.damage, {
       ignoreShield: !!hit.ignoreShield,
       attackerIndex: hit.attackerIndex,
+      useDeath2: !!hit.useDeath2,
     });
     if (!target.isDead) {
       if (hit.knockbackX) {
@@ -5374,6 +5729,11 @@ export default class GameScene extends Phaser.Scene {
     const f = this.playerFighter;
     if (!f || f.isDead) return;
     f.specialPowers = [powerKey];
+    if (powerKey === 'land_mine') {
+      f.landMineCharges = 2;
+    } else {
+      f.landMineCharges = 0;
+    }
     if (this.refreshDevPowerButtons) this.refreshDevPowerButtons();
   }
 
@@ -5846,7 +6206,10 @@ export default class GameScene extends Phaser.Scene {
       else if (Phaser.Input.Keyboard.JustDown(this.powerSelectKeys.p6)) this.toggleEyeTransform();
       else if (Phaser.Input.Keyboard.JustDown(this.powerSelectKeys.p7)) this.selectPower('ice_beam');
       else if (Phaser.Input.Keyboard.JustDown(this.powerSelectKeys.p8)) this.selectPower('skeleton_attack');
+      else if (Phaser.Input.Keyboard.JustDown(this.powerSelectKeys.p9)) this.selectPower('land_mine');
     }
+
+    this.updateLandMines(time);
 
     if (this.isSinglePlayer) {
       this.updateAIFighters(time, delta);
@@ -6067,6 +6430,7 @@ export default class GameScene extends Phaser.Scene {
                 playHitSfx: true,
                 knockbackX: fighter.eyeFacing * 160,
                 knockupY: -100,
+                useDeath2: true,
               });
             }
           }
@@ -6148,7 +6512,9 @@ export default class GameScene extends Phaser.Scene {
         fighter.isSlamming = false;
       }
 
-      const jumpPressed = Phaser.Input.Keyboard.JustDown(this.keys.space);
+      const jumpPressed =
+        Phaser.Input.Keyboard.JustDown(this.keys.up) ||
+        Phaser.Input.Keyboard.JustDown(this.keys.space);
 
       if (
         jumpPressed &&
@@ -6355,6 +6721,7 @@ export default class GameScene extends Phaser.Scene {
                 playHitSfx: true,
                 knockbackX,
                 knockupY,
+                useDeath2: true,
               });
             }
           }
@@ -6423,6 +6790,7 @@ export default class GameScene extends Phaser.Scene {
               breakShield: true,
               curse: true,
               playHitSfx: true,
+              useDeath2: true,
             });
             p.play('skull_curse_hit');
             if (p.auraPulse) p.auraPulse.stop();
@@ -6608,6 +6976,7 @@ export default class GameScene extends Phaser.Scene {
         this.killCrow();
       }
       this.applyWheelToSkeletons(w, wLeft, wRight, wTop, wBottom);
+      this.checkLandMineHitByRect(wLeft, wRight, wTop, wBottom, w.ownerFighter);
     }
 
     for (const loot of this.loots) {
@@ -6619,6 +6988,10 @@ export default class GameScene extends Phaser.Scene {
           loot.beam.setDisplaySize(70, Math.max(120, loot.y + 80));
         }
         if (loot.footGlow) loot.footGlow.setPosition(loot.x, loot.y + 30);
+        if (loot.shadow) {
+          // sob a base do body — body bottom = platform top quando aterrissa
+          loot.shadow.setPosition(loot.x, loot.body.y + loot.body.height + 2);
+        }
       }
       if (loot.isPickedUp) continue;
       if (this.isMultiplayer) {
