@@ -308,6 +308,8 @@ const POWERS = {
 };
 
 const WOOD_POWER_POOL = ['heavens_fury', 'skull_curse', 'wheel', 'fire_storm', 'ice_beam', 'skeleton_attack', 'land_mine'];
+// Skills that level up to a stronger version when duplicate is picked up
+const UPGRADABLE_POWERS = new Set(['heavens_fury', 'skull_curse']);
 
 const LOOT_TYPES = {
   wood: {
@@ -321,6 +323,15 @@ const LOOT_TYPES = {
           else fighter.specialPowers[1] = 'land_mine';
         }
         fighter.landMineCharges = 2;
+        return;
+      }
+      // Upgrade path: duplicate of an upgradable skill levels it up instead of stacking
+      if (
+        UPGRADABLE_POWERS.has(loot.power) &&
+        fighter.specialPowers.includes(loot.power) &&
+        !fighter.upgradedPowers.has(loot.power)
+      ) {
+        fighter.upgradedPowers.add(loot.power);
         return;
       }
       if (fighter.specialPowers.length < 2) fighter.specialPowers.push(loot.power);
@@ -509,6 +520,10 @@ export default class GameScene extends Phaser.Scene {
     this.load.spritesheet('land_mine_idle', 'sprites/Poder 9 (landmine)/sheet-transparent.png', {
       frameWidth: LAND_MINE_FRAME,
       frameHeight: LAND_MINE_FRAME,
+    });
+    this.load.spritesheet('landmine_explosion', 'sprites/Poder 9 (landmine)/explosion-b.png', {
+      frameWidth: 80,
+      frameHeight: 48,
     });
     this.load.spritesheet('land_mine_loot_idle', 'sprites/Poder 9 (landmine)/loot/sheet-transparent.png', {
       frameWidth: 128,
@@ -1318,6 +1333,15 @@ export default class GameScene extends Phaser.Scene {
         repeat: -1,
       });
     }
+    if (!this.anims.exists('landmine_explosion')) {
+      // Sheet has 13 frames; frames 0-1 are empty, real explosion is 2-12
+      this.anims.create({
+        key: 'landmine_explosion',
+        frames: this.anims.generateFrameNumbers('landmine_explosion', { start: 2, end: 12 }),
+        frameRate: 20,
+        repeat: 0,
+      });
+    }
     this.anims.create({
       key: 'wood_catch',
       frames: this.anims.generateFrameNumbers('wood_catch', { start: 0, end: WOOD_CATCH_FRAMES - 1 }),
@@ -1819,9 +1843,12 @@ export default class GameScene extends Phaser.Scene {
 
     const powerButtons = document.querySelectorAll('.dev-power-btn');
     const refreshPowerButtons = () => {
-      const current = this.playerFighter?.specialPowers?.[0] ?? 'none';
+      const slots = this.playerFighter?.specialPowers ?? [];
+      const isEmpty = slots.length === 0;
       powerButtons.forEach((btn) => {
-        btn.classList.toggle('active', btn.dataset.power === current);
+        const power = btn.dataset.power;
+        const active = power === 'none' ? isEmpty : slots.includes(power);
+        btn.classList.toggle('active', active);
       });
     };
     powerButtons.forEach((btn) => {
@@ -1831,9 +1858,9 @@ export default class GameScene extends Phaser.Scene {
         if (selected === 'none') {
           this.playerFighter.specialPowers = [];
           this.playerFighter.landMineCharges = 0;
+          this.playerFighter.upgradedPowers?.clear();
         } else {
-          this.playerFighter.specialPowers = [selected];
-          this.playerFighter.landMineCharges = selected === 'land_mine' ? 2 : 0;
+          this.grantPower(this.playerFighter, selected);
         }
         refreshPowerButtons();
       });
@@ -2132,12 +2159,10 @@ export default class GameScene extends Phaser.Scene {
     if (this.loots.length >= LOOT_MAX_ACTIVE) return;
     let key = typeKey;
     if (!key) {
-      const eyeAlreadyOnMap = this.loots.some((l) => l.lootType === 'eye');
-      const eyeBlocked = this._eyeActive || eyeAlreadyOnMap;
+      // Flying Eye loot temporarily disabled (too strong, balance pending)
       const roll = Phaser.Math.FloatBetween(0, 1);
       if (roll < 0.1) key = 'hp';
       else if (roll < 0.2) key = 'shield';
-      else if (roll < 0.25 && !eyeBlocked) key = 'eye';
       else key = 'wood';
     } else if (key === 'eye' && this._eyeActive) {
       return;
@@ -2585,6 +2610,7 @@ export default class GameScene extends Phaser.Scene {
       attackSpriteShift: 0,
       currentAttackAnim: keys.attackHorizontal,
       specialPowers: [],
+      upgradedPowers: new Set(),
       shieldCharges: 0,
       shieldAnimSprite: null,
       shieldGoldSprite: null,
@@ -3063,6 +3089,7 @@ export default class GameScene extends Phaser.Scene {
     }
     fighter.lastAttackerIndex = null;
     fighter.specialPowers = [];
+    fighter.upgradedPowers?.clear();
     this.removeShield(fighter);
     this.removeSkullCurse(fighter);
     this.removeStun(fighter);
@@ -3247,6 +3274,15 @@ export default class GameScene extends Phaser.Scene {
     return best;
   }
 
+  findLowestSurfaceAt(x) {
+    let best = -Infinity;
+    for (const rect of PLATFORM_RECTS) {
+      if (x < rect.x || x > rect.x + rect.w) continue;
+      if (rect.y > best) best = rect.y;
+    }
+    return best === -Infinity ? MAP_HEIGHT : best;
+  }
+
   playSfx(key, volumeMultiplier = 1, seek = 0) {
     if (!this.cache.audio.exists(key)) return;
     this.sound.play(key, {
@@ -3255,41 +3291,50 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
-  firePower(fighter, worldX, worldY) {
-    const powerKey = fighter.specialPowers[0];
-    const surfaceY = this.findSurfaceBelow(worldX, worldY);
+  firePower(fighter, worldX, worldY, level = 1) {
+    const isL2 = level >= 2;
+    const surfaceY = isL2
+      ? this.findLowestSurfaceAt(worldX)
+      : this.findSurfaceBelow(worldX, worldY);
     const beamHeight = Math.max(0, surfaceY);
+    const sizeMult = isL2 ? 3 : 1;
+    const telegraphMs = isL2 ? 600 : HEAVENS_FURY_TELEGRAPH_MS;
+    const beamWidthMult = isL2 ? 2 : 1;
 
     this.playSfx('sfx_heavens_fury_cast');
     this.playSfx('sfx_heavens_fury_belezam');
 
     const telegraph = this.add.sprite(worldX, surfaceY, 'smite', 0)
       .setOrigin(0.5, 1)
-      .setScale(SMITE_SCALE)
+      .setScale(SMITE_SCALE * sizeMult)
       .setDepth(ATTACKER_DEPTH);
     telegraph.play('smite');
 
-    const telegraphCore = this.add.rectangle(worldX, 0, 14, beamHeight, 0xfff6c8, 1)
+    const telegraphCore = this.add.rectangle(worldX, 0, 14 * beamWidthMult, beamHeight, 0xfff6c8, 1)
       .setOrigin(0.5, 0)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(ATTACKER_DEPTH)
       .setAlpha(0.1);
-    const telegraphGlow = this.add.rectangle(worldX, 0, 60, beamHeight, 0xffd56b, 1)
+    const telegraphGlow = this.add.rectangle(worldX, 0, 60 * beamWidthMult, beamHeight, 0xffd56b, 1)
       .setOrigin(0.5, 0)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(ATTACKER_DEPTH)
       .setAlpha(0.1);
 
-    this.time.delayedCall(HEAVENS_FURY_TELEGRAPH_MS, () => {
+    this.time.delayedCall(telegraphMs, () => {
       telegraph.destroy();
       telegraphCore.destroy();
       telegraphGlow.destroy();
-      this.executeHeavensStrike(fighter, worldX, surfaceY);
+      this.executeHeavensStrike(fighter, worldX, surfaceY, level);
     });
   }
 
-  fireSkullCurse(fighter, pointerWorldX, pointerWorldY) {
+  fireSkullCurse(fighter, pointerWorldX, pointerWorldY, level = 1) {
     this.playSfx('sfx_skull_cast', 1.6);
+    if (level >= 2) {
+      this.fireSkullCurseRain(fighter, pointerWorldX);
+      return;
+    }
     const body = fighter.sprite.body;
     const startX = body.x + body.width / 2;
     const startY = body.y + body.height / 2;
@@ -3299,15 +3344,34 @@ export default class GameScene extends Phaser.Scene {
     const dir = Math.cos(angle) >= 0 ? 1 : -1;
     const vx = Math.cos(angle) * SKULL_CURSE_SPEED;
     const vy = Math.sin(angle) * SKULL_CURSE_SPEED;
+    this.spawnSkullProjectile(fighter, startX, startY, vx, vy, false, angle, 1);
+  }
+
+  fireSkullCurseRain(fighter) {
+    const count = 10;
+    for (let i = 0; i < count; i++) {
+      this.time.delayedCall(i * 40, () => {
+        if (!fighter || fighter.isDead) return;
+        const startX = Phaser.Math.Between(40, MAP_WIDTH - 40);
+        const startY = Phaser.Math.Between(-300, -150);
+        this.spawnSkullProjectile(fighter, startX, startY, 0, 320, true, Math.PI / 2, 2);
+      });
+    }
+  }
+
+  spawnSkullProjectile(fighter, startX, startY, vx, vy, allowGravity, angle, level) {
+    const dir = Math.cos(angle) >= 0 ? 1 : -1;
+    const isL2 = level >= 2;
+    const hitboxScale = isL2 ? 1.5 : 1;
 
     const aura = this.add.image(startX, startY, 'glow_purple_light')
       .setBlendMode(Phaser.BlendModes.ADD)
-      .setScale(1.05)
+      .setScale(isL2 ? 1.4 : 1.05)
       .setDepth(ATTACKER_DEPTH - 0.1)
       .setAlpha(0.95);
     const auraPulse = this.tweens.add({
       targets: aura,
-      scale: 1.25,
+      scale: isL2 ? 1.65 : 1.25,
       alpha: 0.7,
       duration: 260,
       yoyo: true,
@@ -3316,12 +3380,12 @@ export default class GameScene extends Phaser.Scene {
     });
 
     const projectile = this.physics.add.sprite(startX, startY, 'skull_curse', 0);
-    projectile.setScale(SKULL_CURSE_SCALE);
+    projectile.setScale(SKULL_CURSE_SCALE * (isL2 ? 1.3 : 1));
     projectile.setDepth(ATTACKER_DEPTH);
     projectile.setFlipX(dir < 0);
     projectile.setRotation(dir < 0 ? angle - Math.PI : angle);
-    projectile.body.allowGravity = false;
-    projectile.body.setSize(SKULL_CURSE_BODY_W, SKULL_CURSE_BODY_H, true);
+    projectile.body.allowGravity = !!allowGravity;
+    projectile.body.setSize(SKULL_CURSE_BODY_W * hitboxScale, SKULL_CURSE_BODY_H * hitboxScale, true);
     projectile.body.setVelocity(vx, vy);
     projectile.setCollideWorldBounds(false);
     projectile.ownerFighter = fighter;
@@ -3329,12 +3393,14 @@ export default class GameScene extends Phaser.Scene {
     projectile.direction = dir;
     projectile.aura = aura;
     projectile.auraPulse = auraPulse;
+    projectile.curseLevel = level;
     projectile.play('skull_curse_fly');
 
     this.skullProjectiles.push(projectile);
+    return projectile;
   }
 
-  applySkullCurse(target) {
+  applySkullCurse(target, level = 1) {
     target.curseMultiplier = SKULL_CURSE_DEBUFF_MULTIPLIER;
     if (target.curseTimer) target.curseTimer.remove(false);
     target.curseTimer = this.time.delayedCall(SKULL_CURSE_DEBUFF_DURATION_MS, () => {
@@ -3349,7 +3415,7 @@ export default class GameScene extends Phaser.Scene {
     if (this.isAuthoritativeOwner(target)) {
       if (target.curseDotTimer) target.curseDotTimer.remove(false);
       const ticks = 10;
-      const tickDamage = SKULL_CURSE_DAMAGE / ticks;
+      const tickDamage = level >= 2 ? 5 : SKULL_CURSE_DAMAGE / ticks;
       target.curseDotTimer = this.time.addEvent({
         delay: SKULL_CURSE_DEBUFF_DURATION_MS / ticks,
         repeat: ticks - 1,
@@ -4594,13 +4660,18 @@ export default class GameScene extends Phaser.Scene {
     this.fireStormHitVfx.push(vfx);
   }
 
-  executeHeavensStrike(fighter, worldX, surfaceY) {
+  executeHeavensStrike(fighter, worldX, surfaceY, level = 1) {
+    const isL2 = level >= 2;
+    const sizeMult = isL2 ? 3 : 1;
+    const aoeMult = isL2 ? 2 : 1;
+    const strikeHalfWidth = HEAVENS_FURY_STRIKE_HALF_WIDTH * aoeMult;
+    const beamHalfWidth = HEAVENS_FURY_BEAM_HALF_WIDTH * aoeMult;
     this.playSfx('sfx_heavens_fury_second');
     const beamCoreHeight = Math.max(0, surfaceY);
     const beamCore = this.add.rectangle(
       worldX,
       0,
-      26,
+      26 * aoeMult,
       beamCoreHeight,
       0xfff6c8,
       1
@@ -4612,7 +4683,7 @@ export default class GameScene extends Phaser.Scene {
     const beamGlow = this.add.rectangle(
       worldX,
       0,
-      90,
+      90 * aoeMult,
       beamCoreHeight,
       0xffd56b,
       0.45
@@ -4636,7 +4707,7 @@ export default class GameScene extends Phaser.Scene {
 
     const sprite = this.add.sprite(worldX, surfaceY, 'heavens_fury', 0)
       .setOrigin(0.5, 1)
-      .setScale(HEAVENS_FURY_SCALE)
+      .setScale(HEAVENS_FURY_SCALE * sizeMult)
       .setDepth(ATTACKER_DEPTH + 1);
     sprite.damageDealt = false;
     sprite.play('heavens_fury');
@@ -4658,7 +4729,7 @@ export default class GameScene extends Phaser.Scene {
           const ty = target.sprite.body.y + target.sprite.body.height / 2;
           const dx = Math.abs(tx - worldX);
           const inGroundZone = ty >= groundTop && ty <= groundBottom;
-          if (inGroundZone && dx <= HEAVENS_FURY_STRIKE_HALF_WIDTH) {
+          if (inGroundZone && dx <= strikeHalfWidth) {
             this.dealHit(target, {
               damage: MAX_HP,
               ignoreShield: true,
@@ -4668,10 +4739,10 @@ export default class GameScene extends Phaser.Scene {
           } else if (
             ty < groundTop &&
             ty >= 0 &&
-            dx <= HEAVENS_FURY_BEAM_HALF_WIDTH
+            dx <= beamHalfWidth
           ) {
             this.dealHit(target, {
-              damage: MAX_HP * 0.8,
+              damage: isL2 ? MAX_HP : MAX_HP * 0.8,
               ignoreShield: true,
               heavensFury: true,
               powerFlashColor: POWERS.heavens_fury.orbColor,
@@ -4685,16 +4756,16 @@ export default class GameScene extends Phaser.Scene {
           const dx = Math.abs(cx - worldX);
           const inGroundZone = cy >= groundTop && cy <= groundBottom;
           if (
-            (inGroundZone && dx <= HEAVENS_FURY_STRIKE_HALF_WIDTH) ||
-            (cy < groundTop && cy >= 0 && dx <= HEAVENS_FURY_BEAM_HALF_WIDTH)
+            (inGroundZone && dx <= strikeHalfWidth) ||
+            (cy < groundTop && cy >= 0 && dx <= beamHalfWidth)
           ) {
             this.killCrow();
           }
         }
         // Mines no caminho do feixe / na zona do impacto (ignora as próprias)
         this.checkLandMineHitByRect(
-          worldX - HEAVENS_FURY_STRIKE_HALF_WIDTH,
-          worldX + HEAVENS_FURY_STRIKE_HALF_WIDTH,
+          worldX - strikeHalfWidth,
+          worldX + strikeHalfWidth,
           0,
           surfaceY + 40,
           fighter
@@ -4707,8 +4778,8 @@ export default class GameScene extends Phaser.Scene {
             const fdx = Math.abs(fx - worldX);
             const inGroundZoneF = fy >= groundTop && fy <= groundBottom;
             if (
-              (inGroundZoneF && fdx <= HEAVENS_FURY_STRIKE_HALF_WIDTH) ||
-              (fy < groundTop && fy >= 0 && fdx <= HEAVENS_FURY_BEAM_HALF_WIDTH)
+              (inGroundZoneF && fdx <= strikeHalfWidth) ||
+              (fy < groundTop && fy >= 0 && fdx <= beamHalfWidth)
             ) {
               this.damageSkeleton(fox, fox.maxHp + 1, { numberColor: '#fde047' });
             }
@@ -4723,8 +4794,8 @@ export default class GameScene extends Phaser.Scene {
             const dx = Math.abs(lx - worldX);
             const inGroundZone = ly >= groundTop && ly <= groundBottom;
             if (
-              (inGroundZone && dx <= HEAVENS_FURY_STRIKE_HALF_WIDTH) ||
-              (ly < groundTop && ly >= 0 && dx <= HEAVENS_FURY_BEAM_HALF_WIDTH)
+              (inGroundZone && dx <= strikeHalfWidth) ||
+              (ly < groundTop && ly >= 0 && dx <= beamHalfWidth)
             ) {
               lootsToKill.push(l);
             }
@@ -4740,9 +4811,11 @@ export default class GameScene extends Phaser.Scene {
     const power = fighter.specialPowers[0];
     const pointer = this.input.activePointer;
     if (power === 'heavens_fury') {
-      this.firePower(fighter, pointer.worldX, pointer.worldY);
+      const level = fighter.upgradedPowers.has('heavens_fury') ? 2 : 1;
+      this.firePower(fighter, pointer.worldX, pointer.worldY, level);
       fighter.specialPowers.shift();
-      this.sendPowerCast('heavens_fury', { worldX: pointer.worldX, worldY: pointer.worldY });
+      if (level >= 2) fighter.upgradedPowers.delete('heavens_fury');
+      this.sendPowerCast('heavens_fury', { worldX: pointer.worldX, worldY: pointer.worldY, level });
     } else if (power === 'shield') {
       fighter.specialPowers.shift();
       if (fighter.isEye) {
@@ -4753,9 +4826,11 @@ export default class GameScene extends Phaser.Scene {
       }
       this.sendPowerCast('shield', {});
     } else if (power === 'skull_curse') {
+      const level = fighter.upgradedPowers.has('skull_curse') ? 2 : 1;
       fighter.specialPowers.shift();
-      this.fireSkullCurse(fighter, pointer.worldX, pointer.worldY);
-      this.sendPowerCast('skull_curse', { worldX: pointer.worldX, worldY: pointer.worldY });
+      if (level >= 2) fighter.upgradedPowers.delete('skull_curse');
+      this.fireSkullCurse(fighter, pointer.worldX, pointer.worldY, level);
+      this.sendPowerCast('skull_curse', { worldX: pointer.worldX, worldY: pointer.worldY, level });
     } else if (power === 'wheel') {
       fighter.specialPowers.shift();
       this.fireWheel(fighter, pointer.worldX);
@@ -4940,46 +5015,12 @@ export default class GameScene extends Phaser.Scene {
     const cx = mine.x;
     const cy = mine.y;
 
-    // Visual: flash + expanding ring
-    const flash = this.add.circle(cx, cy, LAND_MINE_RADIUS, 0xffd166, 0.95)
+    // Visual: explosion spritesheet (frames 2-12 of explosion-b)
+    const explosion = this.add.sprite(cx, cy, 'landmine_explosion', 2)
       .setDepth(15)
-      .setBlendMode(Phaser.BlendModes.ADD);
-    this.tweens.add({
-      targets: flash,
-      scale: 2.4,
-      alpha: 0,
-      duration: 480,
-      ease: 'Cubic.easeOut',
-      onComplete: () => flash.destroy(),
-    });
-    const ring = this.add.circle(cx, cy, LAND_MINE_RADIUS, 0xff6a00, 0)
-      .setDepth(14)
-      .setStrokeStyle(4, 0xff8a2c, 0.85);
-    this.tweens.add({
-      targets: ring,
-      scale: 2.0,
-      alpha: 0,
-      duration: 600,
-      ease: 'Cubic.easeOut',
-      onComplete: () => ring.destroy(),
-    });
-    // Sparks
-    for (let i = 0; i < 10; i++) {
-      const ang = (Math.PI * 2 * i) / 10 + Math.random() * 0.4;
-      const spark = this.add.circle(cx, cy, 4, 0xff8a2c, 0.95)
-        .setDepth(15)
-        .setBlendMode(Phaser.BlendModes.ADD);
-      this.tweens.add({
-        targets: spark,
-        x: cx + Math.cos(ang) * (LAND_MINE_RADIUS + 30),
-        y: cy + Math.sin(ang) * (LAND_MINE_RADIUS + 30) - 20,
-        alpha: 0,
-        scale: 0.3,
-        duration: 480,
-        ease: 'Cubic.easeOut',
-        onComplete: () => spark.destroy(),
-      });
-    }
+      .setScale(3.5);
+    explosion.play('landmine_explosion');
+    explosion.once('animationcomplete', () => explosion.destroy());
 
     // Damage in radius
     for (const f of this.fighters) {
@@ -5092,6 +5133,7 @@ export default class GameScene extends Phaser.Scene {
     this.removeShield(fighter);
     fighter.eyeHitsRemaining = EYE_HITS_BASE;
     fighter.specialPowers = [];
+    fighter.upgradedPowers?.clear();
     fighter.eyeFacing = fighter.sprite.flipX ? -1 : 1;
     fighter.eyeDashCooldownUntil = 0;
     fighter.eyeDashUntil = 0;
@@ -5377,7 +5419,7 @@ export default class GameScene extends Phaser.Scene {
       }
       if (hit.knockupY) target.sprite.body.setVelocityY(hit.knockupY);
       if (hit.stun) this.applyStun(target);
-      if (hit.curse) this.applySkullCurse(target);
+      if (hit.curse) this.applySkullCurse(target, hit.curseLevel || 1);
     }
     if (hit.powerFlashColor !== null && hit.powerFlashColor !== undefined) {
       this.triggerPowerFlash(target, hit.powerFlashColor);
@@ -5397,7 +5439,7 @@ export default class GameScene extends Phaser.Scene {
     }
     if (hit.curse) {
       this.revertFromEye(target);
-      this.applySkullCurse(target);
+      this.applySkullCurse(target, hit.curseLevel || 1);
       return;
     }
     if (hit.stun) {
@@ -5508,6 +5550,7 @@ export default class GameScene extends Phaser.Scene {
       stunned: f.isStunned,
       cursed: (f.curseMultiplier || 1) > 1,
       powers: f.specialPowers.slice(),
+      upgraded: f.upgradedPowers ? Array.from(f.upgradedPowers) : [],
       isEye: !!f.isEye,
       eyeHits: f.eyeHitsRemaining || 0,
       eyeFacing: f.eyeFacing || 1,
@@ -5602,11 +5645,11 @@ export default class GameScene extends Phaser.Scene {
       const caster = this.fightersByIndex[data.casterIndex];
       if (!caster) return;
       if (data.power === 'heavens_fury') {
-        this.firePower(caster, data.worldX, data.worldY);
+        this.firePower(caster, data.worldX, data.worldY, data.level || 1);
       } else if (data.power === 'shield') {
         if (!caster.isEye) this.applyShield(caster);
       } else if (data.power === 'skull_curse') {
-        this.fireSkullCurse(caster, data.worldX, data.worldY);
+        this.fireSkullCurse(caster, data.worldX, data.worldY, data.level || 1);
       } else if (data.power === 'wheel') {
         this.fireWheel(caster, data.worldX);
       } else if (data.power === 'ice_beam') {
@@ -5676,6 +5719,9 @@ export default class GameScene extends Phaser.Scene {
     if (Array.isArray(data.powers)) {
       remote.specialPowers = data.powers.slice();
     }
+    if (Array.isArray(data.upgraded)) {
+      remote.upgradedPowers = new Set(data.upgraded);
+    }
     if (typeof data.stunned === 'boolean') {
       if (data.stunned && !remote.isStunned) this.applyStun(remote);
       else if (!data.stunned && remote.isStunned) this.removeStun(remote);
@@ -5728,13 +5774,29 @@ export default class GameScene extends Phaser.Scene {
   selectPower(powerKey) {
     const f = this.playerFighter;
     if (!f || f.isDead) return;
-    f.specialPowers = [powerKey];
-    if (powerKey === 'land_mine') {
-      f.landMineCharges = 2;
-    } else {
-      f.landMineCharges = 0;
-    }
+    this.grantPower(f, powerKey);
     if (this.refreshDevPowerButtons) this.refreshDevPowerButtons();
+  }
+
+  grantPower(fighter, powerKey) {
+    if (powerKey === 'land_mine') {
+      if (!fighter.specialPowers.includes('land_mine')) {
+        if (fighter.specialPowers.length < 2) fighter.specialPowers.push('land_mine');
+        else fighter.specialPowers[1] = 'land_mine';
+      }
+      fighter.landMineCharges = 2;
+      return;
+    }
+    if (
+      UPGRADABLE_POWERS.has(powerKey) &&
+      fighter.specialPowers.includes(powerKey) &&
+      !fighter.upgradedPowers.has(powerKey)
+    ) {
+      fighter.upgradedPowers.add(powerKey);
+      return;
+    }
+    if (fighter.specialPowers.length < 2) fighter.specialPowers.push(powerKey);
+    else fighter.specialPowers[1] = powerKey;
   }
 
   toggleEyeTransform() {
@@ -6081,14 +6143,18 @@ export default class GameScene extends Phaser.Scene {
     fighter.aiPowerCooldownUntil = time + 1200 + Math.random() * 600;
 
     if (power === 'heavens_fury') {
-      this.firePower(fighter, tx, ty);
+      const level = fighter.upgradedPowers?.has('heavens_fury') ? 2 : 1;
+      this.firePower(fighter, tx, ty, level);
       fighter.specialPowers.shift();
+      if (level >= 2) fighter.upgradedPowers.delete('heavens_fury');
     } else if (power === 'shield') {
       fighter.specialPowers.shift();
       this.applyShield(fighter);
     } else if (power === 'skull_curse') {
+      const level = fighter.upgradedPowers?.has('skull_curse') ? 2 : 1;
       fighter.specialPowers.shift();
-      this.fireSkullCurse(fighter, tx, ty);
+      if (level >= 2) fighter.upgradedPowers.delete('skull_curse');
+      this.fireSkullCurse(fighter, tx, ty, level);
     } else if (power === 'wheel') {
       fighter.specialPowers.shift();
       this.fireWheel(fighter, tx);
@@ -6760,7 +6826,7 @@ export default class GameScene extends Phaser.Scene {
       }
       if (p.aura) p.aura.setPosition(p.x, p.y);
       if (!p.hasHit) {
-        if (p.x < -60 || p.x > MAP_WIDTH + 60) {
+        if (p.x < -60 || p.x > MAP_WIDTH + 60 || p.y > MAP_HEIGHT + 60) {
           if (p.auraPulse) p.auraPulse.stop();
           if (p.aura) p.aura.destroy();
           p.destroy();
@@ -6789,6 +6855,7 @@ export default class GameScene extends Phaser.Scene {
               damage: 0,
               breakShield: true,
               curse: true,
+              curseLevel: p.curseLevel || 1,
               playHitSfx: true,
               useDeath2: true,
             });
@@ -7235,6 +7302,9 @@ export default class GameScene extends Phaser.Scene {
           const offset = (i - (Math.min(powers.length, f.powerIcons.length) - 1) / 2) * iconSpacing;
           icon.setPosition(barX + offset, iconY);
           icon.fillColor = POWERS[power].orbColor;
+          const isUpgraded = f.upgradedPowers && f.upgradedPowers.has(power);
+          icon.setScale(isUpgraded ? 1.7 : 1);
+          icon.setStrokeStyle(isUpgraded ? 1.5 : 1, isUpgraded ? 0xffffff : 0x0f172a);
           icon.setVisible(true);
         } else {
           icon.setVisible(false);
