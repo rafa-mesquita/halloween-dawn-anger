@@ -5661,6 +5661,8 @@ export default class GameScene extends Phaser.Scene {
         this.fireFireStorm(caster);
       } else if (data.power === 'skeleton_attack') {
         this.throwSkeletonBall(caster, data.worldX, data.worldY);
+      } else if (data.power === 'land_mine') {
+        this.throwLandMine(caster, data.worldX, data.worldY);
       }
       return;
     }
