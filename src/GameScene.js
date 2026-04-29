@@ -4054,6 +4054,8 @@ export default class GameScene extends Phaser.Scene {
     const startY = cb.y + cb.height / 2;
     const dx = targetX - startX;
     const dir = dx >= 0 ? 1 : -1;
+    caster.skeletonSpawnCounter = (caster.skeletonSpawnCounter || 0) + 1;
+    const ballNetId = `${caster.ownerIndex}-${caster.skeletonSpawnCounter}`;
     const ball = this.physics.add.sprite(startX, startY, 'skeleton_ball', 0);
     ball.setScale(1.0).setDepth(ATTACKER_DEPTH);
     ball.body.setAllowGravity(true);
@@ -4063,6 +4065,7 @@ export default class GameScene extends Phaser.Scene {
     ball.body.setVelocity(SKELETON_BALL_SPEED * dir, SKELETON_BALL_VY);
     ball.play('skeleton_ball');
     ball.ownerCaster = caster;
+    ball.netId = ballNetId;
     ball.spawned = false;
 
     const onPlatformContact = (b, platformZone) => {
@@ -4071,7 +4074,7 @@ export default class GameScene extends Phaser.Scene {
       b.spawned = true;
       const px = b.x;
       const py = platformZone.body.y;
-      this.fireSkeleton(caster, px, py);
+      this.fireSkeleton(caster, px, py, b.netId);
       if (b.platformCollider) this.physics.world.removeCollider(b.platformCollider);
       b.destroy();
     };
@@ -4124,7 +4127,7 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  fireSkeleton(caster, spawnX, spawnY) {
+  fireSkeleton(caster, spawnX, spawnY, externalNetId) {
     const cb = caster.sprite.body;
     const useGiven = typeof spawnX === 'number' && typeof spawnY === 'number';
     const cx = useGiven ? spawnX : cb.x + cb.width / 2;
@@ -4171,9 +4174,15 @@ export default class GameScene extends Phaser.Scene {
       .setOrigin(0, 0.5)
       .setDepth(DEFAULT_SPRITE_DEPTH + 0.6);
 
+    let netId = externalNetId;
+    if (!netId) {
+      caster.skeletonSpawnCounter = (caster.skeletonSpawnCounter || 0) + 1;
+      netId = `${caster.ownerIndex}-${caster.skeletonSpawnCounter}`;
+    }
     const fox = {
       sprite,
       caster,
+      netId,
       isSkeletonPet: true,
       x: cx,
       y: platformY,
@@ -4222,8 +4231,8 @@ export default class GameScene extends Phaser.Scene {
     if (fox.state === 'dying') return;
     fox.state = 'dying';
     fox.target = null;
-    if (this.isMultiplayer && this.network && !(opts && opts.fromNetwork)) {
-      this.network.send({ type: 'skeleton_killed', x: fox.x, y: fox.y });
+    if (this.isMultiplayer && this.network && !(opts && opts.fromNetwork) && fox.netId) {
+      this.network.send({ type: 'skeleton_killed', netId: fox.netId });
     }
     if (fox.frozenOverlay) { fox.frozenOverlay.destroy(); fox.frozenOverlay = null; }
     if (fox.frozenTintSprite) { fox.frozenTintSprite.destroy(); fox.frozenTintSprite = null; }
@@ -5640,15 +5649,8 @@ export default class GameScene extends Phaser.Scene {
     }
     if (data.type === 'skeleton_killed') {
       if (!this.skeletons) return;
-      const tol = 80;
-      let best = null;
-      let bestDist = tol;
-      for (const fox of this.skeletons) {
-        if (!fox || fox.state === 'dying') continue;
-        const d = Math.hypot(fox.x - data.x, fox.y - data.y);
-        if (d < bestDist) { best = fox; bestDist = d; }
-      }
-      if (best) this.startSkeletonDeath(best, { fromNetwork: true });
+      const target = this.skeletons.find((fox) => fox && fox.netId === data.netId && fox.state !== 'dying');
+      if (target) this.startSkeletonDeath(target, { fromNetwork: true });
       return;
     }
     if (data.type === 'loot_spawn') {
