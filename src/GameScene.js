@@ -309,7 +309,38 @@ const POWERS = {
 
 const WOOD_POWER_POOL = ['heavens_fury', 'skull_curse', 'wheel', 'fire_storm', 'ice_beam', 'skeleton_attack', 'land_mine'];
 // Skills that level up to a stronger version when duplicate is picked up
-const UPGRADABLE_POWERS = new Set(['heavens_fury', 'skull_curse', 'ice_beam', 'wheel', 'fire_storm']);
+const UPGRADABLE_POWERS = new Set(['heavens_fury', 'skull_curse', 'ice_beam', 'wheel', 'fire_storm', 'skeleton_attack']);
+
+// Omar (fast melee) and Archer (ranged) — L2 skeleton trio constants
+const OMAR_FRAME_W = 64;
+const OMAR_FRAME_H = 64;
+const OMAR_SCALE = 3.2;
+const OMAR_MAX_HP = 130;
+const OMAR_PATROL_SPEED = 110;
+const OMAR_CHASE_SPEED = 260;
+const OMAR_HIT_DAMAGE = 22;
+const OMAR_HIT_REACH = 70;
+const OMAR_HIT_COOLDOWN_MS = 900;
+const OMAR_HIT_WINDUP_MS = 280;
+const OMAR_DETECT_RADIUS = 360;
+
+const ARCHER_FRAME_W = 64;
+const ARCHER_FRAME_H = 64;
+const ARCHER_SCALE = 2.6;
+const ARCHER_MAX_HP = 90;
+const ARCHER_PATROL_SPEED = 70;
+const ARCHER_KITE_SPEED = 150;
+const ARCHER_PREFERRED_RANGE = 420;
+const ARCHER_RETREAT_RANGE = 220;
+const ARCHER_DETECT_RADIUS = 1600;
+const ARCHER_SHOOT_COOLDOWN_MS = 1200;
+const ARCHER_SHOOT_WINDUP_MS = 305;
+const ARCHER_ROLL_COOLDOWN_MS = 3500;
+const ARCHER_ROLL_DURATION_MS = 580;
+const ARCHER_ROLL_SPEED = 360;
+const ARCHER_ARROW_SPEED = 1100;
+const ARCHER_ARROW_DAMAGE = 22;
+const ARCHER_ARROW_LIFETIME_MS = 1800;
 const FIRE_STORM_L2_DURATION_MS = 13500;
 const FIRE_STORM_L2_WAVES = 4;
 const FIRE_STORM_L2_WAVE_DELAY_MS = 3000;
@@ -672,6 +703,15 @@ export default class GameScene extends Phaser.Scene {
       frameWidth: SKELETON_FRAME_W,
       frameHeight: SKELETON_FRAME_H,
     });
+    this.load.spritesheet('omar_sheet', 'sprites/Power 8 (skeleton)/Omar Caveira/Skeleton enemy.png', {
+      frameWidth: OMAR_FRAME_W,
+      frameHeight: OMAR_FRAME_H,
+    });
+    this.load.spritesheet('archer_sheet', 'sprites/Power 8 (skeleton)/arqueiro fantastico/spritesheet.png', {
+      frameWidth: ARCHER_FRAME_W,
+      frameHeight: ARCHER_FRAME_H,
+    });
+    this.load.image('archer_arrow', 'sprites/Power 8 (skeleton)/arqueiro fantastico/projectile.png');
     this.load.spritesheet('fire_storm_loot_catch', 'sprites/Poder 5 (fire storm)/Fire catch.png', {
       frameWidth: 64,
       frameHeight: 64,
@@ -1462,6 +1502,83 @@ export default class GameScene extends Phaser.Scene {
       key: 'skeleton_die',
       frames: this.anims.generateFrameNumbers('skeleton_die', { start: 0, end: SKELETON_DIE_FRAMES - 1 }),
       frameRate: SKELETON_DIE_FPS,
+      repeat: 0,
+    });
+    // Omar (sheet 832x320 = 13 cols x 5 rows of 64x64)
+    // Row 0: attack (13 frames), Row 1: death (13), Row 2: walk (13), Row 3: hurt (4), Row 4: idle (3)
+    this.anims.create({
+      key: 'omar_attack',
+      frames: this.anims.generateFrameNumbers('omar_sheet', { start: 0, end: 9 }),
+      frameRate: 18,
+      repeat: 0,
+    });
+    this.anims.create({
+      key: 'omar_die',
+      frames: this.anims.generateFrameNumbers('omar_sheet', { start: 13, end: 22 }),
+      frameRate: 12,
+      repeat: 0,
+    });
+    this.anims.create({
+      key: 'omar_walk',
+      frames: this.anims.generateFrameNumbers('omar_sheet', { start: 26, end: 33 }),
+      frameRate: 14,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: 'omar_hurt',
+      frames: this.anims.generateFrameNumbers('omar_sheet', { start: 39, end: 41 }),
+      frameRate: 14,
+      repeat: 0,
+    });
+    this.anims.create({
+      key: 'omar_idle',
+      frames: this.anims.generateFrameNumbers('omar_sheet', { start: 52, end: 53 }),
+      frameRate: 5,
+      repeat: -1,
+    });
+    // Archer (sheet 512x512 = 8 cols x 8 rows of 64x64)
+    // Row 0: run (8), Row 1: death/falling (8), Row 2: jump (8), Row 3: aim (8),
+    // Row 4: shoot (8), Row 5: idle (4), Row 6: hurt (4), Row 7: extras
+    this.anims.create({
+      key: 'archer_run',
+      frames: this.anims.generateFrameNumbers('archer_sheet', { start: 0, end: 7 }),
+      frameRate: 14,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: 'archer_die',
+      frames: this.anims.generateFrameNumbers('archer_sheet', { start: 8, end: 15 }),
+      frameRate: 12,
+      repeat: 0,
+    });
+    this.anims.create({
+      key: 'archer_aim',
+      frames: this.anims.generateFrameNumbers('archer_sheet', { start: 24, end: 27 }),
+      frameRate: 14,
+      repeat: 0,
+    });
+    this.anims.create({
+      key: 'archer_roll',
+      frames: this.anims.generateFrameNumbers('archer_sheet', { start: 16, end: 21 }),
+      frameRate: 14,
+      repeat: 0,
+    });
+    this.anims.create({
+      key: 'archer_shoot',
+      frames: this.anims.generateFrameNumbers('archer_sheet', { start: 32, end: 39 }),
+      frameRate: 18,
+      repeat: 0,
+    });
+    this.anims.create({
+      key: 'archer_idle',
+      frames: this.anims.generateFrameNumbers('archer_sheet', { start: 40, end: 43 }),
+      frameRate: 6,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: 'archer_hurt',
+      frames: this.anims.generateFrameNumbers('archer_sheet', { start: 48, end: 51 }),
+      frameRate: 14,
       repeat: 0,
     });
     this.anims.create({
@@ -4634,6 +4751,7 @@ export default class GameScene extends Phaser.Scene {
       caster,
       netId,
       isSkeletonPet: true,
+      petType: 'skeleton',
       x: cx,
       y: platformY,
       platformLeft: platform.x + 16,
@@ -4658,6 +4776,364 @@ export default class GameScene extends Phaser.Scene {
     this.skeletons = this.skeletons || [];
     this.skeletons.push(fox);
     return fox;
+  }
+
+  fireOmar(caster, spawnX, spawnY, externalNetId) {
+    let platform = null;
+    for (const r of PLATFORM_RECTS) {
+      if (spawnX < r.x || spawnX > r.x + r.w) continue;
+      if (Math.abs(r.y - spawnY) > 4) continue;
+      platform = r;
+      break;
+    }
+    if (!platform) return null;
+    const cx = spawnX;
+    const platformY = platform.y;
+    this.spawnSkeletonAppearVfx(cx, platformY);
+    this.playSfx('sfx_skeleton_spawn', 1.6);
+    const sprite = this.add.sprite(cx, platformY, 'omar_sheet', 0)
+      .setScale(OMAR_SCALE * 0.4)
+      .setAlpha(0)
+      .setOrigin(0.5, 0.78)
+      .setDepth(DEFAULT_SPRITE_DEPTH - 0.2);
+    sprite.play('omar_idle');
+    this.tweens.add({ targets: sprite, scaleX: OMAR_SCALE, scaleY: OMAR_SCALE, alpha: 1, duration: 320, ease: 'Back.easeOut' });
+    const barOffsetY = 100;
+    const hpBarBg = this.add.rectangle(cx, platformY - barOffsetY, SKELETON_HP_BAR_WIDTH, SKELETON_HP_BAR_HEIGHT, 0x000000, 0.7)
+      .setStrokeStyle(1, 0x0f172a).setDepth(DEFAULT_SPRITE_DEPTH + 0.5);
+    const hpBarFill = this.add.rectangle(
+      cx - (SKELETON_HP_BAR_WIDTH - 2) / 2, platformY - barOffsetY,
+      SKELETON_HP_BAR_WIDTH - 2, SKELETON_HP_BAR_HEIGHT - 2, caster.char.tintColor
+    ).setOrigin(0, 0.5).setDepth(DEFAULT_SPRITE_DEPTH + 0.6);
+    let netId = externalNetId;
+    if (!netId) {
+      caster.skeletonSpawnCounter = (caster.skeletonSpawnCounter || 0) + 1;
+      netId = `${caster.ownerIndex}-${caster.skeletonSpawnCounter}`;
+    }
+    const fox = {
+      sprite, caster, netId,
+      isSkeletonPet: true,
+      petType: 'omar',
+      hpBarOffsetY: barOffsetY,
+      x: cx, y: platformY,
+      platformLeft: platform.x + 16,
+      platformRight: platform.x + platform.w - 16,
+      state: 'patrol',
+      currentAnim: 'omar_idle',
+      target: null,
+      hp: OMAR_MAX_HP,
+      maxHp: OMAR_MAX_HP,
+      nextBiteAt: 0,
+      attackHitAt: 0,
+      attackDoneAt: 0,
+      attackDamageDealt: false,
+      hurtDoneAt: 0,
+      facing: caster.sprite.flipX ? -1 : 1,
+      hpBarBg, hpBarFill,
+    };
+    caster.skeletons = caster.skeletons || [];
+    caster.skeletons.push(fox);
+    this.skeletons = this.skeletons || [];
+    this.skeletons.push(fox);
+    return fox;
+  }
+
+  fireArcher(caster, spawnX, spawnY, externalNetId) {
+    let platform = null;
+    for (const r of PLATFORM_RECTS) {
+      if (spawnX < r.x || spawnX > r.x + r.w) continue;
+      if (Math.abs(r.y - spawnY) > 4) continue;
+      platform = r;
+      break;
+    }
+    if (!platform) return null;
+    const cx = spawnX;
+    const platformY = platform.y;
+    this.spawnSkeletonAppearVfx(cx, platformY);
+    this.playSfx('sfx_skeleton_spawn', 1.6);
+    const sprite = this.add.sprite(cx, platformY, 'archer_sheet', 0)
+      .setScale(ARCHER_SCALE * 0.4)
+      .setAlpha(0)
+      .setOrigin(0.5, 0.7)
+      .setDepth(DEFAULT_SPRITE_DEPTH - 0.2);
+    sprite.play('archer_idle');
+    this.tweens.add({ targets: sprite, scaleX: ARCHER_SCALE, scaleY: ARCHER_SCALE, alpha: 1, duration: 320, ease: 'Back.easeOut' });
+    const barOffsetY = 100;
+    const hpBarBg = this.add.rectangle(cx, platformY - barOffsetY, SKELETON_HP_BAR_WIDTH, SKELETON_HP_BAR_HEIGHT, 0x000000, 0.7)
+      .setStrokeStyle(1, 0x0f172a).setDepth(DEFAULT_SPRITE_DEPTH + 0.5);
+    const hpBarFill = this.add.rectangle(
+      cx - (SKELETON_HP_BAR_WIDTH - 2) / 2, platformY - barOffsetY,
+      SKELETON_HP_BAR_WIDTH - 2, SKELETON_HP_BAR_HEIGHT - 2, caster.char.tintColor
+    ).setOrigin(0, 0.5).setDepth(DEFAULT_SPRITE_DEPTH + 0.6);
+    let netId = externalNetId;
+    if (!netId) {
+      caster.skeletonSpawnCounter = (caster.skeletonSpawnCounter || 0) + 1;
+      netId = `${caster.ownerIndex}-${caster.skeletonSpawnCounter}`;
+    }
+    const fox = {
+      sprite, caster, netId,
+      isSkeletonPet: true,
+      petType: 'archer',
+      hpBarOffsetY: barOffsetY,
+      x: cx, y: platformY,
+      platformLeft: platform.x + 16,
+      platformRight: platform.x + platform.w - 16,
+      state: 'patrol',
+      currentAnim: 'archer_idle',
+      target: null,
+      hp: ARCHER_MAX_HP,
+      maxHp: ARCHER_MAX_HP,
+      nextBiteAt: 0,
+      attackHitAt: 0,
+      attackDoneAt: 0,
+      attackDamageDealt: false,
+      hurtDoneAt: 0,
+      facing: caster.sprite.flipX ? -1 : 1,
+      hpBarBg, hpBarFill,
+    };
+    caster.skeletons = caster.skeletons || [];
+    caster.skeletons.push(fox);
+    this.skeletons = this.skeletons || [];
+    this.skeletons.push(fox);
+    return fox;
+  }
+
+  fireSkeletonTrio(caster, sentPlatformOrder = null, sentNetIds = null, sentTypes = null) {
+    // L2 trio always spawns on the 3 main platforms (indices 3, 4, 5):
+    //   3 = middle-right (y=481), 4 = bottom-left (y=721), 5 = bottom-right (y=925)
+    // Random which entity (skeleton/omar/archer) lands on which platform.
+    let order;
+    if (sentPlatformOrder) {
+      order = sentPlatformOrder;
+    } else {
+      order = [3, 4, 5];
+      Phaser.Utils.Array.Shuffle(order);
+    }
+    let types;
+    if (sentTypes) {
+      types = sentTypes;
+    } else {
+      types = ['skeleton', 'omar', 'archer'];
+      Phaser.Utils.Array.Shuffle(types);
+    }
+    const netIds = sentNetIds || [];
+    if (!sentNetIds) {
+      for (let i = 0; i < 3; i++) {
+        caster.skeletonSpawnCounter = (caster.skeletonSpawnCounter || 0) + 1;
+        netIds.push(`${caster.ownerIndex}-${caster.skeletonSpawnCounter}`);
+      }
+    }
+    for (let i = 0; i < 3; i++) {
+      const platIdx = order[i];
+      if (platIdx === undefined || !PLATFORM_RECTS[platIdx]) continue;
+      const r = PLATFORM_RECTS[platIdx];
+      const targetX = r.x + r.w / 2;
+      const targetY = r.y;
+      const type = types[i];
+      const netId = netIds[i];
+      this.time.delayedCall(i * 200, () => {
+        if (!caster || caster.isDead) return;
+        this.dropTrioBall(caster, type, targetX, targetY, netId);
+      });
+    }
+    return { order, netIds, types };
+  }
+
+  dropTrioBall(caster, type, targetX, targetY, netId) {
+    // L2 spawn: materialize from the ground with a green VFX (no falling ball — the
+    // straight-down drop hits whatever platform is highest at the column, not the
+    // intended platform). Spawn directly at the target platform.
+    this.spawnGreenMaterializeVfx(targetX, targetY);
+    if (type === 'skeleton') this.fireSkeleton(caster, targetX, targetY, netId);
+    else if (type === 'omar') this.fireOmar(caster, targetX, targetY, netId);
+    else if (type === 'archer') this.fireArcher(caster, targetX, targetY, netId);
+  }
+
+  spawnGreenMaterializeVfx(x, y) {
+    // Bright green flash + ground ring + rising particles
+    const flash = this.add.circle(x, y - 50, 28, 0x4ade80, 0.85)
+      .setDepth(DEFAULT_SPRITE_DEPTH + 0.4)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.tweens.add({
+      targets: flash,
+      scale: 4.5,
+      alpha: 0,
+      duration: 640,
+      ease: 'Cubic.easeOut',
+      onComplete: () => flash.destroy(),
+    });
+    // Expanding ground ring
+    const ring = this.add.ellipse(x, y, 50, 18, 0x16a34a, 0)
+      .setStrokeStyle(3, 0x4ade80, 1)
+      .setDepth(DEFAULT_SPRITE_DEPTH + 0.3)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.tweens.add({
+      targets: ring,
+      scaleX: 4.5,
+      scaleY: 4.5,
+      alpha: 0,
+      duration: 700,
+      ease: 'Quad.easeOut',
+      onComplete: () => ring.destroy(),
+    });
+    // Rising particles
+    for (let i = 0; i < 14; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 6 + Math.random() * 24;
+      const px = x + Math.cos(angle) * dist;
+      const py = y + Math.sin(angle) * 6;
+      const puff = this.add.circle(px, py, 3 + Math.random() * 4, 0x86efac, 0.95)
+        .setDepth(DEFAULT_SPRITE_DEPTH + 0.35)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      this.tweens.add({
+        targets: puff,
+        y: py - 80 - Math.random() * 60,
+        x: px + (Math.random() - 0.5) * 30,
+        scale: 0.1,
+        alpha: 0,
+        duration: 520 + Math.random() * 200,
+        ease: 'Cubic.easeOut',
+        onComplete: () => puff.destroy(),
+      });
+    }
+    this.playSfx('sfx_skeleton_spawn', 1.4);
+  }
+
+  spawnArcherArrow(fox, targetX, targetY) {
+    fox.arrowCount = (fox.arrowCount || 0) + 1;
+    const isPiercing = fox.arrowCount % 3 === 0;
+    const startX = fox.x;
+    const startY = fox.y - 60;
+    const dx = targetX - startX;
+    const dy = targetY - startY;
+    const dist = Math.max(Math.hypot(dx, dy), 1);
+    const vx = (dx / dist) * ARCHER_ARROW_SPEED;
+    const vy = (dy / dist) * ARCHER_ARROW_SPEED;
+    const angle = Math.atan2(dy, dx);
+    const arrow = this.physics.add.image(startX, startY, 'archer_arrow');
+    arrow.setDepth(ATTACKER_DEPTH);
+    if (isPiercing) {
+      arrow.setScale(4.5);
+      arrow.setTint(0xc084fc);
+      arrow.body.setSize(40, 5);
+      arrow.body.setOffset(0, 0);
+    } else {
+      arrow.setScale(2);
+    }
+    arrow.body.setAllowGravity(false);
+    arrow.body.setVelocity(vx, vy);
+    arrow.setRotation(angle);
+    arrow.ownerCaster = fox.caster;
+    arrow.ownerFox = fox;
+    arrow.spawnedAt = this.time.now;
+    arrow.hasHit = false;
+    arrow.isPiercing = isPiercing;
+    arrow.pierceHitSet = isPiercing ? new Set() : null;
+    if (isPiercing) {
+      // Purple glow halo behind the arrow
+      const glow = this.add.image(startX, startY, 'glow_purple_light')
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setScale(0.7)
+        .setAlpha(0.85)
+        .setDepth(ATTACKER_DEPTH - 0.1);
+      arrow.glow = glow;
+      arrow.glowPulse = this.tweens.add({
+        targets: glow,
+        scale: 0.95,
+        alpha: 0.55,
+        duration: 180,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
+    this.archerArrows = this.archerArrows || [];
+    this.archerArrows.push(arrow);
+  }
+
+  updateArcherArrows(time) {
+    if (!this.archerArrows || this.archerArrows.length === 0) return;
+    for (let i = this.archerArrows.length - 1; i >= 0; i--) {
+      const a = this.archerArrows[i];
+      if (!a.active) { this.archerArrows.splice(i, 1); continue; }
+      const offMap = a.x < -60 || a.x > MAP_WIDTH + 60 || a.y < -60 || a.y > MAP_HEIGHT + 60;
+      const expired = time - a.spawnedAt > ARCHER_ARROW_LIFETIME_MS;
+      if (offMap || expired) {
+        if (a.glowPulse) a.glowPulse.stop();
+        if (a.glow) a.glow.destroy();
+        a.destroy();
+        this.archerArrows.splice(i, 1);
+        continue;
+      }
+      // Glow follows piercing arrows
+      if (a.glow) a.glow.setPosition(a.x, a.y);
+      // Trail (more intense for piercing)
+      const trailInterval = a.isPiercing ? 18 : 25;
+      if (time - (a.lastTrailAt || 0) > trailInterval) {
+        a.lastTrailAt = time;
+        const ghost = this.add.image(a.x, a.y, 'archer_arrow')
+          .setRotation(a.rotation)
+          .setScale(a.scaleX, a.scaleY)
+          .setTintFill(a.isPiercing ? 0xc084fc : 0xffffff)
+          .setAlpha(a.isPiercing ? 0.75 : 0.55)
+          .setDepth(a.depth - 0.1)
+          .setBlendMode(Phaser.BlendModes.ADD);
+        this.tweens.add({
+          targets: ghost,
+          alpha: 0,
+          scaleX: ghost.scaleX * (a.isPiercing ? 0.4 : 0.5),
+          scaleY: ghost.scaleY * (a.isPiercing ? 0.4 : 0.5),
+          duration: a.isPiercing ? 360 : 220,
+          ease: 'Quad.easeOut',
+          onComplete: () => ghost.destroy(),
+        });
+      }
+      if (!a.isPiercing && a.hasHit) continue;
+      if (!this.isAuthoritativeOwner(a.ownerCaster)) continue;
+      const ab = a.body;
+      const aLeft = ab.x;
+      const aRight = ab.x + ab.width;
+      const aTop = ab.y;
+      const aBottom = ab.y + ab.height;
+      for (const target of this.fighters) {
+        if (target === a.ownerCaster) continue;
+        if (target.isDead || target.isInvulnerable) continue;
+        if (a.isPiercing && a.pierceHitSet.has(target)) continue;
+        const tb = target.sprite.body;
+        const hit =
+          aRight > tb.x && aLeft < tb.x + tb.width &&
+          aBottom > tb.y && aTop < tb.y + tb.height;
+        if (hit) {
+          if (a.isPiercing) {
+            a.pierceHitSet.add(target);
+            this.dealHit(target, {
+              damage: 50,
+              ignoreShield: false,
+              playHitSfx: true,
+              powerFlashColor: 0xc084fc,
+              attackerIndex: a.ownerCaster.ownerIndex,
+              useDeath2: true,
+            });
+            // continues flying, don't break
+          } else {
+            a.hasHit = true;
+            this.dealHit(target, {
+              damage: ARCHER_ARROW_DAMAGE,
+              ignoreShield: false,
+              playHitSfx: true,
+              powerFlashColor: POWERS.skeleton_attack.orbColor,
+              attackerIndex: a.ownerCaster.ownerIndex,
+              useDeath2: true,
+            });
+            if (a.glowPulse) a.glowPulse.stop();
+            if (a.glow) a.glow.destroy();
+            a.destroy();
+            this.archerArrows.splice(i, 1);
+            break;
+          }
+        }
+      }
+    }
   }
 
   skeletonPlayAnim(fox, key) {
@@ -4690,7 +5166,11 @@ export default class GameScene extends Phaser.Scene {
     if (fox.poisonTimer) { fox.poisonTimer.remove(false); fox.poisonTimer = null; }
     fox.sprite.anims.stop();
     fox.sprite.clearTint();
-    fox.sprite.play('skeleton_die', true);
+    const dieAnim =
+      fox.petType === 'omar' ? 'omar_die'
+      : fox.petType === 'archer' ? 'archer_die'
+      : 'skeleton_die';
+    fox.sprite.play(dieAnim, true);
     fox.currentAnim = 'skeleton_die';
     this.playSfx('sfx_skeleton_death', 0.9);
     if (fox.cursePulseTween) { fox.cursePulseTween.stop(); fox.cursePulseTween = null; }
@@ -4703,7 +5183,7 @@ export default class GameScene extends Phaser.Scene {
     }
     if (fox.hpBarBg) fox.hpBarBg.setVisible(false);
     if (fox.hpBarFill) fox.hpBarFill.setVisible(false);
-    fox.sprite.once('animationcomplete-skeleton_die', () => {
+    fox.sprite.once(`animationcomplete-${dieAnim}`, () => {
       this.despawnSkeletonInstance(fox);
     });
   }
@@ -4718,6 +5198,28 @@ export default class GameScene extends Phaser.Scene {
       const numColor = (opts && opts.numberColor) || '#fde047';
       this.spawnDamageNumber(fox.x, fox.y - 110, dealt, numColor);
       if (!opts || !opts.silent) this.playSfx('sfx_skeleton_hit', 0.8);
+      // Red hit-flash for omar and archer (visual feedback on damage)
+      if (fox.petType === 'omar' || fox.petType === 'archer') {
+        const flash = this.add.sprite(
+          fox.sprite.x,
+          fox.sprite.y,
+          fox.sprite.texture.key,
+          fox.sprite.frame.name,
+        )
+          .setScale(fox.sprite.scaleX, fox.sprite.scaleY)
+          .setOrigin(fox.sprite.originX, fox.sprite.originY)
+          .setFlipX(fox.sprite.flipX)
+          .setTintFill(0xff3030)
+          .setAlpha(0.85)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setDepth(fox.sprite.depth + 0.05);
+        this.tweens.add({
+          targets: flash,
+          alpha: 0,
+          duration: 200,
+          onComplete: () => flash.destroy(),
+        });
+      }
     }
     if (fox.isFrozen && (!opts || !opts.ignoreFreezeBreak)) {
       this.removeFreezeSkeleton(fox);
@@ -4729,9 +5231,13 @@ export default class GameScene extends Phaser.Scene {
     if (opts && opts.skipHurtAnim) return;
     fox.state = 'hurt';
     fox.target = null;
+    const hurtAnim =
+      fox.petType === 'omar' ? 'omar_hurt'
+      : fox.petType === 'archer' ? 'archer_hurt'
+      : 'skeleton_hurt';
     fox.hurtDoneAt = this.time.now + Math.round((SKELETON_HURT_FRAMES / SKELETON_HURT_FPS) * 1000);
-    fox.sprite.play('skeleton_hurt', true);
-    fox.currentAnim = 'skeleton_hurt';
+    fox.sprite.play(hurtAnim, true);
+    fox.currentAnim = hurtAnim;
   }
 
   applyWheelToSkeleton(wheel, fox) {
@@ -4889,6 +5395,21 @@ export default class GameScene extends Phaser.Scene {
         }
       }
 
+      if (fox.state === 'rolling') {
+        const dt2 = Math.min(delta, 50) / 1000;
+        const nextX = fox.x + fox.facing * ARCHER_ROLL_SPEED * dt2;
+        fox.x = Phaser.Math.Clamp(nextX, fox.platformLeft, fox.platformRight);
+        if (time >= fox.attackDoneAt) {
+          fox.state = 'patrol';
+          fox.nextRollAt = time + ARCHER_ROLL_COOLDOWN_MS;
+        } else {
+          fox.sprite.setPosition(fox.x, fox.y + (fox.knockupOffset || 0));
+          fox.sprite.setFlipX(fox.facing < 0);
+          this.positionSkeletonHpBar(fox);
+          continue;
+        }
+      }
+
       if (fox.state === 'attacking') {
         const tgt = fox.target;
         const tgtValid = tgt && !tgt.isSkeletonPet
@@ -4898,20 +5419,30 @@ export default class GameScene extends Phaser.Scene {
           const tx = tgt.isSkeletonPet
             ? tgt.x
             : tgt.sprite.body.x + tgt.sprite.body.width / 2;
-          if (Math.abs(tx - fox.x) <= SKELETON_BITE_REACH + 24) {
-            if (tgt.isSkeletonPet) {
-              this.damageSkeleton(tgt, SKELETON_BITE_DAMAGE);
-            } else {
-              if (this.isAuthoritativeOwner(caster)) {
-                this.dealHit(tgt, {
-                  damage: SKELETON_BITE_DAMAGE,
-                  ignoreShield: false,
-                  powerFlashColor: POWERS.skeleton_attack.orbColor,
-                  attackerIndex: caster.ownerIndex,
-                  useDeath2: true,
-                });
+          if (fox.petType === 'archer') {
+            // Spawn an arrow toward the target
+            if (this.isAuthoritativeOwner(caster)) {
+              const ty = tgt.isSkeletonPet ? tgt.y - 30 : tgt.sprite.body.y + tgt.sprite.body.height / 2;
+              this.spawnArcherArrow(fox, tx, ty);
+            }
+          } else {
+            const reach = fox.petType === 'omar' ? OMAR_HIT_REACH : SKELETON_BITE_REACH;
+            const dmg = fox.petType === 'omar' ? OMAR_HIT_DAMAGE : SKELETON_BITE_DAMAGE;
+            if (Math.abs(tx - fox.x) <= reach + 24) {
+              if (tgt.isSkeletonPet) {
+                this.damageSkeleton(tgt, dmg);
               } else {
-                this.triggerHitFlash(tgt);
+                if (this.isAuthoritativeOwner(caster)) {
+                  this.dealHit(tgt, {
+                    damage: dmg,
+                    ignoreShield: false,
+                    powerFlashColor: POWERS.skeleton_attack.orbColor,
+                    attackerIndex: caster.ownerIndex,
+                    useDeath2: true,
+                  });
+                } else {
+                  this.triggerHitFlash(tgt);
+                }
               }
             }
           }
@@ -4920,7 +5451,10 @@ export default class GameScene extends Phaser.Scene {
         if (time >= fox.attackDoneAt) {
           fox.state = 'patrol';
           fox.target = null;
-          fox.nextBiteAt = time + SKELETON_BITE_COOLDOWN_MS;
+          const cd = fox.petType === 'archer' ? ARCHER_SHOOT_COOLDOWN_MS
+            : fox.petType === 'omar' ? OMAR_HIT_COOLDOWN_MS
+            : SKELETON_BITE_COOLDOWN_MS;
+          fox.nextBiteAt = time + cd;
         } else {
           fox.sprite.setPosition(fox.x, fox.y + (fox.knockupOffset || 0));
           fox.sprite.setFlipX(fox.facing < 0);
@@ -4929,17 +5463,24 @@ export default class GameScene extends Phaser.Scene {
         }
       }
 
+      const detectRadius = fox.petType === 'archer' ? ARCHER_DETECT_RADIUS
+        : fox.petType === 'omar' ? OMAR_DETECT_RADIUS
+        : SKELETON_DETECT_RADIUS;
       let target = null;
       if (time >= fox.nextBiteAt) {
         let best = null;
-        let bestDist = SKELETON_DETECT_RADIUS;
+        let bestDist = detectRadius;
         for (const f of this.fighters) {
           if (f === caster || f.isDead || f.isInvulnerable) continue;
           const tb = f.sprite.body;
           const tx = tb.x + tb.width / 2;
           const ty = tb.y + tb.height / 2;
-          if (Math.abs(ty - fox.y) > SKELETON_PLATFORM_Y_TOLERANCE) continue;
-          if (tx < fox.platformLeft - 40 || tx > fox.platformRight + 40) continue;
+          // Archers can target across the full vertical range of the map
+          const yTol = fox.petType === 'archer' ? MAP_HEIGHT : SKELETON_PLATFORM_Y_TOLERANCE;
+          if (Math.abs(ty - fox.y) > yTol) continue;
+          if (fox.petType !== 'archer') {
+            if (tx < fox.platformLeft - 40 || tx > fox.platformRight + 40) continue;
+          }
           const dx = Math.abs(tx - fox.x);
           if (dx < bestDist) { bestDist = dx; best = f; }
         }
@@ -4948,7 +5489,9 @@ export default class GameScene extends Phaser.Scene {
             if (other === fox || other.state === 'dying') continue;
             if (other.caster === caster) continue;
             if (Math.abs(other.y - fox.y) > SKELETON_PLATFORM_Y_TOLERANCE) continue;
-            if (other.x < fox.platformLeft - 40 || other.x > fox.platformRight + 40) continue;
+            if (fox.petType !== 'archer') {
+              if (other.x < fox.platformLeft - 40 || other.x > fox.platformRight + 40) continue;
+            }
             const dx = Math.abs(other.x - fox.x);
             if (dx < bestDist) { bestDist = dx; best = other; }
           }
@@ -4962,29 +5505,101 @@ export default class GameScene extends Phaser.Scene {
           : target.sprite.body.x + target.sprite.body.width / 2;
         const dx = tx - fox.x;
         fox.facing = dx >= 0 ? 1 : -1;
-        if (Math.abs(dx) <= SKELETON_BITE_REACH) {
-          fox.attackVariant = 1 - (fox.attackVariant || 0);
-          const animKey = fox.attackVariant === 0 ? 'skeleton_attack1' : 'skeleton_attack2';
-          const frames = fox.attackVariant === 0 ? SKELETON_ATTACK1_FRAMES : SKELETON_ATTACK2_FRAMES;
-          fox.state = 'attacking';
-          fox.target = target;
-          fox.attackHitAt = time + SKELETON_BITE_WINDUP_MS;
-          fox.attackDoneAt = time + Math.round((frames / SKELETON_ATTACK_FPS) * 1000);
-          fox.attackDamageDealt = false;
-          fox.sprite.play(animKey, true);
-          fox.currentAnim = animKey;
-          this.playSfx('sfx_skeleton_attack', 0.7);
+        if (fox.petType === 'archer') {
+          const absDx = Math.abs(dx);
+          // Occasionally roll toward the target (cooldowned, only when there's room)
+          if (
+            time >= (fox.nextRollAt || 0) &&
+            absDx > ARCHER_RETREAT_RANGE * 1.5 &&
+            absDx < ARCHER_DETECT_RADIUS &&
+            Math.random() < 0.45
+          ) {
+            fox.state = 'rolling';
+            fox.attackDoneAt = time + ARCHER_ROLL_DURATION_MS;
+            fox.sprite.play('archer_roll', true);
+            fox.currentAnim = 'archer_roll';
+            this.positionSkeletonHpBar(fox);
+            continue;
+          }
+          if (absDx >= ARCHER_RETREAT_RANGE && absDx <= ARCHER_PREFERRED_RANGE * 1.4) {
+            // In sweet spot: shoot
+            fox.state = 'attacking';
+            fox.target = target;
+            fox.attackHitAt = time + ARCHER_SHOOT_WINDUP_MS;
+            fox.attackDoneAt = time + 600;
+            fox.attackDamageDealt = false;
+            fox.sprite.play('archer_aim', true);
+            fox.currentAnim = 'archer_aim';
+            this.playSfx('sfx_skeleton_attack', 0.5);
+          } else if (absDx < ARCHER_RETREAT_RANGE) {
+            // Too close: roll away if cooldown ready, else just retreat walking
+            if (time >= (fox.nextRollAt || 0)) {
+              fox.facing = -fox.facing; // flip so the roll moves away from target
+              fox.state = 'rolling';
+              fox.attackDoneAt = time + ARCHER_ROLL_DURATION_MS;
+              fox.nextBiteAt = Math.min(fox.nextBiteAt, time + ARCHER_ROLL_DURATION_MS); // ready to shoot after roll
+              fox.sprite.play('archer_roll', true);
+              fox.currentAnim = 'archer_roll';
+              this.positionSkeletonHpBar(fox);
+              continue;
+            }
+            const dir = -fox.facing;
+            const nextX = fox.x + dir * ARCHER_KITE_SPEED * dt;
+            fox.x = Phaser.Math.Clamp(nextX, fox.platformLeft, fox.platformRight);
+            this.skeletonPlayAnim(fox, 'archer_run');
+          } else {
+            // Too far: walk closer
+            const nextX = fox.x + fox.facing * ARCHER_PATROL_SPEED * dt;
+            fox.x = Phaser.Math.Clamp(nextX, fox.platformLeft, fox.platformRight);
+            this.skeletonPlayAnim(fox, 'archer_run');
+          }
+        } else if (fox.petType === 'omar') {
+          if (Math.abs(dx) <= OMAR_HIT_REACH) {
+            fox.state = 'attacking';
+            fox.target = target;
+            fox.attackHitAt = time + OMAR_HIT_WINDUP_MS;
+            fox.attackDoneAt = time + 720;
+            fox.attackDamageDealt = false;
+            fox.sprite.play('omar_attack', true);
+            fox.currentAnim = 'omar_attack';
+            this.playSfx('sfx_skeleton_attack', 0.7);
+          } else {
+            const nextX = fox.x + fox.facing * OMAR_CHASE_SPEED * dt;
+            fox.x = Phaser.Math.Clamp(nextX, fox.platformLeft, fox.platformRight);
+            this.skeletonPlayAnim(fox, 'omar_walk');
+          }
         } else {
-          const nextX = fox.x + fox.facing * SKELETON_PATROL_SPEED * dt;
-          fox.x = Phaser.Math.Clamp(nextX, fox.platformLeft, fox.platformRight);
-          this.skeletonPlayAnim(fox, 'skeleton_walk');
+          if (Math.abs(dx) <= SKELETON_BITE_REACH) {
+            fox.attackVariant = 1 - (fox.attackVariant || 0);
+            const animKey = fox.attackVariant === 0 ? 'skeleton_attack1' : 'skeleton_attack2';
+            const frames = fox.attackVariant === 0 ? SKELETON_ATTACK1_FRAMES : SKELETON_ATTACK2_FRAMES;
+            fox.state = 'attacking';
+            fox.target = target;
+            fox.attackHitAt = time + SKELETON_BITE_WINDUP_MS;
+            fox.attackDoneAt = time + Math.round((frames / SKELETON_ATTACK_FPS) * 1000);
+            fox.attackDamageDealt = false;
+            fox.sprite.play(animKey, true);
+            fox.currentAnim = animKey;
+            this.playSfx('sfx_skeleton_attack', 0.7);
+          } else {
+            const nextX = fox.x + fox.facing * SKELETON_PATROL_SPEED * dt;
+            fox.x = Phaser.Math.Clamp(nextX, fox.platformLeft, fox.platformRight);
+            this.skeletonPlayAnim(fox, 'skeleton_walk');
+          }
         }
       } else {
-        const nextX = fox.x + fox.facing * SKELETON_PATROL_SPEED * dt;
-        if (nextX <= fox.platformLeft) { fox.x = fox.platformLeft; fox.facing = 1; }
-        else if (nextX >= fox.platformRight) { fox.x = fox.platformRight; fox.facing = -1; }
-        else fox.x = nextX;
-        this.skeletonPlayAnim(fox, 'skeleton_walk');
+        if (fox.petType === 'archer') {
+          // Archer just stands and waits when no target in range
+          this.skeletonPlayAnim(fox, 'archer_idle');
+        } else {
+          const speed = fox.petType === 'omar' ? OMAR_PATROL_SPEED : SKELETON_PATROL_SPEED;
+          const walkAnim = fox.petType === 'omar' ? 'omar_walk' : 'skeleton_walk';
+          const nextX = fox.x + fox.facing * speed * dt;
+          if (nextX <= fox.platformLeft) { fox.x = fox.platformLeft; fox.facing = 1; }
+          else if (nextX >= fox.platformRight) { fox.x = fox.platformRight; fox.facing = -1; }
+          else fox.x = nextX;
+          this.skeletonPlayAnim(fox, walkAnim);
+        }
       }
 
       fox.sprite.setPosition(fox.x, fox.y + (fox.knockupOffset || 0));
@@ -5629,9 +6244,22 @@ export default class GameScene extends Phaser.Scene {
         });
       }
     } else if (power === 'skeleton_attack') {
+      const level = fighter.upgradedPowers.has('skeleton_attack') ? 2 : 1;
       fighter.specialPowers.shift();
-      this.throwSkeletonBall(fighter, pointer.worldX, pointer.worldY);
-      this.sendPowerCast('skeleton_attack', { worldX: pointer.worldX, worldY: pointer.worldY });
+      if (level >= 2) fighter.upgradedPowers.delete('skeleton_attack');
+      if (level >= 2) {
+        const trio = this.fireSkeletonTrio(fighter);
+        this.sendPowerCast('skeleton_attack', {
+          worldX: pointer.worldX, worldY: pointer.worldY,
+          level: 2,
+          trioOrder: trio.order,
+          trioNetIds: trio.netIds,
+          trioTypes: trio.types,
+        });
+      } else {
+        this.throwSkeletonBall(fighter, pointer.worldX, pointer.worldY);
+        this.sendPowerCast('skeleton_attack', { worldX: pointer.worldX, worldY: pointer.worldY });
+      }
     } else if (power === 'land_mine') {
       this.throwLandMine(fighter, pointer.worldX, pointer.worldY);
       fighter.landMineCharges = Math.max(0, (fighter.landMineCharges ?? 1) - 1);
@@ -6539,7 +7167,11 @@ export default class GameScene extends Phaser.Scene {
       } else if (data.power === 'fire_storm') {
         this.fireFireStorm(caster, data.level || 1);
       } else if (data.power === 'skeleton_attack') {
-        this.throwSkeletonBall(caster, data.worldX, data.worldY);
+        if ((data.level || 1) >= 2) {
+          this.fireSkeletonTrio(caster, data.trioOrder, data.trioNetIds, data.trioTypes);
+        } else {
+          this.throwSkeletonBall(caster, data.worldX, data.worldY);
+        }
       } else if (data.power === 'land_mine') {
         this.throwLandMine(caster, data.worldX, data.worldY);
       }
@@ -7082,8 +7714,11 @@ export default class GameScene extends Phaser.Scene {
       if (level >= 2) this.castSnowstorm(fighter);
       else this.fireIceBeam(fighter, tx, ty);
     } else if (power === 'skeleton_attack') {
+      const level = fighter.upgradedPowers?.has('skeleton_attack') ? 2 : 1;
       fighter.specialPowers.shift();
-      this.throwSkeletonBall(fighter, tx, ty);
+      if (level >= 2) fighter.upgradedPowers.delete('skeleton_attack');
+      if (level >= 2) this.fireSkeletonTrio(fighter);
+      else this.throwSkeletonBall(fighter, tx, ty);
     }
   }
 
@@ -7238,6 +7873,7 @@ export default class GameScene extends Phaser.Scene {
     this.updateFrozenStates(time);
     this.updateIceAmbientStop();
     this.updateSkeletons(time, delta);
+    this.updateArcherArrows(time);
 
     if (!fighter.isDead && fighter.isEye && !fighter.isFrozen) {
       const inDash = time < fighter.eyeDashUntil;
@@ -7804,7 +8440,12 @@ export default class GameScene extends Phaser.Scene {
         if (!p.hasHit && this.isCrowHitByRect(pLeft, pRight, pTop, pBottom)) {
           this.killCrow();
         }
-        if (!p.hasHit && this.poisonSkeletonsInRect(p.ownerFighter, pLeft, pRight, pTop, pBottom)) {
+        // L2 rain skulls (falling chuva) should pass through skeletons — they apply poison
+        // but keep falling. Otherwise the rain gets gutted by any pet pet on a platform and
+        // subsequent waves visually "vanish" mid-air.
+        const passThrough = (p.curseLevel || 1) >= 2;
+        const hitSkeleton = this.poisonSkeletonsInRect(p.ownerFighter, pLeft, pRight, pTop, pBottom);
+        if (!p.hasHit && hitSkeleton && !passThrough) {
           p.hasHit = true;
           p.body.setVelocityX(0);
           p.play('skull_curse_hit');
