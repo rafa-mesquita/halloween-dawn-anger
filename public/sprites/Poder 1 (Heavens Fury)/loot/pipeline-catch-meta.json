@@ -1,0 +1,251 @@
+{
+  "target": "asset",
+  "mode": "catch",
+  "prompt": "Pixel art animation sprite sheet with exactly 7 equal cells in a 1x7 horizontal strip, no borders or dividers. Subject: the catch/pickup burst of a lightning-themed sword loot drop. Animation sequence over 7 frames: frame 1 a faint white-yellow glow forms, frame 2 a vertical lightning-bolt energy column rises explosively from a small cracked-stone base, frame 3 the column thickens with electric arcs spreading sideways, frame 4 PEAK — a massive jagged lightning bolt fills most of the cell, blinding white core with yellow-blue electric edges, sparks flying everywhere, frame 5 the bolt starts fading into wispy electric trails, frame 6 only soft afterglow remains with a few drifting sparks, frame 7 nearly dim with last fading sparkles. The bolt is centered vertically in each cell. Halloween dark fantasy palette: electric yellow + white core, blue-white edges, purple electric shadows, dark backdrop. Readable game sprite detail, clean pixel art, no painterly blur. Each frame must fit fully inside its cell with clear solid magenta margin on all four sides; no spark, bolt, glow, or trail pixel crosses a cell edge. Background must be 100% solid flat #FF00FF magenta in every cell, no gradients, no transparency, no text, no labels, no UI.",
+  "role": "",
+  "input": "public\\sprites\\Poder 1 (Heavens Fury)\\loot\\raw-catch-sheet.png",
+  "threshold": 100,
+  "edge_threshold": 150,
+  "duration": 110,
+  "rows": 1,
+  "cols": 7,
+  "cell_size": 128,
+  "fit_scale": 0.82,
+  "trim_border": 4,
+  "edge_clean_depth": 3,
+  "align": "bottom",
+  "shared_scale": true,
+  "component_mode": "all",
+  "component_padding": 0,
+  "min_component_area": 1,
+  "edge_touch_margin": 2,
+  "frame_labels": [
+    "catch-1",
+    "catch-2",
+    "catch-3",
+    "catch-4",
+    "catch-5",
+    "catch-6",
+    "catch-7"
+  ],
+  "frames": [
+    {
+      "grid": [
+        0,
+        0
+      ],
+      "source_box": [
+        0,
+        0,
+        310,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 16,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        79,
+        447,
+        239,
+        613
+      ],
+      "edge_touch": false,
+      "output_size": [
+        30,
+        31
+      ],
+      "paste_position": [
+        49,
+        86
+      ]
+    },
+    {
+      "grid": [
+        0,
+        1
+      ],
+      "source_box": [
+        310,
+        0,
+        620,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 37,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        45,
+        142,
+        253,
+        613
+      ],
+      "edge_touch": false,
+      "output_size": [
+        39,
+        89
+      ],
+      "paste_position": [
+        44,
+        28
+      ]
+    },
+    {
+      "grid": [
+        0,
+        2
+      ],
+      "source_box": [
+        620,
+        0,
+        930,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 70,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        21,
+        116,
+        250,
+        616
+      ],
+      "edge_touch": false,
+      "output_size": [
+        43,
+        95
+      ],
+      "paste_position": [
+        42,
+        22
+      ]
+    },
+    {
+      "grid": [
+        0,
+        3
+      ],
+      "source_box": [
+        930,
+        0,
+        1240,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 56,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        15,
+        74,
+        289,
+        624
+      ],
+      "edge_touch": false,
+      "output_size": [
+        52,
+        104
+      ],
+      "paste_position": [
+        38,
+        13
+      ]
+    },
+    {
+      "grid": [
+        0,
+        4
+      ],
+      "source_box": [
+        1240,
+        0,
+        1550,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 69,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        63,
+        120,
+        268,
+        613
+      ],
+      "edge_touch": false,
+      "output_size": [
+        39,
+        94
+      ],
+      "paste_position": [
+        44,
+        23
+      ]
+    },
+    {
+      "grid": [
+        0,
+        5
+      ],
+      "source_box": [
+        1550,
+        0,
+        1860,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 56,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        74,
+        201,
+        239,
+        613
+      ],
+      "edge_touch": false,
+      "output_size": [
+        31,
+        78
+      ],
+      "paste_position": [
+        48,
+        39
+      ]
+    },
+    {
+      "grid": [
+        0,
+        6
+      ],
+      "source_box": [
+        1860,
+        0,
+        2170,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 8,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        66,
+        333,
+        222,
+        613
+      ],
+      "edge_touch": false,
+      "output_size": [
+        29,
+        53
+      ],
+      "paste_position": [
+        49,
+        64
+      ]
+    }
+  ],
+  "edge_touch_frames": []
+}

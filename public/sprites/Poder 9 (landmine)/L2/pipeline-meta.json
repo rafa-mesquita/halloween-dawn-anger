@@ -1,0 +1,155 @@
+{
+  "target": "asset",
+  "mode": "idle",
+  "prompt": "Create a pixel art animation sprite sheet: exactly 4 equal cells in one horizontal row (1x4 strip), no borders or dividers. Subject: a magnetic Halloween land mine variant resting on the ground, side-view for a 2D arena platformer. The mine body is the same dark cast-iron spherical body with crisp black outline as the standard land mine, small sharp metal spikes evenly around the sphere, sitting on a small dirt mound. On top, replacing the usual orange bulb, is a small horseshoe magnet shaped like a U with red painted poles on top and silver/grey body, slightly tilted, casting a faint pulsing aura. Frame 1 magnet aura dim, frame 2 medium, frame 3 bright (with a few small attraction sparkles around the magnet poles), frame 4 medium again, loopable. The mine body, spikes, dirt mound, silhouette, position, bounding box, and pixel scale must be identical in all four frames; only the magnet aura intensity and small sparkles change. Dark fantasy Halloween palette: purple shadow accents, red+silver magnet, black iron, muted brown dirt; the magnet aura should have a subtle reddish-purple glow tint to fit the palette. Readable game sprite detail, similar style to dark spooky spell loot drops, clean pixel art, no painterly blur. Each frame must fit fully inside its cell with clear solid magenta margin on all four sides; no spike, magnet, glow, dirt, or shadow pixel crosses a cell edge. Background must be 100% solid flat #FF00FF magenta in every cell, no gradients, no transparency, no text, no labels, no UI.",
+  "role": "",
+  "input": "raw-sheet.png",
+  "threshold": 100,
+  "edge_threshold": 150,
+  "duration": 180,
+  "rows": 1,
+  "cols": 4,
+  "cell_size": 128,
+  "fit_scale": 0.82,
+  "trim_border": 4,
+  "edge_clean_depth": 3,
+  "align": "bottom",
+  "shared_scale": true,
+  "component_mode": "all",
+  "component_padding": 8,
+  "min_component_area": 1,
+  "edge_touch_margin": 3,
+  "frame_labels": [
+    "frame-1",
+    "frame-2",
+    "frame-3",
+    "frame-4"
+  ],
+  "frames": [
+    {
+      "grid": [
+        0,
+        0
+      ],
+      "source_box": [
+        0,
+        0,
+        543,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 7,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        87,
+        182,
+        464,
+        626
+      ],
+      "edge_touch": false,
+      "output_size": [
+        76,
+        89
+      ],
+      "paste_position": [
+        26,
+        28
+      ]
+    },
+    {
+      "grid": [
+        0,
+        1
+      ],
+      "source_box": [
+        543,
+        0,
+        1086,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 4,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        87,
+        181,
+        464,
+        626
+      ],
+      "edge_touch": false,
+      "output_size": [
+        76,
+        89
+      ],
+      "paste_position": [
+        26,
+        28
+      ]
+    },
+    {
+      "grid": [
+        0,
+        2
+      ],
+      "source_box": [
+        1086,
+        0,
+        1629,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 12,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        86,
+        106,
+        463,
+        626
+      ],
+      "edge_touch": false,
+      "output_size": [
+        76,
+        104
+      ],
+      "paste_position": [
+        26,
+        13
+      ]
+    },
+    {
+      "grid": [
+        0,
+        3
+      ],
+      "source_box": [
+        1629,
+        0,
+        2172,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 2,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        87,
+        181,
+        463,
+        626
+      ],
+      "edge_touch": false,
+      "output_size": [
+        75,
+        89
+      ],
+      "paste_position": [
+        26,
+        28
+      ]
+    }
+  ],
+  "edge_touch_frames": []
+}

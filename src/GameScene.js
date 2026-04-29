@@ -225,11 +225,16 @@ const POWERS = {
     lootIdleKey: 'heavens_fury_loot_idle',
     lootCatchKey: 'heavens_fury_loot_catch',
     lootGlowKey: 'glow_yellow',
-    lootGlowScale: 0.85,
-    lootGlowPulseScale: 1.1,
-    lootFrameSize: 64,
-    lootScale: 1.65,
+    lootGlowScale: 0.6,
+    lootGlowPulseScale: 0.85,
+    lootFrameSize: 128,
+    lootScale: 1.4,
     lootCatchScale: 2.0,
+    lootBodyYOffset: 18,
+    lootShadow: { width: 80, height: 16, alpha: 0.5 },
+    lootTintPulseColor: 0xfefeda,
+    lootTintPulseAlpha: 0.7,
+    lootTintPulseDuration: 600,
   },
   shield: {
     orbColor: 0x38bdf8,
@@ -296,7 +301,7 @@ const POWERS = {
     orbColor: 0xdc2626,
     lootGlowKey: 'glow_orange',
     lootIdleKey: 'land_mine_loot_idle',
-    lootCatchKey: 'skull_curse_loot_catch',
+    lootCatchKey: 'wood_catch',
     lootFrameSize: 128,
     lootScale: 0.85,
     lootCatchScale: 2.6,
@@ -309,7 +314,7 @@ const POWERS = {
 
 const WOOD_POWER_POOL = ['heavens_fury', 'skull_curse', 'wheel', 'fire_storm', 'ice_beam', 'skeleton_attack', 'land_mine'];
 // Skills that level up to a stronger version when duplicate is picked up
-const UPGRADABLE_POWERS = new Set(['heavens_fury', 'skull_curse', 'ice_beam', 'wheel', 'fire_storm', 'skeleton_attack']);
+const UPGRADABLE_POWERS = new Set(['heavens_fury', 'skull_curse', 'ice_beam', 'wheel', 'fire_storm', 'skeleton_attack', 'land_mine']);
 
 // Omar (fast melee) and Archer (ranged) — L2 skeleton trio constants
 const OMAR_FRAME_W = 64;
@@ -359,6 +364,48 @@ const ICE_BEAM_L2_SLIPPERY_FACTOR = 0.70;
 const ICE_BEAM_L2_JUMP_FACTOR = 0.90;
 const ICE_BEAM_L2_GRAVITY_FACTOR = 0.70;
 
+// Kill feed HUD — Valorant-style (avatar killer + ícone de causa + avatar vítima)
+const KILL_FEED_MAX = 5;
+const KILL_FEED_LIFETIME_MS = 5500;
+const KILL_FEED_FADE_MS = 350;
+const KILL_FEED_ENTRY_HEIGHT = 30;
+const KILL_FEED_ENTRY_WIDTH = 180;
+const KILL_FEED_GAP = 5;
+const KILL_FEED_MARGIN_X = 18;
+const KILL_FEED_MARGIN_Y = 200;
+const KILL_FEED_PILL_WIDTH = 38;
+const KILL_FEED_ICON_PX = 22;
+const KILL_CAUSES = {
+  basic_attack:        { color: 0xe5e7eb, label: 'X',  iconKey: 'kill_basic_attack' },
+  eye_attack:          { color: 0x78350f, label: 'O',  iconKey: 'kill_eye_attack' },
+  skull_curse:         { color: 0xa855f7, label: 'S',  iconKey: 'kill_skull_curse' },
+  skull_curse_dot:     { color: 0x7e22ce, label: 'P',  iconKey: 'kill_skull_curse_dot', iconFile: 'skull_curse.png' },
+  skeleton_bite:       { color: 0x4ade80, label: 'E',  iconKey: 'kill_skeleton_bite' },
+  archer_arrow:        { color: 0x86efac, label: 'A',  iconKey: 'kill_archer_arrow' },
+  archer_arrow_pierce: { color: 0xc084fc, label: 'A+', iconKey: 'kill_archer_arrow_pierce' },
+  heavens_fury:        { color: 0xfde047, label: 'R',  iconKey: 'kill_heavens_fury' },
+  land_mine:           { color: 0xff8a2c, label: 'M',  runtimeKey: 'landmine_explosion', runtimeFrame: 6 },
+  land_mine_party:     { color: 0xff5a2c, label: 'M+', runtimeKey: 'landmine_explosion', runtimeFrame: 6 },
+  wheel:               { color: 0x9ca3af, label: 'W',  runtimeKey: 'wheel_loot_idle', runtimeFrame: 2 },
+  fire_storm:          { color: 0xf97316, label: 'F',  runtimeKey: 'fire_storm_loot_idle', runtimeFrame: 56 },
+  fire_storm_burn:     { color: 0xea580c, label: 'B',  runtimeKey: 'fire_storm_aura', runtimeFrame: 4 },
+  ice_beam:            { color: 0x22d3ee, label: 'I',  runtimeKey: 'ice_beam_loot_idle', runtimeFrame: 0 },
+  fall:                { color: 0x111827, label: '↓',  iconKey: 'kill_fall' },
+};
+
+// Land Mine L2 — "festa de minas": minas materializam em plataformas aleatórias,
+// puxam fighters/pets e explodem após 3s
+const LAND_MINE_L2_DURATION_MS = 11000;
+const LAND_MINE_L2_SPAWN_INTERVAL_MS = 500;
+const LAND_MINE_L2_FUSE_MS = 3200;
+const LAND_MINE_L2_PULL_RADIUS = 180;
+const LAND_MINE_L2_PULL_ACCEL = 900; // puxão leve — slow é a trava principal
+const LAND_MINE_L2_GRAVITY_FACTOR = 0.55; // descida 45% mais lenta dentro do raio
+const LAND_MINE_L2_MIN_SPACING = 110;
+const LAND_MINE_L2_SCALE = 0.95; // bem maior que a L1 (LAND_MINE_SCALE = 0.6)
+const LAND_MINE_L2_RADIUS_MULT = 1.7; // raio de explosão das minas de festa
+// Slow aplicado enquanto fighter está dentro do raio de puxão (reaproveita o fator do skull curse)
+
 const LOOT_TYPES = {
   wood: {
     idleKey: 'wood_idle',
@@ -366,7 +413,12 @@ const LOOT_TYPES = {
     glowKey: 'glow_orange',
     onPickup: (scene, fighter, loot) => {
       if (loot.power === 'land_mine') {
-        if (!fighter.specialPowers.includes('land_mine')) {
+        if (
+          fighter.specialPowers.includes('land_mine') &&
+          !fighter.upgradedPowers.has('land_mine')
+        ) {
+          fighter.upgradedPowers.add('land_mine');
+        } else if (!fighter.specialPowers.includes('land_mine')) {
           if (fighter.specialPowers.length < 2) fighter.specialPowers.push('land_mine');
           else fighter.specialPowers[1] = 'land_mine';
         }
@@ -561,6 +613,20 @@ export default class GameScene extends Phaser.Scene {
     this.load.audio('sfx_cure', 'audio/heal novo/93eeb9fc-8eab-44db-aa09-270a2550a130.mp3');
     this.load.audio('sfx_jump', 'audio/jump/30_Jump_03.wav');
     this.load.audio('sfx_landmine_explode', 'audio/landmine/ES_Explosions, Real, Small, Short 02 - Epidemic Sound.mp3');
+    this.load.audio('sfx_death_fall', 'audio/fall death/1296971370907041923.ogg');
+    this.load.audio('sfx_lightning_catch', 'audio/powers/heavens_fury/lightning_catch.mp3');
+    // Kill feed icons — só carrega quem aponta pra customkillfield/ (causas com runtimeKey já vêm de sprites do jogo)
+    for (const [causeKey, cfg] of Object.entries(KILL_CAUSES)) {
+      if (cfg.iconKey) {
+        const file = cfg.iconFile || `${causeKey}.png`;
+        this.load.image(cfg.iconKey, `sprites/customkillfield/${file}`);
+      }
+    }
+    // Heads dos players pro kill feed (fallback: pílula colorida com nick)
+    for (let i = 0; i < CHARACTERS.length; i++) {
+      const ch = CHARACTERS[i];
+      this.load.image(`head_${ch.id}`, `sprites/customkillfield/heads/player ${i + 1}.png`);
+    }
     this.load.image('map1_bg', 'maps/Mapa 1 - Graveyard of Souls/Fundo.png');
     this.load.image('map1_bg_snow', 'maps/Mapa 1 - Graveyard of Souls/Fundo nevado.png');
     this.load.image('map1_bg_firestorm', 'maps/Mapa 1 - Graveyard of Souls/Fundo fire storm.png');
@@ -571,6 +637,10 @@ export default class GameScene extends Phaser.Scene {
       frameHeight: 48,
     });
     this.load.spritesheet('land_mine_idle', 'sprites/Poder 9 (landmine)/sheet-transparent.png', {
+      frameWidth: LAND_MINE_FRAME,
+      frameHeight: LAND_MINE_FRAME,
+    });
+    this.load.spritesheet('land_mine_l2_idle', 'sprites/Poder 9 (landmine)/L2/sheet-transparent.png', {
       frameWidth: LAND_MINE_FRAME,
       frameHeight: LAND_MINE_FRAME,
     });
@@ -606,6 +676,10 @@ export default class GameScene extends Phaser.Scene {
       frameWidth: HEAVENS_FURY_FRAME_SIZE,
       frameHeight: HEAVENS_FURY_FRAME_SIZE,
     });
+    this.load.spritesheet('heavens_fury_loot_idle', 'sprites/Poder 1 (Heavens Fury)/loot/idle-transparent.png', {
+      frameWidth: 128,
+      frameHeight: 128,
+    });
     this.load.spritesheet('smite', 'sprites/Poder 1 (Heavens Fury)/Smite_spritesheet.png', {
       frameWidth: SMITE_FRAME_SIZE,
       frameHeight: SMITE_FRAME_SIZE,
@@ -615,11 +689,11 @@ export default class GameScene extends Phaser.Scene {
       frameHeight: HOLY_SHIELD_FRAME_SIZE,
     });
     this.load.image('shield_icon', 'sprites/Poder 2 (Shield)/shield icon.png');
-    this.load.spritesheet('skull_curse', 'sprites/Poder 3 (skull curse)/Dark VFX 1 (40x32).png', {
+    this.load.spritesheet('skull_curse', 'sprites/Poder 3 (Skull Curse)/Dark VFX 1 (40x32).png', {
       frameWidth: SKULL_CURSE_FRAME_W,
       frameHeight: SKULL_CURSE_FRAME_H,
     });
-    this.load.spritesheet('skull_curse_vfx', 'sprites/Poder 3 (skull curse)/518.png', {
+    this.load.spritesheet('skull_curse_vfx', 'sprites/Poder 3 (Skull Curse)/518.png', {
       frameWidth: SKULL_CURSE_VFX_FRAME_W,
       frameHeight: SKULL_CURSE_VFX_FRAME_H,
     });
@@ -716,11 +790,11 @@ export default class GameScene extends Phaser.Scene {
       frameWidth: 64,
       frameHeight: 64,
     });
-    this.load.spritesheet('skull_curse_loot_idle', 'sprites/Poder 3 (skull curse)/skull curse loot.png', {
+    this.load.spritesheet('skull_curse_loot_idle', 'sprites/Poder 3 (Skull Curse)/skull curse loot.png', {
       frameWidth: LOOT_FRAME_SIZE,
       frameHeight: LOOT_FRAME_SIZE,
     });
-    this.load.spritesheet('skull_curse_loot_catch', 'sprites/Poder 3 (skull curse)/skull curse loot catch.png', {
+    this.load.spritesheet('skull_curse_loot_catch', 'sprites/Poder 3 (Skull Curse)/skull curse loot catch.png', {
       frameWidth: LOOT_FRAME_SIZE,
       frameHeight: LOOT_FRAME_SIZE,
     });
@@ -1134,24 +1208,21 @@ export default class GameScene extends Phaser.Scene {
   }
 
   createHeavensFuryLootTextures() {
-    const frameW = 64;
-    const frameH = 64;
-    this.createCanvasSpritesheet(
-      'heavens_fury_loot_idle',
-      frameW, frameH, 6,
-      (ctx, i) => this.drawHeavensFuryIdleFrame(ctx, i, frameW, frameH),
-    );
-    this.createCanvasSpritesheet(
-      'heavens_fury_loot_catch',
-      frameW, frameH, 7,
-      (ctx, i, total) => this.drawHeavensFuryCatchFrame(ctx, i, total, frameW, frameH),
-    );
+    // Idle vem da sheet real (yellow sword com rachaduras no chão)
     this.anims.create({
       key: 'heavens_fury_loot_idle',
       frames: this.anims.generateFrameNumbers('heavens_fury_loot_idle', { start: 0, end: 5 }),
-      frameRate: 12,
+      frameRate: 8,
       repeat: -1,
     });
+    // Catch volta a ser canvas-generated (efeito anterior)
+    const catchFrameW = 64;
+    const catchFrameH = 64;
+    this.createCanvasSpritesheet(
+      'heavens_fury_loot_catch',
+      catchFrameW, catchFrameH, 7,
+      (ctx, i, total) => this.drawHeavensFuryCatchFrame(ctx, i, total, catchFrameW, catchFrameH),
+    );
     this.anims.create({
       key: 'heavens_fury_loot_catch',
       frames: this.anims.generateFrameNumbers('heavens_fury_loot_catch', { start: 0, end: 6 }),
@@ -1411,6 +1482,14 @@ export default class GameScene extends Phaser.Scene {
       this.anims.create({
         key: 'land_mine_idle',
         frames: this.anims.generateFrameNumbers('land_mine_idle', { start: 0, end: 3 }),
+        frameRate: 6,
+        repeat: -1,
+      });
+    }
+    if (!this.anims.exists('land_mine_l2_idle')) {
+      this.anims.create({
+        key: 'land_mine_l2_idle',
+        frames: this.anims.generateFrameNumbers('land_mine_l2_idle', { start: 0, end: 3 }),
         frameRate: 6,
         repeat: -1,
       });
@@ -2274,6 +2353,10 @@ export default class GameScene extends Phaser.Scene {
       { font: '14px sans-serif', color: '#ffffff' }
     ).setScrollFactor(0).setDepth(20);
 
+    this.killFeedEntries = [];
+    this.killFeedX = this.cameras.main.width - KILL_FEED_MARGIN_X;
+    this.killFeedY = KILL_FEED_MARGIN_Y;
+
     if (!this.isMultiplayer) {
       const cam = this.cameras.main;
       const menuBtnBg = this.add.rectangle(cam.width - 70, 22, 110, 28, 0x1e293b, 0.85)
@@ -2458,6 +2541,7 @@ export default class GameScene extends Phaser.Scene {
     loot.lootType = lootType;
     loot.catchKey = catchKey;
     loot.catchScale = powerDef?.lootCatchScale ?? type.catchScale;
+    loot.catchYOffset = powerDef?.lootCatchYOffset ?? 0;
     loot.glow = glow;
     loot.glowPulse = glowPulse;
 
@@ -2495,6 +2579,23 @@ export default class GameScene extends Phaser.Scene {
         targets: tintOverlay,
         alpha: 0.28,
         duration: 500,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+      loot.tintOverlay = tintOverlay;
+      loot.whitePulse = whitePulse;
+    } else if (powerDef?.lootTintPulseColor !== undefined) {
+      const tintOverlay = this.add.sprite(x, y, idleKey, 0)
+        .setScale(idleScale)
+        .setDepth(DEFAULT_SPRITE_DEPTH + 0.5)
+        .setTintFill(powerDef.lootTintPulseColor)
+        .setAlpha(0);
+      tintOverlay.anims.play(idleKey);
+      const whitePulse = this.tweens.add({
+        targets: tintOverlay,
+        alpha: powerDef.lootTintPulseAlpha ?? 0.5,
+        duration: powerDef.lootTintPulseDuration ?? 500,
         yoyo: true,
         repeat: -1,
         ease: 'Sine.easeInOut',
@@ -2640,6 +2741,9 @@ export default class GameScene extends Phaser.Scene {
     else if (loot.lootType === 'hp') this.playSfx('sfx_cure', 0.6, 0.3);
     else if (loot.lootType === 'shield') this.playSfx('sfx_shield_break');
     else if (loot.lootType === 'eye') this.playSfx('sfx_power_pickup', 1, 0.4);
+    if (loot.lootType === 'wood' && loot.power === 'heavens_fury') {
+      this.playSfx('sfx_lightning_catch');
+    }
     const type = LOOT_TYPES[loot.lootType];
     const isRemotePick = !!(opts && opts.fromNetwork);
     if (!isRemotePick) {
@@ -2692,6 +2796,7 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
     if (loot.catchScale !== undefined) loot.setScale(loot.catchScale);
+    if (loot.catchYOffset) loot.y += loot.catchYOffset;
     const catchKey = loot.catchKey || type.catchKey;
     loot.anims.play(catchKey);
     loot.once(`animationcomplete-${catchKey}`, () => {
@@ -2879,6 +2984,8 @@ export default class GameScene extends Phaser.Scene {
     if (opts && opts.attackerIndex !== undefined) {
       fighter.lastAttackerIndex = opts.attackerIndex;
     }
+    if (opts && opts.cause) fighter.lastDamageCause = opts.cause;
+    fighter.lastDamageAt = this.time.now;
     let finalAmount = amount * (ignoreCurseMultiplier ? 1 : (fighter.curseMultiplier || 1));
     if (!ignoreShield && fighter.shieldCharges > 0) {
       finalAmount = finalAmount * SHIELD_DAMAGE_MULTIPLIER;
@@ -2939,6 +3046,7 @@ export default class GameScene extends Phaser.Scene {
             ignoreShield: true,
             ignoreCurseMultiplier: true,
             ignoreFreezeBreak: true,
+            cause: 'fire_storm_burn',
           });
         },
       });
@@ -3380,25 +3488,34 @@ export default class GameScene extends Phaser.Scene {
     this.removeBurn(fighter);
     fighter.isDead = true;
     fighter.lives = Math.max(0, fighter.lives - 1);
-    if (
+    const killCause = fighter.lastDamageCause || 'basic_attack';
+    const hasKiller =
       fighter.lastAttackerIndex !== undefined &&
       fighter.lastAttackerIndex !== null &&
-      fighter.lastAttackerIndex !== fighter.ownerIndex
-    ) {
+      fighter.lastAttackerIndex !== fighter.ownerIndex;
+    if (hasKiller) {
       const killer = this.fightersByIndex[fighter.lastAttackerIndex];
       if (killer && killer !== fighter) {
         killer.kills = (killer.kills || 0) + 1;
         if (killer === this.playerFighter) this.playKillSfx(killer.kills);
-        if (this.isMultiplayer && this.network && this.isAuthoritativeOwner(fighter)) {
-          this.network.send({
-            type: 'kill_credit',
-            killerIndex: fighter.lastAttackerIndex,
-            victimIndex: fighter.ownerIndex,
-          });
-        }
+      }
+    }
+    // Kill feed + MP sync (autoritativo apenas)
+    if (this.isAuthoritativeOwner(fighter) || !this.isMultiplayer) {
+      const killerIdx = hasKiller ? fighter.lastAttackerIndex : fighter.ownerIndex;
+      this.addKillFeedEntry(killerIdx, fighter.ownerIndex, killCause);
+      if (this.isMultiplayer && this.network) {
+        this.network.send({
+          type: 'kill_credit',
+          killerIndex: killerIdx,
+          victimIndex: fighter.ownerIndex,
+          cause: killCause,
+          isKill: hasKiller,
+        });
       }
     }
     fighter.lastAttackerIndex = null;
+    fighter.lastDamageCause = null;
     fighter.specialPowers = [];
     fighter.upgradedPowers?.clear();
     this.removeShield(fighter);
@@ -3784,7 +3901,7 @@ export default class GameScene extends Phaser.Scene {
         repeat: ticks - 1,
         callback: () => {
           if (!target || target.isDead) return;
-          this.damageFighter(target, tickDamage, { ignoreShield: true, ignoreCurseMultiplier: true, ignoreFreezeBreak: true, useDeath2: true });
+          this.damageFighter(target, tickDamage, { ignoreShield: true, ignoreCurseMultiplier: true, ignoreFreezeBreak: true, useDeath2: true, cause: 'skull_curse_dot' });
         },
       });
     }
@@ -4035,14 +4152,36 @@ export default class GameScene extends Phaser.Scene {
             break;
           }
         }
-        if (hit) this.applyIceTickToSkeleton(fox, beam.beamId);
+        if (hit) this.applyIceTickToSkeleton(fox, beam.beamId, caster?.ownerIndex);
       }
     }
   }
 
-  applyIceTickToSkeleton(fox, beamId) {
+  applyIceTickToSkeleton(fox, beamId, casterIndex) {
     const now = this.time.now;
     if (!fox || fox.state === 'dying') return;
+
+    // Snowstorm empowered: ice beam do caster da nevasca causa 15 dmg/tick (throttle 600ms) + freeze instantâneo em pets
+    const snowCasterIdx = this._snowstormCaster?.ownerIndex;
+    const snowstormEmpowered =
+      this._snowstormActive &&
+      casterIndex !== undefined &&
+      snowCasterIdx !== undefined &&
+      casterIndex === snowCasterIdx;
+    if (snowstormEmpowered) {
+      const SNOW_BEAM_DMG_INTERVAL_MS = 600;
+      if (now - (fox.snowBeamLastDmgAt || 0) >= SNOW_BEAM_DMG_INTERVAL_MS) {
+        fox.snowBeamLastDmgAt = now;
+        this.damageSkeleton(fox, 20, {
+          numberColor: '#7dd3fc',
+          skipHurtAnim: true,
+          ignoreFreezeBreak: true,
+          silent: true,
+        });
+        if (fox.state === 'dying') return;
+      }
+    }
+
     if (fox.isFrozen) {
       fox.frozenUntil = now + SKELETON_FREEZE_DURATION_MS;
       fox.iceBeamId = beamId || fox.iceBeamId;
@@ -4053,6 +4192,10 @@ export default class GameScene extends Phaser.Scene {
       fox.iceTickCount = 0;
     }
     fox.iceTickCount = (fox.iceTickCount || 0) + 1;
+    if (snowstormEmpowered) {
+      this.applyFreezeSkeleton(fox);
+      return;
+    }
     this.damageSkeleton(fox, 3, {
       numberColor: '#7dd3fc',
       skipHurtAnim: true,
@@ -4218,6 +4361,8 @@ export default class GameScene extends Phaser.Scene {
           ignoreShield: true,
           ignoreCurseMultiplier: true,
           ignoreFreezeBreak: true,
+          cause: 'ice_beam',
+          attackerIndex: casterIndex,
         });
         if (target.isDead) return;
       }
@@ -5113,6 +5258,7 @@ export default class GameScene extends Phaser.Scene {
               powerFlashColor: 0xc084fc,
               attackerIndex: a.ownerCaster.ownerIndex,
               useDeath2: true,
+              cause: 'archer_arrow_pierce',
             });
             // continues flying, don't break
           } else {
@@ -5124,6 +5270,7 @@ export default class GameScene extends Phaser.Scene {
               powerFlashColor: POWERS.skeleton_attack.orbColor,
               attackerIndex: a.ownerCaster.ownerIndex,
               useDeath2: true,
+              cause: 'archer_arrow',
             });
             if (a.glowPulse) a.glowPulse.stop();
             if (a.glow) a.glow.destroy();
@@ -5251,8 +5398,12 @@ export default class GameScene extends Phaser.Scene {
     fox.state = 'stunned';
     fox.target = null;
     fox.stunUntil = this.time.now + SKELETON_STUN_MS;
-    fox.sprite.play('skeleton_hurt', true);
-    fox.currentAnim = 'skeleton_hurt';
+    const hurtAnim =
+      fox.petType === 'omar' ? 'omar_hurt'
+      : fox.petType === 'archer' ? 'archer_hurt'
+      : 'skeleton_hurt';
+    fox.sprite.play(hurtAnim, true);
+    fox.currentAnim = hurtAnim;
     if (fox.knockupTween) fox.knockupTween.stop();
     fox.knockupOffset = 0;
     fox.knockupTween = this.tweens.add({
@@ -5439,6 +5590,7 @@ export default class GameScene extends Phaser.Scene {
                     powerFlashColor: POWERS.skeleton_attack.orbColor,
                     attackerIndex: caster.ownerIndex,
                     useDeath2: true,
+                    cause: 'skeleton_bite',
                   });
                 } else {
                   this.triggerHitFlash(tgt);
@@ -6083,6 +6235,7 @@ export default class GameScene extends Phaser.Scene {
               ignoreShield: true,
               heavensFury: true,
               powerFlashColor: POWERS.heavens_fury.orbColor,
+              cause: 'heavens_fury',
             });
           } else if (
             ty < groundTop &&
@@ -6094,6 +6247,7 @@ export default class GameScene extends Phaser.Scene {
               ignoreShield: true,
               heavensFury: true,
               powerFlashColor: POWERS.heavens_fury.orbColor,
+              cause: 'heavens_fury',
             });
           }
         }
@@ -6261,10 +6415,19 @@ export default class GameScene extends Phaser.Scene {
         this.sendPowerCast('skeleton_attack', { worldX: pointer.worldX, worldY: pointer.worldY });
       }
     } else if (power === 'land_mine') {
-      this.throwLandMine(fighter, pointer.worldX, pointer.worldY);
-      fighter.landMineCharges = Math.max(0, (fighter.landMineCharges ?? 1) - 1);
-      if (fighter.landMineCharges <= 0) fighter.specialPowers.shift();
-      this.sendPowerCast('land_mine', { worldX: pointer.worldX, worldY: pointer.worldY });
+      const level = fighter.upgradedPowers.has('land_mine') ? 2 : 1;
+      if (level >= 2) {
+        fighter.upgradedPowers.delete('land_mine');
+        fighter.specialPowers.shift();
+        fighter.landMineCharges = 0;
+        const partySpawns = this.castLandMineParty(fighter);
+        this.sendPowerCast('land_mine', { level: 2, partySpawns });
+      } else {
+        this.throwLandMine(fighter, pointer.worldX, pointer.worldY);
+        fighter.landMineCharges = Math.max(0, (fighter.landMineCharges ?? 1) - 1);
+        if (fighter.landMineCharges <= 0) fighter.specialPowers.shift();
+        this.sendPowerCast('land_mine', { worldX: pointer.worldX, worldY: pointer.worldY, level: 1 });
+      }
     }
   }
 
@@ -6339,9 +6502,172 @@ export default class GameScene extends Phaser.Scene {
       mine.glow.destroy();
       mine.glow = null;
     }
+    if (mine.pullRingPulse) {
+      mine.pullRingPulse.stop();
+      mine.pullRingPulse = null;
+    }
+    if (mine.pullRing) {
+      mine.pullRing.destroy();
+      mine.pullRing = null;
+    }
   }
 
-  updateLandMines(time) {
+  generateLandMinePartySpawns() {
+    const spawns = [];
+    const count = Math.floor(LAND_MINE_L2_DURATION_MS / LAND_MINE_L2_SPAWN_INTERVAL_MS);
+    const margin = 40;
+    const active = []; // { x, y, deathMs } — minas vivas no momento de cada spawn
+    for (let i = 0; i < count; i++) {
+      const spawnMs = i * LAND_MINE_L2_SPAWN_INTERVAL_MS;
+      // Prune minas que já explodiram antes deste tick
+      for (let j = active.length - 1; j >= 0; j--) {
+        if (active[j].deathMs <= spawnMs) active.splice(j, 1);
+      }
+      let placed = null;
+      for (let tries = 0; tries < 14; tries++) {
+        const rect = Phaser.Math.RND.pick(PLATFORM_RECTS);
+        const x = Phaser.Math.Between(rect.x + margin, rect.x + rect.w - margin);
+        const y = rect.y;
+        const collides = active.some(
+          (m) => Math.hypot(m.x - x, m.y - y) < LAND_MINE_L2_MIN_SPACING
+        );
+        if (!collides) { placed = { x, y }; break; }
+      }
+      if (!placed) continue; // todas plataformas cheias — pula esse tick
+      spawns.push({ x: placed.x, y: placed.y, delayMs: spawnMs });
+      active.push({ x: placed.x, y: placed.y, deathMs: spawnMs + LAND_MINE_L2_FUSE_MS });
+    }
+    return spawns;
+  }
+
+  castLandMineParty(fighter, partySpawns) {
+    const spawns = partySpawns || this.generateLandMinePartySpawns();
+    this.playSfx('sfx_landmine_explode', 0.4);
+    for (const spawn of spawns) {
+      this.time.delayedCall(spawn.delayMs, () => {
+        if (!fighter || fighter.isDead) return;
+        this.spawnPartyLandMine(spawn.x, spawn.y, fighter);
+      });
+    }
+    return spawns;
+  }
+
+  spawnPartyLandMine(x, y, owner) {
+    if (!this.landMines) this.landMines = [];
+    // y é o topo da plataforma. Sprite L2 escalada; offset visual ajustado pra base ficar no chão.
+    const spriteY = y - 22;
+    const sprite = this.physics.add.sprite(x, spriteY, 'land_mine_l2_idle', 0);
+    sprite.setScale(LAND_MINE_L2_SCALE);
+    sprite.setDepth(DEFAULT_SPRITE_DEPTH + 1.5);
+    sprite.body.setSize(LAND_MINE_BODY, LAND_MINE_BODY);
+    sprite.body.setOffset(
+      (LAND_MINE_FRAME - LAND_MINE_BODY) / 2,
+      (LAND_MINE_FRAME - LAND_MINE_BODY) / 2 + 28
+    );
+    sprite.body.setAllowGravity(false);
+    sprite.body.setVelocity(0, 0);
+    sprite.play('land_mine_l2_idle');
+    sprite.owner = owner;
+    sprite.spawnedAt = this.time.now;
+    sprite.triggered = false;
+    sprite.armed = true;
+    sprite.partyMine = true;
+    sprite.partyExplodeAt = this.time.now + LAND_MINE_L2_FUSE_MS;
+
+    // Glow vermelho/laranja mais intenso
+    const glow = this.add.circle(sprite.x, spriteY - 22, 9, 0xff5a2c, 0.95)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(DEFAULT_SPRITE_DEPTH + 1.6);
+    sprite.glow = glow;
+    sprite.glowPulse = this.tweens.add({
+      targets: glow,
+      scale: 2.0,
+      alpha: 0.4,
+      duration: 280,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    // Anel de magnetismo (cor do caster — fica claro de quem é a área)
+    const ownerColor = owner?.char?.tintColor ?? 0xff5a2c;
+    const pullRing = this.add.circle(sprite.x, y - 8, LAND_MINE_L2_PULL_RADIUS, ownerColor, 0.10)
+      .setStrokeStyle(3, ownerColor, 0.7)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(DEFAULT_SPRITE_DEPTH + 1.4);
+    sprite.pullRing = pullRing;
+    sprite.pullRingPulse = this.tweens.add({
+      targets: pullRing,
+      scale: 1.12,
+      alpha: 0.95,
+      duration: 600,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    this.spawnPartyLandMineMaterializeVfx(x, y);
+    this.landMines.push(sprite);
+  }
+
+  spawnPartyLandMineMaterializeVfx(x, y) {
+    const flash = this.add.circle(x, y - 30, 26, 0xff8a2c, 0.85)
+      .setDepth(DEFAULT_SPRITE_DEPTH + 0.4)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.tweens.add({
+      targets: flash,
+      scale: 4.5,
+      alpha: 0,
+      duration: 520,
+      ease: 'Cubic.easeOut',
+      onComplete: () => flash.destroy(),
+    });
+    const ring = this.add.ellipse(x, y, 50, 18, 0xb91c1c, 0)
+      .setStrokeStyle(3, 0xff5a2c, 1)
+      .setDepth(DEFAULT_SPRITE_DEPTH + 0.3)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.tweens.add({
+      targets: ring,
+      scaleX: 4.5,
+      scaleY: 4.5,
+      alpha: 0,
+      duration: 600,
+      ease: 'Quad.easeOut',
+      onComplete: () => ring.destroy(),
+    });
+    for (let i = 0; i < 10; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const dist = 6 + Math.random() * 22;
+      const px = x + Math.cos(ang) * dist;
+      const py = y + Math.sin(ang) * 6;
+      const puff = this.add.circle(px, py, 3 + Math.random() * 3, 0xfca5a5, 0.95)
+        .setDepth(DEFAULT_SPRITE_DEPTH + 0.35)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      this.tweens.add({
+        targets: puff,
+        y: py - 60 - Math.random() * 40,
+        x: px + (Math.random() - 0.5) * 24,
+        scale: 0.1,
+        alpha: 0,
+        duration: 460 + Math.random() * 200,
+        ease: 'Cubic.easeOut',
+        onComplete: () => puff.destroy(),
+      });
+    }
+    this.playSfx('sfx_landmine_explode', 0.35);
+  }
+
+  isFighterSlowed(f) {
+    return !!(f && (f.curseSlowed || f.landMinePullSlowed));
+  }
+
+  updateLandMines(time, delta) {
+    // Reset do flag de puxão a cada frame — só fica true se ainda dentro do raio de alguma party mine
+    if (this.fighters) {
+      for (const f of this.fighters) {
+        if (f) f.landMinePullSlowed = false;
+      }
+    }
     if (!this.landMines || this.landMines.length === 0) return;
     for (let i = this.landMines.length - 1; i >= 0; i--) {
       const mine = this.landMines[i];
@@ -6350,8 +6676,9 @@ export default class GameScene extends Phaser.Scene {
         continue;
       }
       if (mine.triggered) continue;
-      // Glow segue a mina
+      // Glow + ring de magnetismo seguem a mina
       if (mine.glow) mine.glow.setPosition(mine.x, mine.y - 22);
+      if (mine.pullRing) mine.pullRing.setPosition(mine.x, mine.y + 22);
       // Fora do mapa
       if (mine.y > MAP_HEIGHT + 200) {
         this.destroyLandMineGlow(mine);
@@ -6369,6 +6696,50 @@ export default class GameScene extends Phaser.Scene {
       }
       // Verifica fighters pisando — só dispara se já armada
       if (!mine.armed) continue;
+      // Party mines: aplicam puxão magnético + auto-explodem após fuse
+      if (mine.partyMine) {
+        const dtSec = (delta || 16) / 1000;
+        // Pull em fighters (caster imune)
+        for (const f of this.fighters) {
+          if (!f || f.isDead || f.isInvulnerable || f.isFrozen) continue;
+          if (f === mine.owner) continue;
+          const fb = f.sprite.body;
+          const fcx = fb.x + fb.width / 2;
+          const fcy = fb.y + fb.height / 2;
+          const dx = mine.x - fcx;
+          const dy = mine.y - fcy;
+          const dist = Math.hypot(dx, dy);
+          if (dist > 0 && dist < LAND_MINE_L2_PULL_RADIUS) {
+            const t = 1 - dist / LAND_MINE_L2_PULL_RADIUS;
+            const accel = LAND_MINE_L2_PULL_ACCEL * t * dtSec;
+            fb.velocity.x += (dx / dist) * accel;
+            fb.velocity.y += (dy / dist) * accel * 0.55;
+            f.landMinePullSlowed = true;
+          }
+        }
+        // Pull em pets/esqueletos (deslocamento direto — eles não usam física)
+        if (this.skeletons) {
+          for (const fox of this.skeletons) {
+            if (!fox || fox.state === 'dying') continue;
+            if (fox.isFrozen) continue;
+            const dx = mine.x - fox.x;
+            const dy = mine.y - fox.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist > 0 && dist < LAND_MINE_L2_PULL_RADIUS) {
+              const t = 1 - dist / LAND_MINE_L2_PULL_RADIUS;
+              const step = LAND_MINE_L2_PULL_ACCEL * t * dtSec * 0.35;
+              fox.x += (dx / dist) * step;
+              if (fox.sprite) fox.sprite.setX(fox.x);
+            }
+          }
+        }
+        // Auto-fuse
+        if (mine.partyExplodeAt && time >= mine.partyExplodeAt) {
+          this.triggerLandMine(mine);
+          continue;
+        }
+      }
+      // Verifica fighters pisando — só dispara se já armada
       let triggered = false;
       for (const f of this.fighters) {
         if (!f || f.isDead || f.isInvulnerable) continue;
@@ -6425,22 +6796,29 @@ export default class GameScene extends Phaser.Scene {
     const cy = mine.y;
     const visualOnly = !!(opts && opts.visualOnly);
 
+    const radiusMult = mine.partyMine ? LAND_MINE_L2_RADIUS_MULT : 1;
+    const explosionScale = 3.5 * (mine.partyMine ? 1.4 : 1);
+    const damageRadius = LAND_MINE_RADIUS * 1.4 * radiusMult;
+
     // Visual: explosion spritesheet (frames 2-12 of explosion-b)
     const explosion = this.add.sprite(cx, cy, 'landmine_explosion', 2)
       .setDepth(15)
-      .setScale(3.5);
+      .setScale(explosionScale);
     explosion.play('landmine_explosion');
     explosion.once('animationcomplete', () => explosion.destroy());
 
     if (!visualOnly) {
-      // Damage in radius
+      // Damage in radius — caster imune ao próprio dano em party mines
       for (const f of this.fighters) {
         if (!f || f.isDead || f.isInvulnerable) continue;
+        if (mine.partyMine && f === mine.owner) continue;
         const fb = f.sprite.body;
         const fcx = fb.x + fb.width / 2;
         const fcy = fb.y + fb.height / 2;
         const dist = Math.hypot(fcx - cx, fcy - cy);
-        if (dist < LAND_MINE_RADIUS * 1.4) {
+        if (dist < damageRadius) {
+          // Mina força death_1 — limpa flag sticky de hits anteriores
+          f.pendingDeath2 = false;
           this.dealHit(f, {
             damage: LAND_MINE_DAMAGE,
             knockbackX: (fcx > cx ? 1 : -1) * 280,
@@ -6448,17 +6826,19 @@ export default class GameScene extends Phaser.Scene {
             attackerIndex: mine.owner?.ownerIndex,
             playHitSfx: true,
             powerFlashColor: 0xff8a2c,
+            cause: mine.partyMine ? 'land_mine_party' : 'land_mine',
           });
         }
       }
       // Esqueletos no raio morrem instantaneamente
       if (this.skeletons && this.skeletons.length > 0) {
+        const skelRadius = LAND_MINE_RADIUS * radiusMult;
         this.damageSkeletonsInRect(
           mine.owner,
-          cx - LAND_MINE_RADIUS,
-          cx + LAND_MINE_RADIUS,
-          cy - LAND_MINE_RADIUS,
-          cy + LAND_MINE_RADIUS,
+          cx - skelRadius,
+          cx + skelRadius,
+          cy - skelRadius,
+          cy + skelRadius,
           SKELETON_MAX_HP + 1,
           new Set()
         );
@@ -6708,6 +7088,171 @@ export default class GameScene extends Phaser.Scene {
     this.playSfx(`sfx_kill_${n}`, 1);
   }
 
+  addKillFeedEntry(killerIdx, victimIdx, causeKey, opts) {
+    if (!this.killFeedEntries) this.killFeedEntries = [];
+    const fromNetwork = !!(opts && opts.fromNetwork);
+    const cause = KILL_CAUSES[causeKey] || KILL_CAUSES.basic_attack;
+    const killer = this.fightersByIndex?.[killerIdx];
+    const victim = this.fightersByIndex?.[victimIdx];
+    const isSuicide = causeKey === 'fall' || killerIdx === victimIdx;
+    const killerColor = killer?.char?.tintColor ?? 0x6b7280;
+    const victimColor = victim?.char?.tintColor ?? 0x6b7280;
+
+    const w = KILL_FEED_ENTRY_WIDTH;
+    const h = KILL_FEED_ENTRY_HEIGHT;
+    const pillW = KILL_FEED_PILL_WIDTH;
+    const startX = this.killFeedX + 80;
+    const startY = this.killFeedY;
+    const c = this.add.container(startX, startY).setScrollFactor(0).setDepth(25);
+
+    // Fundo do cartão: degradê killer → victim (fall: cor sólida do victim)
+    const leftColor = isSuicide ? victimColor : killerColor;
+    const gradKey = this.ensureKillFeedGradient(leftColor, victimColor);
+    const grad = this.add.image(0, 0, gradKey).setOrigin(1, 0).setAlpha(0.55);
+    c.add(grad);
+    // Borda do cartão por cima do degradê
+    const border = this.add.rectangle(0, 0, w, h, 0x000000, 0)
+      .setStrokeStyle(2, 0x1e293b, 0.85)
+      .setOrigin(1, 0);
+    c.add(border);
+
+    const drawPill = (rightAnchor, fighter, fallbackIdx) => {
+      const headKey = fighter?.char ? `head_${fighter.char.id}` : null;
+      const leftX = rightAnchor - pillW;
+      const centerX = leftX + pillW / 2;
+      if (headKey && this.textures.exists(headKey)) {
+        const head = this.add.image(centerX, h / 2, headKey).setOrigin(0.5);
+        const tex = this.textures.get(headKey).getSourceImage();
+        const maxDim = Math.max(tex.width || 32, tex.height || 32);
+        head.setScale((h - 4) / maxDim);
+        c.add(head);
+      } else {
+        const label = this.add.text(
+          centerX, h / 2,
+          fighter?.nick || `P${fallbackIdx + 1}`,
+          { font: 'bold 11px sans-serif', color: '#ffffff', stroke: '#000000', strokeThickness: 3 }
+        ).setOrigin(0.5);
+        c.add(label);
+      }
+    };
+
+    if (!isSuicide) {
+      drawPill(-(w - 6) + pillW, killer, killerIdx);
+    }
+
+    // ícone de causa centralizado — prioridade: runtimeKey (textura do jogo) > iconKey (customkillfield/) > fallback
+    const causeX = -w / 2;
+    let drawnIcon = false;
+    if (cause.runtimeKey && this.textures.exists(cause.runtimeKey)) {
+      const frame = cause.runtimeFrame ?? 0;
+      const icon = this.add.image(causeX, h / 2, cause.runtimeKey, frame).setOrigin(0.5);
+      const fr = icon.frame;
+      const maxDim = Math.max(fr.width || 32, fr.height || 32);
+      icon.setScale(KILL_FEED_ICON_PX / maxDim);
+      c.add(icon);
+      drawnIcon = true;
+    } else if (cause.iconKey && this.textures.exists(cause.iconKey)) {
+      const icon = this.add.image(causeX, h / 2, cause.iconKey).setOrigin(0.5);
+      const tex = this.textures.get(cause.iconKey).getSourceImage();
+      const maxDim = Math.max(tex.width || 32, tex.height || 32);
+      icon.setScale(KILL_FEED_ICON_PX / maxDim);
+      c.add(icon);
+      drawnIcon = true;
+    }
+    if (!drawnIcon) {
+      const causeBg = this.add.circle(causeX, h / 2, KILL_FEED_ICON_PX / 2, cause.color, 1)
+        .setStrokeStyle(2, 0x000000, 0.6);
+      c.add(causeBg);
+      const causeText = this.add.text(causeX, h / 2, cause.label, {
+        font: 'bold 13px sans-serif', color: '#ffffff', stroke: '#000000', strokeThickness: 3,
+      }).setOrigin(0.5);
+      c.add(causeText);
+    }
+
+    // pílula da vítima (sempre visível) — direita do cartão
+    drawPill(-6, victim, victimIdx);
+
+    const entry = { container: c, spawnedAt: this.time.now };
+    this.killFeedEntries.push(entry);
+
+    this.tweens.add({
+      targets: c,
+      x: this.killFeedX,
+      duration: 240,
+      ease: 'Cubic.easeOut',
+    });
+
+    while (this.killFeedEntries.length > KILL_FEED_MAX) {
+      this.removeKillFeedEntry(this.killFeedEntries[0]);
+    }
+    this.layoutKillFeed();
+
+  }
+
+  layoutKillFeed() {
+    if (!this.killFeedEntries) return;
+    for (let i = 0; i < this.killFeedEntries.length; i++) {
+      const e = this.killFeedEntries[i];
+      const targetY = this.killFeedY + i * (KILL_FEED_ENTRY_HEIGHT + KILL_FEED_GAP);
+      if (e.container.y !== targetY) {
+        this.tweens.add({
+          targets: e.container,
+          y: targetY,
+          duration: 200,
+          ease: 'Cubic.easeOut',
+        });
+      }
+    }
+  }
+
+  updateKillFeed(time) {
+    if (!this.killFeedEntries) return;
+    for (let i = this.killFeedEntries.length - 1; i >= 0; i--) {
+      const e = this.killFeedEntries[i];
+      if (time - e.spawnedAt >= KILL_FEED_LIFETIME_MS) {
+        this.removeKillFeedEntry(e);
+      }
+    }
+  }
+
+  ensureKillFeedGradient(leftColor, rightColor) {
+    const key = `kill_grad_${leftColor.toString(16)}_${rightColor.toString(16)}`;
+    if (this.textures.exists(key)) return key;
+    const w = KILL_FEED_ENTRY_WIDTH;
+    const h = KILL_FEED_ENTRY_HEIGHT;
+    const canvas = this.textures.createCanvas(key, w, h);
+    const ctx = canvas.getContext();
+    const toHex = (c) => `#${c.toString(16).padStart(6, '0')}`;
+    const grad = ctx.createLinearGradient(0, 0, w, 0);
+    grad.addColorStop(0, toHex(leftColor));
+    grad.addColorStop(0.5, toHex(leftColor));
+    grad.addColorStop(0.5001, toHex(rightColor));
+    grad.addColorStop(1, toHex(rightColor));
+    // queremos um degradê suave — sobrescreve com gradiente liso
+    const smooth = ctx.createLinearGradient(0, 0, w, 0);
+    smooth.addColorStop(0, toHex(leftColor));
+    smooth.addColorStop(1, toHex(rightColor));
+    ctx.fillStyle = smooth;
+    ctx.fillRect(0, 0, w, h);
+    canvas.refresh();
+    return key;
+  }
+
+  removeKillFeedEntry(entry) {
+    if (!entry || entry._removing) return;
+    entry._removing = true;
+    const idx = this.killFeedEntries.indexOf(entry);
+    if (idx >= 0) this.killFeedEntries.splice(idx, 1);
+    this.tweens.add({
+      targets: entry.container,
+      alpha: 0,
+      x: entry.container.x + 80,
+      duration: KILL_FEED_FADE_MS,
+      onComplete: () => entry.container.destroy(),
+    });
+    this.layoutKillFeed();
+  }
+
   createKillHud() {
     const cam = this.cameras.main;
     const lineH = 20;
@@ -6869,6 +7414,7 @@ export default class GameScene extends Phaser.Scene {
       ignoreShield: !!hit.ignoreShield,
       attackerIndex: hit.attackerIndex,
       useDeath2: !!hit.useDeath2,
+      cause: hit.cause,
     });
     if (!target.isDead) {
       if (hit.knockbackX) {
@@ -7056,11 +7602,14 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
     if (data.type === 'kill_credit') {
-      const killer = this.fightersByIndex[data.killerIndex];
-      if (killer) {
-        killer.kills = (killer.kills || 0) + 1;
-        if (data.killerIndex === this.myIndex) this.playKillSfx(killer.kills);
+      if (data.isKill !== false) {
+        const killer = this.fightersByIndex[data.killerIndex];
+        if (killer && data.killerIndex !== data.victimIndex) {
+          killer.kills = (killer.kills || 0) + 1;
+          if (data.killerIndex === this.myIndex) this.playKillSfx(killer.kills);
+        }
       }
+      this.addKillFeedEntry(data.killerIndex, data.victimIndex, data.cause || 'basic_attack', { fromNetwork: true });
       return;
     }
     if (data.type === 'ice_beam_aim') {
@@ -7173,7 +7722,11 @@ export default class GameScene extends Phaser.Scene {
           this.throwSkeletonBall(caster, data.worldX, data.worldY);
         }
       } else if (data.power === 'land_mine') {
-        this.throwLandMine(caster, data.worldX, data.worldY);
+        if ((data.level || 1) >= 2) {
+          this.castLandMineParty(caster, data.partySpawns);
+        } else {
+          this.throwLandMine(caster, data.worldX, data.worldY);
+        }
       }
       return;
     }
@@ -7295,7 +7848,12 @@ export default class GameScene extends Phaser.Scene {
 
   grantPower(fighter, powerKey) {
     if (powerKey === 'land_mine') {
-      if (!fighter.specialPowers.includes('land_mine')) {
+      if (
+        fighter.specialPowers.includes('land_mine') &&
+        !fighter.upgradedPowers.has('land_mine')
+      ) {
+        fighter.upgradedPowers.add('land_mine');
+      } else if (!fighter.specialPowers.includes('land_mine')) {
         if (fighter.specialPowers.length < 2) fighter.specialPowers.push('land_mine');
         else fighter.specialPowers[1] = 'land_mine';
       }
@@ -7443,7 +8001,7 @@ export default class GameScene extends Phaser.Scene {
       const absDx = Math.abs(dx);
 
       let speed = MOVE_SPEED;
-      if (fighter.curseSlowed) speed *= SKULL_CURSE_SLOW_FACTOR;
+      if (this.isFighterSlowed(fighter)) speed *= SKULL_CURSE_SLOW_FACTOR;
       if (fighter.iceSlowActive && fighter.iceSlowFactor) speed *= fighter.iceSlowFactor;
       if (fighter.fireStormBuff) speed *= FIRE_STORM_L2_SPEED_MULT;
 
@@ -7467,7 +8025,7 @@ export default class GameScene extends Phaser.Scene {
         (grounded && absDx > stopDist && Math.random() < 0.003);
       if (wantsJump && time > (fighter.aiNextJumpAt || 0) && jumpsLeft > 0) {
         const isSecond = jumpsLeft < MAX_JUMPS;
-        const slowMult = fighter.curseSlowed ? SKULL_CURSE_SLOW_FACTOR : 1;
+        const slowMult = this.isFighterSlowed(fighter) ? SKULL_CURSE_SLOW_FACTOR : 1;
         const slipJumpMult = fighter.iceSlippery ? (fighter.iceJumpFactor || 1) : 1;
         body.setVelocityY((isSecond ? -DOUBLE_JUMP_VELOCITY : -JUMP_VELOCITY) * slowMult * slipJumpMult);
         fighter.aiJumpsRemaining = jumpsLeft - 1;
@@ -7476,7 +8034,7 @@ export default class GameScene extends Phaser.Scene {
 
       // Slam quando alvo está abaixo
       if (!grounded && body.velocity.y > -50 && dy > 100 && Math.random() < 0.05) {
-        const slowMult = fighter.curseSlowed ? SKULL_CURSE_SLOW_FACTOR : 1;
+        const slowMult = this.isFighterSlowed(fighter) ? SKULL_CURSE_SLOW_FACTOR : 1;
         body.setVelocityY(SLAM_VELOCITY * slowMult);
       }
     } else if (!fighter.isAttacking) {
@@ -7616,6 +8174,7 @@ export default class GameScene extends Phaser.Scene {
           knockupY: -160,
           attackerIndex: fighter.ownerIndex,
           burn: !!fighter.fireStormBuff,
+          cause: 'basic_attack',
         });
         this.playSfx('sfx_hit');
         if (this.triggerHitFlash) this.triggerHitFlash(t);
@@ -7749,7 +8308,7 @@ export default class GameScene extends Phaser.Scene {
     if (nearestThreatDx === null) return;
 
     const grounded = body.blocked.down;
-    const slowMult = fighter.curseSlowed ? SKULL_CURSE_SLOW_FACTOR : 1;
+    const slowMult = this.isFighterSlowed(fighter) ? SKULL_CURSE_SLOW_FACTOR : 1;
     const slipJumpMult = fighter.iceSlippery ? (fighter.iceJumpFactor || 1) : 1;
     if (grounded) {
       body.setVelocityY(-JUMP_VELOCITY * slowMult * slipJumpMult);
@@ -7828,7 +8387,7 @@ export default class GameScene extends Phaser.Scene {
       else if (Phaser.Input.Keyboard.JustDown(this.powerSelectKeys.p9)) this.selectPower('land_mine');
     }
 
-    this.updateLandMines(time);
+    this.updateLandMines(time, delta);
 
     if (this.isSinglePlayer) {
       this.updateAIFighters(time, delta);
@@ -7843,6 +8402,20 @@ export default class GameScene extends Phaser.Scene {
 
     for (const f of this.fighters) {
       if (!f.isDead && f.sprite.y > MAP_HEIGHT + 100) {
+        this.playSfx('sfx_death_fall');
+        // Se sofreu dano nos últimos 2.5s, mantém o killer/cause anterior; senão, suicídio
+        const recentDamageWindow = 5000;
+        const hasRecentDamage =
+          f.lastDamageAt &&
+          this.time.now - f.lastDamageAt <= recentDamageWindow &&
+          f.lastAttackerIndex !== undefined &&
+          f.lastAttackerIndex !== null &&
+          f.lastAttackerIndex !== f.ownerIndex;
+        // Ícone sempre fica como queda; mas o killer fica como o último atacante (se houve dano recente) ou o próprio (suicídio)
+        f.lastDamageCause = 'fall';
+        if (!hasRecentDamage) {
+          f.lastAttackerIndex = f.ownerIndex;
+        }
         this.killFighter(f);
       }
       if (
@@ -7869,6 +8442,7 @@ export default class GameScene extends Phaser.Scene {
     this.updateStormHud(time);
     this.updateSelfArrow();
     this.updateKillHud();
+    this.updateKillFeed(time);
     this.updateIceBeams(time);
     this.updateFrozenStates(time);
     this.updateIceAmbientStop();
@@ -8052,6 +8626,7 @@ export default class GameScene extends Phaser.Scene {
                 knockbackX: fighter.eyeFacing * 160,
                 knockupY: -100,
                 useDeath2: true,
+                cause: 'eye_attack',
               });
             }
           }
@@ -8086,7 +8661,7 @@ export default class GameScene extends Phaser.Scene {
 
       let desiredFlip = this.player.flipX;
 
-      let speed = fighter.curseSlowed ? MOVE_SPEED * SKULL_CURSE_SLOW_FACTOR : MOVE_SPEED;
+      let speed = this.isFighterSlowed(fighter) ? MOVE_SPEED * SKULL_CURSE_SLOW_FACTOR : MOVE_SPEED;
       if (fighter.iceSlowActive && fighter.iceSlowFactor) speed *= fighter.iceSlowFactor;
       if (fighter.fireStormBuff) speed *= FIRE_STORM_L2_SPEED_MULT;
       if (leftDown && !rightDown) {
@@ -8144,7 +8719,7 @@ export default class GameScene extends Phaser.Scene {
         time - this.lastJumpTime > JUMP_LOCKOUT_MS
       ) {
         const isSecondJump = this.jumpsRemaining < MAX_JUMPS;
-        const slowMult = fighter.curseSlowed ? SKULL_CURSE_SLOW_FACTOR : 1;
+        const slowMult = this.isFighterSlowed(fighter) ? SKULL_CURSE_SLOW_FACTOR : 1;
         const slipJumpMult = fighter.iceSlippery ? (fighter.iceJumpFactor || 1) : 1;
         body.setVelocityY(
           (isSecondJump ? -DOUBLE_JUMP_VELOCITY : -JUMP_VELOCITY) * slowMult * slipJumpMult
@@ -8164,7 +8739,7 @@ export default class GameScene extends Phaser.Scene {
       const slamPressed = Phaser.Input.Keyboard.JustDown(this.keys.down);
 
       if (slamPressed && !body.blocked.down) {
-        body.setVelocityY(SLAM_VELOCITY * (fighter.curseSlowed ? SKULL_CURSE_SLOW_FACTOR : 1));
+        body.setVelocityY(SLAM_VELOCITY * (this.isFighterSlowed(fighter) ? SKULL_CURSE_SLOW_FACTOR : 1));
         fighter.isSlamming = true;
       } else if (slamPressed && body.blocked.down) {
         if (this._lastDownPress && time - this._lastDownPress < 300) {
@@ -8181,10 +8756,12 @@ export default class GameScene extends Phaser.Scene {
           ? DOUBLE_JUMP_FALL_MULTIPLIER
           : FALL_GRAVITY_MULTIPLIER;
         const slipG = fighter.iceSlippery ? ICE_BEAM_L2_GRAVITY_FACTOR : 1;
-        body.setGravityY(this.physics.world.gravity.y * (multiplier * slipG - 1));
+        const slowG = fighter.landMinePullSlowed ? LAND_MINE_L2_GRAVITY_FACTOR : 1;
+        body.setGravityY(this.physics.world.gravity.y * (multiplier * slipG * slowG - 1));
       } else {
         const slipG = fighter.iceSlippery ? ICE_BEAM_L2_GRAVITY_FACTOR : 1;
-        body.setGravityY(this.physics.world.gravity.y * (slipG - 1));
+        const slowG = fighter.landMinePullSlowed ? LAND_MINE_L2_GRAVITY_FACTOR : 1;
+        body.setGravityY(this.physics.world.gravity.y * (slipG * slowG - 1));
       }
 
       if (this.powerQueued && !fighter.isAttacking && fighter.specialPowers.length > 0) {
@@ -8348,6 +8925,7 @@ export default class GameScene extends Phaser.Scene {
                 knockupY,
                 useDeath2: true,
                 burn: !!fighter.fireStormBuff,
+                cause: 'basic_attack',
               });
             }
           }
@@ -8419,6 +8997,7 @@ export default class GameScene extends Phaser.Scene {
               curseWaveId: p.waveId || null,
               playHitSfx: true,
               useDeath2: true,
+              cause: 'skull_curse',
             });
             p.play('skull_curse_hit');
             if (p.auraPulse) p.auraPulse.stop();
@@ -8535,6 +9114,7 @@ export default class GameScene extends Phaser.Scene {
             burnTickDamage: r.isL2 ? 2 : undefined,
             burnTickInterval: r.isL2 ? 1000 : undefined,
             burnDuration: r.isL2 ? 4000 : undefined,
+            cause: 'fire_storm',
           });
           this.spawnFireStormHit(target);
         }
@@ -8638,6 +9218,7 @@ export default class GameScene extends Phaser.Scene {
           stun: true,
           knockupY: WHEEL_KNOCKUP,
           powerFlashColor: 0xffffff,
+          cause: 'wheel',
         });
         this.playSfx('sfx_wheel_hit', 0.5, 0.3);
         this.playSfx('sfx_wheel_hit2', 1, 1.3);

@@ -162,16 +162,21 @@
         object-fit: contain;
         filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.75))
                 drop-shadow(0 0 28px rgba(255, 140, 30, 0.22));
-        animation: char-float 4.2s ease-in-out infinite;
+        animation: char-drift 8s ease-in-out infinite;
         pointer-events: none;
         user-select: none;
         align-self: end;
         justify-self: center;
         margin-bottom: 2vh;
       }
-      @keyframes char-float {
-        0%, 100% { transform: translateY(0) rotate(-1deg); }
-        50%      { transform: translateY(-10px) rotate(1deg); }
+      @keyframes char-drift {
+        0%      { transform: translateX(-15vw) translateY(0) rotate(-2deg) scaleX(1); }
+        25%     { transform: translateX(0)     translateY(-12px) rotate(0deg) scaleX(1); }
+        49.99%  { transform: translateX(15vw)  translateY(0) rotate(2deg) scaleX(1); }
+        50%     { transform: translateX(15vw)  translateY(0) rotate(2deg) scaleX(-1); }
+        75%     { transform: translateX(0)     translateY(-12px) rotate(0deg) scaleX(-1); }
+        99.99%  { transform: translateX(-15vw) translateY(0) rotate(-2deg) scaleX(-1); }
+        100%    { transform: translateX(-15vw) translateY(0) rotate(-2deg) scaleX(1); }
       }
       #lobby-choice .home-buttons {
         display: flex;
