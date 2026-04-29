@@ -267,7 +267,7 @@ const POWERS = {
     lootGlowPulseScale: 0.88,
   },
   fire_storm: {
-    orbColor: 0xff3b30,
+    orbColor: 0xf97316,
     lootGlowKey: 'glow_orange',
     lootIdleKey: 'fire_storm_loot_idle',
     lootCatchKey: 'fire_storm_loot_catch',
@@ -309,7 +309,24 @@ const POWERS = {
 
 const WOOD_POWER_POOL = ['heavens_fury', 'skull_curse', 'wheel', 'fire_storm', 'ice_beam', 'skeleton_attack', 'land_mine'];
 // Skills that level up to a stronger version when duplicate is picked up
-const UPGRADABLE_POWERS = new Set(['heavens_fury', 'skull_curse']);
+const UPGRADABLE_POWERS = new Set(['heavens_fury', 'skull_curse', 'ice_beam', 'wheel', 'fire_storm']);
+const FIRE_STORM_L2_DURATION_MS = 13500;
+const FIRE_STORM_L2_WAVES = 4;
+const FIRE_STORM_L2_WAVE_DELAY_MS = 3000;
+const FIRE_STORM_L2_SPEED_MULT = 1.4;
+const FIRE_STORM_L2_RAY_RADIUS = 600;
+const FIRE_STORM_L2_SPEED = 760;
+const FIRE_STORM_L2_RELEASE_DIST = 36;
+const FIRE_BURN_DURATION_MS = 3000;
+const FIRE_BURN_TICK_INTERVAL_MS = 600;
+const FIRE_BURN_TICKS = 5;
+const FIRE_BURN_TICK_DAMAGE = 6;
+const WHEEL_L2_SIZE_MULTS = [1.0, 1.2, 1.4, 1.6, 1.8]; // 5 sizes, 2 wheels each = 10 total
+const WHEEL_L2_SPAWN_INTERVAL_MS = 500;
+const ICE_BEAM_L2_DURATION_MS = 13500;
+const ICE_BEAM_L2_SLIPPERY_FACTOR = 0.70;
+const ICE_BEAM_L2_JUMP_FACTOR = 0.90;
+const ICE_BEAM_L2_GRAVITY_FACTOR = 0.70;
 
 const LOOT_TYPES = {
   wood: {
@@ -492,6 +509,7 @@ export default class GameScene extends Phaser.Scene {
     this.load.audio('sfx_shield_cast', 'audio/powers/shield/cast.mp3');
     this.load.audio('sfx_shield_break', 'audio/powers/shield/broke shield.mp3');
     this.load.audio('sfx_skull_cast', 'audio/powers/skull_curse/cast skull curse.mp3');
+    this.load.audio('sfx_skull_cast_up', 'audio/powers/skull_curse/skull up.mp3');
     this.load.audio('sfx_skull_hit', 'audio/powers/skull_curse/hit skull.mp3');
     this.load.audio('sfx_wheel_hit', 'audio/powers/wheel/Hit.mp3');
     this.load.audio('sfx_wheel_hit2', 'audio/powers/wheel/hit2.mp3');
@@ -501,6 +519,8 @@ export default class GameScene extends Phaser.Scene {
     this.load.audio('sfx_fire_storm_2', 'audio/powers/fire_storm/Cast and wave 2_2.mp3');
     this.load.audio('sfx_ice_cast', 'audio/powers/icebeam/ice cast.mp3');
     this.load.audio('sfx_ice_crash', 'audio/powers/icebeam/crash ice.mp3');
+    this.load.audio('sfx_snow_storm', 'audio/powers/icebeam/snow storm.mp3');
+    this.load.audio('sfx_snow_wind', 'audio/powers/icebeam/vento.mp3');
     this.load.audio('sfx_kill_1', 'audio/kills sounds/1-kill.mp3');
     this.load.audio('sfx_kill_2', 'audio/kills sounds/2-kills.mp3');
     this.load.audio('sfx_kill_3', 'audio/kills sounds/3-kills.mp3');
@@ -511,6 +531,8 @@ export default class GameScene extends Phaser.Scene {
     this.load.audio('sfx_jump', 'audio/jump/30_Jump_03.wav');
     this.load.audio('sfx_landmine_explode', 'audio/landmine/ES_Explosions, Real, Small, Short 02 - Epidemic Sound.mp3');
     this.load.image('map1_bg', 'maps/Mapa 1 - Graveyard of Souls/Fundo.png');
+    this.load.image('map1_bg_snow', 'maps/Mapa 1 - Graveyard of Souls/Fundo nevado.png');
+    this.load.image('map1_bg_firestorm', 'maps/Mapa 1 - Graveyard of Souls/Fundo fire storm.png');
     this.load.image('self_arrow', 'sprites/seta/seta.png');
     this.load.image('map1_platforms', 'maps/Mapa 1 - Graveyard of Souls/Plataformas.png');
     this.load.spritesheet('map1_crow', 'maps/Mapa 1 - Graveyard of Souls/Crow.png', {
@@ -585,6 +607,10 @@ export default class GameScene extends Phaser.Scene {
     this.load.spritesheet('fire_storm_hit', 'sprites/Poder 5 (fire storm)/hit.png', {
       frameWidth: FIRE_STORM_HIT_FRAME_SIZE,
       frameHeight: FIRE_STORM_HIT_FRAME_SIZE,
+    });
+    this.load.spritesheet('fire_storm_aura', 'sprites/Poder 5 (fire storm)/aura/fire aura/Group 5 - 4.png', {
+      frameWidth: 32,
+      frameHeight: 48,
     });
     this.load.spritesheet('fire_storm_loot_idle', 'sprites/Poder 5 (fire storm)/Fire loot 3.png', {
       frameWidth: 64,
@@ -1121,8 +1147,17 @@ export default class GameScene extends Phaser.Scene {
       ctx.fillRect(0, 0, 2, 8);
       tex.refresh();
     }
+    if (!this.textures.exists('snow_flake')) {
+      const tex = this.textures.createCanvas('snow_flake', 4, 4);
+      const ctx = tex.getContext();
+      ctx.fillStyle = 'rgba(245, 250, 255, 1)';
+      ctx.beginPath();
+      ctx.arc(2, 2, 2, 0, Math.PI * 2);
+      ctx.fill();
+      tex.refresh();
+    }
 
-    this.add.particles(0, 0, 'rain_drop', {
+    this.rainEmitter = this.add.particles(0, 0, 'rain_drop', {
       x: { min: -80, max: MAP_WIDTH + 80 },
       y: -30,
       lifespan: 2500,
@@ -1134,6 +1169,20 @@ export default class GameScene extends Phaser.Scene {
       scale: { min: 0.8, max: 1.2 },
     }).setDepth(-5);
 
+    this.snowEmitter = this.add.particles(0, 0, 'snow_flake', {
+      x: { min: -80, max: MAP_WIDTH + 80 },
+      y: -30,
+      lifespan: 6000,
+      speedY: { min: 90, max: 160 },
+      speedX: { min: -40, max: 40 },
+      quantity: 4,
+      frequency: 30,
+      alpha: { min: 0.55, max: 0.95 },
+      scale: { min: 0.6, max: 1.4 },
+      rotate: { min: 0, max: 360 },
+    }).setDepth(-5);
+    this.snowEmitter.stop();
+
     this._rainSurfaces = PLATFORM_RECTS.map((r) => ({ xStart: r.x, xEnd: r.x + r.w, y: r.y, w: r.w }));
     this.time.addEvent({
       delay: 90,
@@ -1143,6 +1192,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   spawnRainSplashes() {
+    if (this._snowstormActive) return;
     if (!this._rainSurfaces) return;
     for (const s of this._rainSurfaces) {
       const count = Math.max(1, Math.round(s.w / 260));
@@ -1235,7 +1285,7 @@ export default class GameScene extends Phaser.Scene {
     this.physics.world.setBoundsCollision(true, true, false, false);
     this.cameras.main.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
 
-    this.add.image(0, 0, 'map1_bg')
+    this.map1Bg = this.add.image(0, 0, 'map1_bg')
       .setOrigin(0, 0)
       .setScrollFactor(0.3, 0.6)
       .setDepth(-10);
@@ -1247,7 +1297,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.createParallaxLayers();
 
-    this.add.image(0, 0, 'map1_platforms')
+    this.map1Platforms = this.add.image(0, 0, 'map1_platforms')
       .setOrigin(0, 0)
       .setDepth(-1);
 
@@ -1523,6 +1573,12 @@ export default class GameScene extends Phaser.Scene {
         end: FIRE_STORM_FRAMES_PER_ROW - 1,
       }),
       frameRate: FIRE_STORM_FRAMERATE,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: 'fire_storm_aura',
+      frames: this.anims.generateFrameNumbers('fire_storm_aura', { start: 0, end: 7 }),
+      frameRate: 14,
       repeat: -1,
     });
     this.anims.create({
@@ -1884,7 +1940,14 @@ export default class GameScene extends Phaser.Scene {
       volumeSlider.addEventListener('input', (e) => {
         const v = Number(e.target.value);
         this.masterVolume = v / 100;
-        this.bgm.setVolume(this.masterVolume * this.bgmScale);
+        const duck = this._snowstormActive ? 0.5 : 1;
+        this.bgm.setVolume(this.masterVolume * this.bgmScale * duck);
+        if (this._snowstormSound) {
+          this._snowstormSound.setVolume(this.masterVolume * this.sfxScale * 0.72);
+        }
+        if (this._snowstormWind) {
+          this._snowstormWind.setVolume(this.masterVolume * this.sfxScale * 1.5);
+        }
         if (volumeValue) volumeValue.textContent = `${v}%`;
       });
     }
@@ -2130,6 +2193,26 @@ export default class GameScene extends Phaser.Scene {
       strokeThickness: 2,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(23).setVisible(false);
     this.eyeHudText = this.add.text(eyeHudX, eyeHudY + 7, '20.0s', {
+      font: 'bold 22px sans-serif',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(23).setVisible(false);
+
+    const stormHudX = this.cameras.main.width / 2;
+    const stormHudY = eyeHudY + 60;
+    this.stormHudBg = this.add.rectangle(stormHudX, stormHudY, 180, 44, 0x1e1b4b, 0.75)
+      .setStrokeStyle(2, 0xff8c63, 0.9)
+      .setScrollFactor(0)
+      .setDepth(22)
+      .setVisible(false);
+    this.stormHudLabel = this.add.text(stormHudX, stormHudY - 10, 'STORM', {
+      font: 'bold 11px sans-serif',
+      color: '#fde047',
+      stroke: '#000000',
+      strokeThickness: 2,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(23).setVisible(false);
+    this.stormHudText = this.add.text(stormHudX, stormHudY + 7, '0.0s', {
       font: 'bold 22px sans-serif',
       color: '#ffffff',
       stroke: '#000000',
@@ -2712,6 +2795,73 @@ export default class GameScene extends Phaser.Scene {
     this.resetAt = null;
   }
 
+  applyBurn(target, opts = {}) {
+    if (!target || target.isDead) return;
+    const tickDamage = opts.tickDamage ?? FIRE_BURN_TICK_DAMAGE;
+    const tickInterval = opts.tickInterval ?? FIRE_BURN_TICK_INTERVAL_MS;
+    const duration = opts.duration ?? FIRE_BURN_DURATION_MS;
+    // Hit always wins: a stronger burn (higher tick damage) replaces a weaker one.
+    // A weaker burn just refreshes the end timer, keeping the existing strong damage.
+    const currentTick = target.burnTickDamage || 0;
+    if (currentTick > tickDamage && target.burnTimer) {
+      if (target.burnEndTimer) target.burnEndTimer.remove(false);
+      target.burnEndTimer = this.time.delayedCall(duration, () => this.removeBurn(target));
+      return;
+    }
+    target.burnTickDamage = tickDamage;
+    if (target.burnTimer) target.burnTimer.remove(false);
+    if (target.burnEndTimer) target.burnEndTimer.remove(false);
+    if (this.isAuthoritativeOwner(target)) {
+      const totalTicks = Math.max(1, Math.round(duration / tickInterval));
+      target.burnTimer = this.time.addEvent({
+        delay: tickInterval,
+        repeat: totalTicks - 1,
+        callback: () => {
+          if (!target || target.isDead) return;
+          this.damageFighter(target, tickDamage, {
+            ignoreShield: true,
+            ignoreCurseMultiplier: true,
+            ignoreFreezeBreak: true,
+          });
+        },
+      });
+    }
+    if (!target.burnTintSprite && !target.isDead) {
+      target.burnTintSprite = this.add.sprite(
+        target.sprite.x,
+        target.sprite.y,
+        target.sprite.texture.key,
+        target.sprite.frame.name,
+      )
+        .setScale(target.sprite.scaleX, target.sprite.scaleY)
+        .setFlipX(target.sprite.flipX)
+        .setTintFill(0xff8800)
+        .setAlpha(0.45)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(target.sprite.depth + 0.05);
+      target.burnPulseTween = this.tweens.add({
+        targets: target.burnTintSprite,
+        alpha: 0.2,
+        duration: 220,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
+    target.burnEndTimer = this.time.delayedCall(duration, () => {
+      this.removeBurn(target);
+    });
+  }
+
+  removeBurn(target) {
+    if (!target) return;
+    if (target.burnTimer) { target.burnTimer.remove(false); target.burnTimer = null; }
+    if (target.burnEndTimer) { target.burnEndTimer.remove(false); target.burnEndTimer = null; }
+    if (target.burnPulseTween) { target.burnPulseTween.stop(); target.burnPulseTween = null; }
+    if (target.burnTintSprite) { target.burnTintSprite.destroy(); target.burnTintSprite = null; }
+    target.burnTickDamage = 0;
+  }
+
   applyShield(fighter) {
     this.removeShield(fighter);
     this.playSfx('sfx_shield_cast');
@@ -2805,18 +2955,57 @@ export default class GameScene extends Phaser.Scene {
     const startX = body.x + body.width / 2;
     const startY = body.y + body.height / 2;
     const dir = pointerWorldX >= startX ? 1 : -1;
+    this.spawnWheelProjectile(fighter, startX, startY, dir, WHEEL_SCALE, -360);
+  }
 
-    const bodyW = WHEEL_BODY_W * WHEEL_SCALE;
-    const bodyH = WHEEL_BODY_H * WHEEL_SCALE;
+  fireWheelStorm(fighter) {
+    // Build a list with each size repeated twice → 10 wheels, then shuffle
+    const order = [];
+    for (const s of WHEEL_L2_SIZE_MULTS) { order.push(s); order.push(s); }
+    Phaser.Utils.Array.Shuffle(order);
+    for (let i = 0; i < order.length; i++) {
+      const sizeMult = order[i];
+      this.time.delayedCall(i * WHEEL_L2_SPAWN_INTERVAL_MS, () => {
+        if (!fighter || fighter.isDead) return;
+        // Entry mode: 0 = from above (falls down, hits upper platforms), 1 = from left, 2 = from right
+        const mode = Phaser.Math.Between(0, 2);
+        let startX, startY, dir, vy;
+        if (mode === 0) {
+          startX = Phaser.Math.Between(120, MAP_WIDTH - 120);
+          startY = -40;
+          dir = Math.random() < 0.5 ? -1 : 1;
+          vy = Phaser.Math.Between(220, 320);
+        } else {
+          dir = mode === 1 ? 1 : -1;
+          startX = dir > 0 ? -40 : MAP_WIDTH + 40;
+          startY = Phaser.Math.Between(80, Math.floor(MAP_HEIGHT * 0.65));
+          vy = -260;
+        }
+        const w = this.spawnWheelProjectile(
+          fighter,
+          startX,
+          startY,
+          dir,
+          WHEEL_SCALE * sizeMult,
+          vy
+        );
+        if (w) w.isL2 = true;
+      });
+    }
+  }
+
+  spawnWheelProjectile(fighter, startX, startY, dir, scale, initialVy) {
+    const bodyW = WHEEL_BODY_W * scale;
+    const bodyH = WHEEL_BODY_H * scale;
     const phys = this.add.rectangle(startX, startY, bodyW, bodyH, 0xff0000, 0);
     this.physics.add.existing(phys);
     phys.body.setAllowGravity(true);
     phys.body.setBounce(1, 0.25);
     phys.body.setCollideWorldBounds(true);
-    phys.body.setVelocity(WHEEL_SPEED * dir, -360);
+    phys.body.setVelocity(WHEEL_SPEED * dir, initialVy);
 
     const visual = this.add.sprite(startX, startY + WHEEL_VISUAL_Y_OFFSET, 'wheel', 0);
-    visual.setScale(WHEEL_SCALE);
+    visual.setScale(scale);
     visual.setDepth(ATTACKER_DEPTH);
     const flipped = dir > 0;
     visual.setFlipX(flipped);
@@ -2845,6 +3034,7 @@ export default class GameScene extends Phaser.Scene {
     phys.skeletonHitSet = new Set();
 
     this.wheelProjectiles.push(phys);
+    return phys;
   }
 
   updateWheelLoopSound(w, onGround) {
@@ -3067,6 +3257,10 @@ export default class GameScene extends Phaser.Scene {
     if (fighter.isDead) return;
     if (fighter.isEye) this.revertFromEye(fighter);
     if (fighter.isFrozen) this.removeFreeze(fighter);
+    if (fighter.iceSlippery) this.removeIceSlippery(fighter);
+    if (this._snowstormActive && fighter === this._snowstormCaster) this.endSnowstorm();
+    if (fighter.fireStormBuff) this.deactivateFireStormBuff(fighter);
+    this.removeBurn(fighter);
     fighter.isDead = true;
     fighter.lives = Math.max(0, fighter.lives - 1);
     if (
@@ -3274,6 +3468,33 @@ export default class GameScene extends Phaser.Scene {
     return best;
   }
 
+  pickHeavensFuryBonusX(occupiedZones, ownHalfWidth) {
+    // occupiedZones: array of { x, halfWidth } already taken by previous rays
+    const minX = 80;
+    const maxX = MAP_WIDTH - 80;
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const cand = Phaser.Math.Between(minX, maxX);
+      let overlap = false;
+      for (const z of occupiedZones) {
+        const minDist = z.halfWidth + ownHalfWidth + 10; // +10px gap
+        if (Math.abs(cand - z.x) < minDist) { overlap = true; break; }
+      }
+      if (!overlap) return cand;
+    }
+    // Fallback: pick the X furthest from all existing zones
+    let bestX = minX;
+    let bestDist = -1;
+    for (let x = minX; x <= maxX; x += 40) {
+      let nearest = Infinity;
+      for (const z of occupiedZones) {
+        const d = Math.abs(x - z.x) - z.halfWidth;
+        if (d < nearest) nearest = d;
+      }
+      if (nearest > bestDist) { bestDist = nearest; bestX = x; }
+    }
+    return bestX;
+  }
+
   findLowestSurfaceAt(x) {
     let best = -Infinity;
     for (const rect of PLATFORM_RECTS) {
@@ -3291,15 +3512,19 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
-  firePower(fighter, worldX, worldY, level = 1) {
+  firePower(fighter, worldX, worldY, level = 1, opts = {}) {
     const isL2 = level >= 2;
-    const surfaceY = isL2
+    const fastTelegraph = opts.fastTelegraph ?? isL2;
+    const bigSize = opts.bigSize ?? isL2;
+    const wideAoe = opts.wideAoe ?? isL2;
+    const lowestSurface = opts.lowestSurface ?? isL2;
+    const surfaceY = lowestSurface
       ? this.findLowestSurfaceAt(worldX)
       : this.findSurfaceBelow(worldX, worldY);
     const beamHeight = Math.max(0, surfaceY);
-    const sizeMult = isL2 ? 3 : 1;
-    const telegraphMs = isL2 ? 600 : HEAVENS_FURY_TELEGRAPH_MS;
-    const beamWidthMult = isL2 ? 2 : 1;
+    const sizeMult = opts.sizeMult ?? (bigSize ? 3 : 1);
+    const telegraphMs = fastTelegraph ? 600 : HEAVENS_FURY_TELEGRAPH_MS;
+    const beamWidthMult = wideAoe ? 2 : 1;
 
     this.playSfx('sfx_heavens_fury_cast');
     this.playSfx('sfx_heavens_fury_belezam');
@@ -3325,13 +3550,14 @@ export default class GameScene extends Phaser.Scene {
       telegraph.destroy();
       telegraphCore.destroy();
       telegraphGlow.destroy();
-      this.executeHeavensStrike(fighter, worldX, surfaceY, level);
+      this.executeHeavensStrike(fighter, worldX, surfaceY, level, { bigSize, wideAoe, sizeMult });
     });
   }
 
   fireSkullCurse(fighter, pointerWorldX, pointerWorldY, level = 1) {
     this.playSfx('sfx_skull_cast', 1.6);
     if (level >= 2) {
+      this.playSfx('sfx_skull_cast_up', 0.9);
       this.fireSkullCurseRain(fighter, pointerWorldX);
       return;
     }
@@ -3348,13 +3574,28 @@ export default class GameScene extends Phaser.Scene {
   }
 
   fireSkullCurseRain(fighter) {
-    const count = 10;
-    for (let i = 0; i < count; i++) {
-      this.time.delayedCall(i * 40, () => {
+    const wave1 = 12;
+    const wave2 = 6;
+    const spacingMs = 40;
+    const initialVy = 140; // slower than the original 320 — gravity does the rest
+    const rainId = (this._skullRainCounter = (this._skullRainCounter || 0) + 1);
+    for (let i = 0; i < wave1; i++) {
+      this.time.delayedCall(i * spacingMs, () => {
         if (!fighter || fighter.isDead) return;
         const startX = Phaser.Math.Between(40, MAP_WIDTH - 40);
         const startY = Phaser.Math.Between(-300, -150);
-        this.spawnSkullProjectile(fighter, startX, startY, 0, 320, true, Math.PI / 2, 2);
+        const p = this.spawnSkullProjectile(fighter, startX, startY, 0, initialVy, true, Math.PI / 2, 2);
+        if (p) p.waveId = `${rainId}-1`;
+      });
+    }
+    const wave2DelayMs = wave1 * spacingMs + 1000;
+    for (let i = 0; i < wave2; i++) {
+      this.time.delayedCall(wave2DelayMs + i * spacingMs, () => {
+        if (!fighter || fighter.isDead) return;
+        const startX = Phaser.Math.Between(40, MAP_WIDTH - 40);
+        const startY = Phaser.Math.Between(-300, -150);
+        const p = this.spawnSkullProjectile(fighter, startX, startY, 0, initialVy, true, Math.PI / 2, 2);
+        if (p) p.waveId = `${rainId}-2`;
       });
     }
   }
@@ -3400,7 +3641,7 @@ export default class GameScene extends Phaser.Scene {
     return projectile;
   }
 
-  applySkullCurse(target, level = 1) {
+  applySkullCurse(target, level = 1, waveId = null) {
     target.curseMultiplier = SKULL_CURSE_DEBUFF_MULTIPLIER;
     if (target.curseTimer) target.curseTimer.remove(false);
     target.curseTimer = this.time.delayedCall(SKULL_CURSE_DEBUFF_DURATION_MS, () => {
@@ -3412,10 +3653,15 @@ export default class GameScene extends Phaser.Scene {
       target.curseSlowed = false;
       target.curseSlowTimer = null;
     });
+    if (level >= 2 && waveId && waveId !== target.curseLastWaveId) {
+      target.curseL2Stacks = (target.curseL2Stacks || 0) + 1;
+      target.curseLastWaveId = waveId;
+    }
     if (this.isAuthoritativeOwner(target)) {
       if (target.curseDotTimer) target.curseDotTimer.remove(false);
       const ticks = 10;
-      const tickDamage = level >= 2 ? 5 : SKULL_CURSE_DAMAGE / ticks;
+      let tickDamage = level >= 2 ? 5 : SKULL_CURSE_DAMAGE / ticks;
+      if ((target.curseL2Stacks || 0) >= 2) tickDamage = 10;
       target.curseDotTimer = this.time.addEvent({
         delay: SKULL_CURSE_DEBUFF_DURATION_MS / ticks,
         repeat: ticks - 1,
@@ -3470,6 +3716,8 @@ export default class GameScene extends Phaser.Scene {
   removeSkullCurse(target) {
     target.curseMultiplier = 1;
     target.curseSlowed = false;
+    target.curseL2Stacks = 0;
+    target.curseLastWaveId = null;
     if (target.curseSlowTimer) {
       target.curseSlowTimer.remove(false);
       target.curseSlowTimer = null;
@@ -3505,7 +3753,7 @@ export default class GameScene extends Phaser.Scene {
     const sb = fighter.sprite.body;
     const cx = sb.x + sb.width / 2;
     const cy = sb.y + sb.height / 2;
-    if (this.cache.audio.exists('sfx_ice_cast')) {
+    if (!this._snowstormActive && this.cache.audio.exists('sfx_ice_cast')) {
       const s = this.sound.add('sfx_ice_cast');
       s.play({ volume: this.masterVolume * this.sfxScale * 0.9 });
       this._iceCastSfxInstances = this._iceCastSfxInstances || [];
@@ -3634,6 +3882,7 @@ export default class GameScene extends Phaser.Scene {
           ignoreShield: true,
           iceTick: true,
           iceBeamId: beam.beamId,
+          iceCasterIndex: caster?.ownerIndex,
           playHitSfx: false,
           powerFlashColor: null,
         });
@@ -3822,7 +4071,7 @@ export default class GameScene extends Phaser.Scene {
     if (!fox.state || fox.state === 'dying') return;
     fox.state = 'patrol';
     fox.target = null;
-    this.playSfx('sfx_ice_crash', 0.9);
+    if (!this._snowstormActive) this.playSfx('sfx_ice_crash', 0.9);
   }
 
   spawnIceBeamHitVfx(x, y) {
@@ -3834,9 +4083,28 @@ export default class GameScene extends Phaser.Scene {
     vfx.once('animationcomplete-ice_beam_hit', () => vfx.destroy());
   }
 
-  applyIceTick(target, beamId) {
+  applyIceTick(target, beamId, casterIndex) {
     const now = this.time.now;
     if (target.isDead) return;
+    // Snowstorm empowered ice beam: deal 5 dmg per tick + instant freeze, fired by the snowstorm caster during the storm
+    const snowCasterIdx = this._snowstormCaster?.ownerIndex;
+    const snowstormEmpowered =
+      this._snowstormActive &&
+      casterIndex !== undefined &&
+      snowCasterIdx !== undefined &&
+      casterIndex === snowCasterIdx;
+    if (snowstormEmpowered && this.isAuthoritativeOwner(target)) {
+      const SNOW_BEAM_DMG_INTERVAL_MS = 600;
+      if (now - (target.snowBeamLastDmgAt || 0) >= SNOW_BEAM_DMG_INTERVAL_MS) {
+        target.snowBeamLastDmgAt = now;
+        this.damageFighter(target, 15, {
+          ignoreShield: true,
+          ignoreCurseMultiplier: true,
+          ignoreFreezeBreak: true,
+        });
+        if (target.isDead) return;
+      }
+    }
     if (target.isFrozen) {
       target.frozenUntil = now + ICE_FREEZE_DURATION_MS;
       target.iceBeamId = beamId || target.iceBeamId;
@@ -3847,6 +4115,10 @@ export default class GameScene extends Phaser.Scene {
       target.iceTickCount = 0;
     }
     target.iceTickCount = (target.iceTickCount || 0) + 1;
+    if (snowstormEmpowered) {
+      this.applyFreeze(target);
+      return;
+    }
     target.iceLastTickAt = now;
     target.iceSlowUntil = now + ICE_SLOW_DURATION_MS;
     const progress = Math.min(1, target.iceTickCount / ICE_HITS_TO_FREEZE);
@@ -3929,7 +4201,185 @@ export default class GameScene extends Phaser.Scene {
       target.frozenTintSprite.destroy();
       target.frozenTintSprite = null;
     }
-    if (!target.isDead) this.playSfx('sfx_ice_crash', 0.9);
+    if (!target.isDead && !this._snowstormActive) this.playSfx('sfx_ice_crash', 0.9);
+  }
+
+  castSnowstorm(caster) {
+    if (this._snowstormActive) return;
+    // Latest power wins: cancel any active firestorm
+    if (this._firestormVisualActive) this.endFireStorm();
+    this._snowstormActive = true;
+    this._snowstormCaster = caster;
+    this._snowstormStartedAt = this.time.now;
+
+    // Loop the snowstorm ambient SFX (no other ice_beam SFX during L2)
+    if (this.cache.audio.exists('sfx_snow_storm')) {
+      this._snowstormSound = this.sound.add('sfx_snow_storm', {
+        loop: true,
+        volume: this.masterVolume * this.sfxScale * 0.72,
+      });
+      this._snowstormSound.play();
+    }
+    if (this.cache.audio.exists('sfx_snow_wind')) {
+      this._snowstormWind = this.sound.add('sfx_snow_wind', {
+        loop: true,
+        volume: this.masterVolume * this.sfxScale * 1.5,
+      });
+      this._snowstormWind.play({ seek: 1.5 });
+    }
+
+    // Duck BGM to 50% during the storm
+    if (this.bgm) this.bgm.setVolume(this.masterVolume * this.bgmScale * 0.5);
+
+    // Visual: swap bg + tint platforms + swap rain → snow
+    if (this.map1Bg) this.map1Bg.setTexture('map1_bg_snow');
+    if (this.map1Platforms) this.map1Platforms.setTint(0xaad4ff);
+    if (this.rainEmitter) this.rainEmitter.stop();
+    if (this.snowEmitter) this.snowEmitter.start();
+    const overlay = this.add.rectangle(0, 0, MAP_WIDTH, MAP_HEIGHT, 0x88ccff, 0.18)
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(50)
+      .setBlendMode(Phaser.BlendModes.ADD);
+
+    // Slow + slippery + visual frost on every other living fighter
+    for (const f of this.fighters) {
+      if (!f || f === caster || f.isDead) continue;
+      this.applyIceSlippery(f, ICE_BEAM_L2_DURATION_MS);
+    }
+
+    // Freeze every skeleton until storm ends (uses existing freeze sprite + tint)
+    if (this.skeletons) {
+      for (const fox of this.skeletons) {
+        if (!fox || fox.state === 'dying') continue;
+        this.applyFreezeSkeleton(fox);
+        fox.frozenUntil = this.time.now + ICE_BEAM_L2_DURATION_MS;
+      }
+    }
+
+    // Visual freeze overlay on every armed landmine
+    const mineOverlays = [];
+    if (this.landMines) {
+      for (const mine of this.landMines) {
+        if (!mine || !mine.active || mine.triggered || !mine.armed) continue;
+        const ov = this.add.sprite(mine.x, mine.y, 'player_frozen', 0)
+          .setDepth(mine.depth + 0.1)
+          .setScale(2.2)
+          .setAlpha(0.9)
+          .setBlendMode(Phaser.BlendModes.NORMAL);
+        ov.play('player_frozen');
+        mine.frozenOverlay = ov;
+        mineOverlays.push({ mine, overlay: ov });
+      }
+    }
+
+    this._snowstormOverlay = overlay;
+    this._snowstormMineOverlays = mineOverlays;
+    this._snowstormEndTimer = this.time.delayedCall(ICE_BEAM_L2_DURATION_MS, () => {
+      this.endSnowstorm();
+    });
+  }
+
+  endSnowstorm(opts) {
+    if (!this._snowstormActive) return;
+    this._snowstormActive = false;
+    this._snowstormCaster = null;
+    if (this.isMultiplayer && this.network && !(opts && opts.fromNetwork)) {
+      this.network.send({ type: 'snowstorm_end' });
+    }
+    if (this._snowstormEndTimer) {
+      this._snowstormEndTimer.remove(false);
+      this._snowstormEndTimer = null;
+    }
+    if (this.map1Bg) this.map1Bg.setTexture(this._firestormVisualActive ? 'map1_bg_firestorm' : 'map1_bg');
+    if (this.map1Platforms) {
+      if (this._firestormVisualActive) this.map1Platforms.setTint(0xff8c63);
+      else this.map1Platforms.clearTint();
+    }
+    if (this.snowEmitter) {
+      this.snowEmitter.stop();
+      if (typeof this.snowEmitter.killAll === 'function') this.snowEmitter.killAll();
+    }
+    if (this.rainEmitter && !this._firestormVisualActive) this.rainEmitter.start();
+    if (this._snowstormOverlay) {
+      this._snowstormOverlay.destroy();
+      this._snowstormOverlay = null;
+    }
+    if (this._snowstormSound) {
+      if (this._snowstormSound.isPlaying) this._snowstormSound.stop();
+      this._snowstormSound.destroy();
+      this._snowstormSound = null;
+    }
+    if (this._snowstormWind) {
+      if (this._snowstormWind.isPlaying) this._snowstormWind.stop();
+      this._snowstormWind.destroy();
+      this._snowstormWind = null;
+    }
+    if (this.bgm) this.bgm.setVolume(this.masterVolume * this.bgmScale);
+    for (const f of this.fighters) {
+      if (!f) continue;
+      this.removeIceSlippery(f);
+    }
+    if (this._snowstormMineOverlays) {
+      for (const { mine, overlay: ov } of this._snowstormMineOverlays) {
+        if (ov && ov.scene) ov.destroy();
+        if (mine) mine.frozenOverlay = null;
+      }
+      this._snowstormMineOverlays = null;
+    }
+    if (this.skeletons) {
+      for (const fox of this.skeletons) {
+        if (fox && fox.isFrozen) fox.frozenUntil = Math.min(fox.frozenUntil, this.time.now);
+      }
+    }
+  }
+
+  applyIceSlippery(target, durationMs) {
+    if (!target || target.isDead) return;
+    const now = this.time.now;
+    target.iceSlippery = true;
+    target.iceSlipperyUntil = now + durationMs;
+    target.iceSlowActive = true;
+    target.iceSlowUntil = now + durationMs;
+    target.iceSlowFactor = ICE_BEAM_L2_SLIPPERY_FACTOR;
+    target.iceJumpFactor = ICE_BEAM_L2_JUMP_FACTOR;
+    if (!target.frostTintSprite) {
+      target.frostTintSprite = this.add.sprite(
+        target.sprite.x,
+        target.sprite.y,
+        target.sprite.texture.key,
+        target.sprite.frame.name,
+      )
+        .setScale(target.sprite.scaleX, target.sprite.scaleY)
+        .setFlipX(target.sprite.flipX)
+        .setTintFill(0x7dd3fc)
+        .setAlpha(0.35)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(target.sprite.depth + 0.05);
+    }
+  }
+
+  setSlipperyVel(body, target, fighter) {
+    if (fighter && fighter.iceSlippery) {
+      const cur = body.velocity.x;
+      body.setVelocityX(Phaser.Math.Linear(cur, target, 0.05));
+    } else {
+      body.setVelocityX(target);
+    }
+  }
+
+  removeIceSlippery(target) {
+    if (!target) return;
+    if (!target.iceSlippery) return;
+    target.iceSlippery = false;
+    target.iceSlipperyUntil = 0;
+    target.iceSlowActive = false;
+    target.iceSlowFactor = 0;
+    target.iceJumpFactor = 1;
+    if (target.frostTintSprite) {
+      target.frostTintSprite.destroy();
+      target.frostTintSprite = null;
+    }
   }
 
   updateIceBeams(time) {
@@ -4569,20 +5019,288 @@ export default class GameScene extends Phaser.Scene {
             f.frozenTintSprite.setFlipX(f.sprite.flipX);
           }
         }
-      } else if (f.iceSlowActive && time >= (f.iceSlowUntil || 0)) {
+      } else if (f.iceSlowActive && !f.iceSlippery && time >= (f.iceSlowUntil || 0)) {
         f.iceSlowActive = false;
         f.iceSlowFactor = 1;
+      }
+      if (f.iceSlippery && f.frostTintSprite && !f.isDead) {
+        f.frostTintSprite.setTexture(f.sprite.texture.key, f.sprite.frame.name);
+        f.frostTintSprite.setPosition(f.sprite.x, f.sprite.y);
+        f.frostTintSprite.setScale(f.sprite.scaleX, f.sprite.scaleY);
+        f.frostTintSprite.setFlipX(f.sprite.flipX);
+      }
+      if (f.burnTintSprite && !f.isDead) {
+        f.burnTintSprite.setTexture(f.sprite.texture.key, f.sprite.frame.name);
+        f.burnTintSprite.setPosition(f.sprite.x, f.sprite.y);
+        f.burnTintSprite.setScale(f.sprite.scaleX, f.sprite.scaleY);
+        f.burnTintSprite.setFlipX(f.sprite.flipX);
+      }
+      if (f.fireStormAuraSprite && !f.isDead) {
+        const fb = f.sprite.body;
+        f.fireStormAuraSprite.setPosition(
+          fb.x + fb.width / 2,
+          fb.y + fb.height / 2 - 40,
+        );
+      }
+      if (f.fireStormBuff && !f.isDead) {
+        const v = f.sprite.body.velocity;
+        const moving = Math.abs(v.x) > 30 || Math.abs(v.y) > 60;
+        if (moving) {
+          const now = this.time.now;
+          if (now - (f.fireStormTrailAt || 0) > 60) {
+            f.fireStormTrailAt = now;
+            const ghost = this.add.sprite(f.sprite.x, f.sprite.y, f.sprite.texture.key, f.sprite.frame.name)
+              .setScale(f.sprite.scaleX, f.sprite.scaleY)
+              .setOrigin(f.sprite.originX, f.sprite.originY)
+              .setFlipX(f.sprite.flipX)
+              .setTintFill(0xff8800)
+              .setAlpha(0.55)
+              .setDepth(f.sprite.depth - 0.1)
+              .setBlendMode(Phaser.BlendModes.ADD);
+            this.tweens.add({
+              targets: ghost,
+              alpha: 0,
+              scaleX: ghost.scaleX * 0.7,
+              scaleY: ghost.scaleY * 0.7,
+              duration: 360,
+              ease: 'Quad.easeOut',
+              onComplete: () => ghost.destroy(),
+            });
+          }
+        }
       }
     }
   }
 
-  fireFireStorm(fighter) {
+  fireFireStorm(fighter, level = 1) {
+    if (level >= 2) {
+      // Latest power wins: cancel an active snowstorm so they don't overlap
+      if (this._snowstormActive) this.endSnowstorm();
+      this.activateFireStormBuff(fighter);
+      for (let w = 0; w < FIRE_STORM_L2_WAVES; w++) {
+        const delay = w * FIRE_STORM_L2_WAVE_DELAY_MS;
+        this.time.delayedCall(delay, () => {
+          if (!fighter || fighter.isDead || !fighter.fireStormBuff) return;
+          this.spawnFireStormWaveInward(fighter);
+        });
+      }
+      return;
+    }
     for (let w = 0; w < FIRE_STORM_WAVES; w++) {
       const delay = w * FIRE_STORM_WAVE_DELAY_MS;
       this.time.delayedCall(delay, () => {
         if (!fighter || fighter.isDead) return;
         this.spawnFireStormWave(fighter);
       });
+    }
+  }
+
+  activateFireStormBuff(fighter) {
+    const wasBuffed = !!fighter.fireStormBuff;
+    fighter.fireStormBuff = true;
+    fighter.fireStormBuffUntil = this.time.now + FIRE_STORM_L2_DURATION_MS;
+    // Cancel any pending end-timer so we can re-schedule fresh
+    if (fighter.fireStormEndTimer) {
+      fighter.fireStormEndTimer.remove(false);
+      fighter.fireStormEndTimer = null;
+    }
+    if (!wasBuffed) {
+      this._fireStormVisualRefs = (this._fireStormVisualRefs || 0) + 1;
+      if (this._fireStormVisualRefs === 1) this.applyFireStormVisual();
+    }
+    if (!fighter.fireStormAuraSprite) {
+      fighter.fireStormAuraSprite = this.add.sprite(
+        fighter.sprite.x,
+        fighter.sprite.y,
+        'fire_storm_aura',
+        0,
+      )
+        .setScale(SPRITE_SCALE * 0.85)
+        .setAlpha(0.9)
+        .setBlendMode(Phaser.BlendModes.NORMAL)
+        .setDepth(fighter.sprite.depth - 0.05);
+      fighter.fireStormAuraSprite.play('fire_storm_aura');
+    }
+    fighter.fireStormEndTimer = this.time.delayedCall(FIRE_STORM_L2_DURATION_MS, () => {
+      fighter.fireStormEndTimer = null;
+      if (!fighter || !fighter.fireStormBuff) return;
+      this.deactivateFireStormBuff(fighter);
+    });
+  }
+
+  deactivateFireStormBuff(fighter) {
+    if (!fighter || !fighter.fireStormBuff) return;
+    fighter.fireStormBuff = false;
+    fighter.fireStormBuffUntil = 0;
+    if (fighter.fireStormEndTimer) {
+      fighter.fireStormEndTimer.remove(false);
+      fighter.fireStormEndTimer = null;
+    }
+    if (fighter.fireStormAuraSprite) {
+      fighter.fireStormAuraSprite.destroy();
+      fighter.fireStormAuraSprite = null;
+    }
+    this._fireStormVisualRefs = Math.max(0, (this._fireStormVisualRefs || 0) - 1);
+    if (this._fireStormVisualRefs === 0) this.removeFireStormVisual();
+  }
+
+  endFireStorm() {
+    for (const f of this.fighters || []) {
+      if (f && f.fireStormBuff) this.deactivateFireStormBuff(f);
+    }
+  }
+
+  applyFireStormVisual() {
+    this._firestormVisualActive = true;
+    if (this.map1Bg) this.map1Bg.setTexture('map1_bg_firestorm');
+    if (this.rainEmitter) this.rainEmitter.stop();
+    this.startHeatHaze();
+  }
+
+  removeFireStormVisual() {
+    this._firestormVisualActive = false;
+    // Clean up all L2 rays still in flight when the storm ends
+    if (this.fireStormRays) {
+      for (let i = this.fireStormRays.length - 1; i >= 0; i--) {
+        const r = this.fireStormRays[i];
+        if (!r || !r.isL2) continue;
+        if (r.auraPulse) r.auraPulse.stop();
+        if (r.aura) r.aura.destroy();
+        if (r.scene) r.destroy();
+        this.fireStormRays.splice(i, 1);
+      }
+    }
+    this.stopHeatHaze();
+    if (this._snowstormActive) return; // snowstorm now owns the visual
+    if (this.map1Bg) this.map1Bg.setTexture('map1_bg');
+    if (this.rainEmitter) this.rainEmitter.start();
+  }
+
+  startHeatHaze() {
+    if (!this.textures.exists('heat_wisp')) {
+      const tex = this.textures.createCanvas('heat_wisp', 8, 14);
+      const ctx = tex.getContext();
+      const grad = ctx.createRadialGradient(4, 7, 0, 4, 7, 6);
+      grad.addColorStop(0, 'rgba(255, 220, 150, 0.85)');
+      grad.addColorStop(0.6, 'rgba(255, 160, 80, 0.4)');
+      grad.addColorStop(1, 'rgba(180, 70, 30, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 8, 14);
+      tex.refresh();
+    }
+    if (!this.textures.exists('heat_smoke')) {
+      const tex = this.textures.createCanvas('heat_smoke', 24, 24);
+      const ctx = tex.getContext();
+      const grad = ctx.createRadialGradient(12, 12, 0, 12, 12, 12);
+      grad.addColorStop(0, 'rgba(70, 50, 50, 0.55)');
+      grad.addColorStop(0.6, 'rgba(50, 40, 40, 0.25)');
+      grad.addColorStop(1, 'rgba(30, 20, 20, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 24, 24);
+      tex.refresh();
+    }
+    if (!this.heatEmitter) {
+      this.heatEmitter = this.add.particles(0, 0, 'heat_wisp', {
+        x: { min: 0, max: MAP_WIDTH },
+        y: { min: Math.floor(MAP_HEIGHT * 0.55), max: MAP_HEIGHT },
+        lifespan: 2400,
+        speedY: { min: -90, max: -45 },
+        speedX: { min: -20, max: 20 },
+        accelerationX: { min: -30, max: 30 },
+        quantity: 2,
+        frequency: 70,
+        alpha: { min: 0.18, max: 0.35 },
+        scale: { start: 0.7, end: 1.6 },
+        blendMode: Phaser.BlendModes.ADD,
+      }).setDepth(-3);
+    }
+    if (!this.smokeEmitter) {
+      this.smokeEmitter = this.add.particles(0, 0, 'heat_smoke', {
+        x: { min: -40, max: MAP_WIDTH + 40 },
+        y: MAP_HEIGHT + 10,
+        lifespan: 5500,
+        speedY: { min: -70, max: -35 },
+        speedX: { min: -30, max: 30 },
+        accelerationX: { min: -15, max: 15 },
+        quantity: 2,
+        frequency: 110,
+        alpha: { start: 0.6, end: 0 },
+        scale: { start: 0.8, end: 3.2 },
+        rotate: { min: 0, max: 360 },
+      }).setDepth(-7);
+    }
+    this.heatEmitter.start();
+    this.smokeEmitter.start();
+    if (this.map1Platforms) this.map1Platforms.setTint(0xff8c63);
+    if (!this.heatOverlay) {
+      this.heatOverlay = this.add.rectangle(0, 0, MAP_WIDTH, MAP_HEIGHT, 0xf97316, 0.06)
+        .setOrigin(0, 0)
+        .setScrollFactor(0)
+        .setDepth(49)
+        .setBlendMode(Phaser.BlendModes.ADD);
+    }
+    this.heatOverlay.setAlpha(0.06).setVisible(true);
+    if (this._heatOverlayPulse) this._heatOverlayPulse.stop();
+    this._heatOverlayPulse = this.tweens.add({
+      targets: this.heatOverlay,
+      alpha: 0.14,
+      duration: 1100,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
+  stopHeatHaze() {
+    if (this.heatEmitter) this.heatEmitter.stop();
+    if (this.smokeEmitter) this.smokeEmitter.stop();
+    if (this._heatOverlayPulse) {
+      this._heatOverlayPulse.stop();
+      this._heatOverlayPulse = null;
+    }
+    if (this.heatOverlay) {
+      this.heatOverlay.setVisible(false).setAlpha(0);
+    }
+    // Restore platform tint unless snowstorm is taking over
+    if (this.map1Platforms && !this._snowstormActive) this.map1Platforms.clearTint();
+  }
+
+  spawnFireStormWaveInward(fighter) {
+    this.playSfx('sfx_fire_storm', 1, 0.2);
+    this.playSfx('sfx_fire_storm_2', 1, 0.4);
+    const body = fighter.sprite.body;
+    const cx = body.x + body.width / 2;
+    const cy = body.y + body.height / 2;
+    const hitSet = new Set();
+
+    const burst = this.add.image(cx, cy, 'glow_orange')
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(ATTACKER_DEPTH - 0.1)
+      .setScale(0.4)
+      .setAlpha(0.85);
+    this.tweens.add({
+      targets: burst,
+      alpha: 0,
+      scale: 1.6,
+      duration: 520,
+      onComplete: () => burst.destroy(),
+    });
+    this.spawnFireStormHit(fighter);
+
+    for (let i = 0; i < 8; i++) {
+      const outwardAngle = (Math.PI / 4) * i;
+      const startX = cx + Math.cos(outwardAngle) * FIRE_STORM_L2_RAY_RADIUS;
+      const startY = cy + Math.sin(outwardAngle) * FIRE_STORM_L2_RAY_RADIUS;
+      const inwardAngle = outwardAngle + Math.PI;
+      const ray = this.spawnFireStormRay(fighter, startX, startY, inwardAngle, hitSet);
+      if (ray) {
+        ray.isL2 = true;
+        ray.homingTarget = fighter;
+        ray.homingSpeed = FIRE_STORM_L2_SPEED;
+        const vx = Math.cos(inwardAngle) * FIRE_STORM_L2_SPEED;
+        const vy = Math.sin(inwardAngle) * FIRE_STORM_L2_SPEED;
+        ray.body.setVelocity(vx, vy);
+      }
     }
   }
 
@@ -4649,6 +5367,7 @@ export default class GameScene extends Phaser.Scene {
     ray.play('fire_storm_ray');
 
     this.fireStormRays.push(ray);
+    return ray;
   }
 
   spawnFireStormHit(fighter) {
@@ -4672,10 +5391,12 @@ export default class GameScene extends Phaser.Scene {
     this.fireStormHitVfx.push(vfx);
   }
 
-  executeHeavensStrike(fighter, worldX, surfaceY, level = 1) {
+  executeHeavensStrike(fighter, worldX, surfaceY, level = 1, opts = {}) {
     const isL2 = level >= 2;
-    const sizeMult = isL2 ? 3 : 1;
-    const aoeMult = isL2 ? 2 : 1;
+    const bigSize = opts.bigSize ?? isL2;
+    const wideAoe = opts.wideAoe ?? isL2;
+    const sizeMult = bigSize ? 3 : 1;
+    const aoeMult = wideAoe ? 2 : 1;
     const strikeHalfWidth = HEAVENS_FURY_STRIKE_HALF_WIDTH * aoeMult;
     const beamHalfWidth = HEAVENS_FURY_BEAM_HALF_WIDTH * aoeMult;
     this.playSfx('sfx_heavens_fury_second');
@@ -4827,7 +5548,34 @@ export default class GameScene extends Phaser.Scene {
       this.firePower(fighter, pointer.worldX, pointer.worldY, level);
       fighter.specialPowers.shift();
       if (level >= 2) fighter.upgradedPowers.delete('heavens_fury');
-      this.sendPowerCast('heavens_fury', { worldX: pointer.worldX, worldY: pointer.worldY, level });
+      let bonusX = null;
+      let bonus2X = null;
+      if (level >= 2) {
+        const ray1HalfWidth = HEAVENS_FURY_STRIKE_HALF_WIDTH * 2; // L2 wideAoe
+        const bonusHalfWidth = HEAVENS_FURY_STRIKE_HALF_WIDTH;     // L1 normal AoE
+        // Ray 2: normal size, doesn't overlap ray 1
+        bonusX = this.pickHeavensFuryBonusX(
+          [{ x: pointer.worldX, halfWidth: ray1HalfWidth }],
+          bonusHalfWidth,
+        );
+        this.time.delayedCall(600, () => {
+          if (!fighter || fighter.isDead) return;
+          this.firePower(fighter, bonusX, 0, 1, { fastTelegraph: true, lowestSurface: true });
+        });
+        // Ray 3: 0.7x size, doesn't overlap ray 1 or ray 2
+        bonus2X = this.pickHeavensFuryBonusX(
+          [
+            { x: pointer.worldX, halfWidth: ray1HalfWidth },
+            { x: bonusX, halfWidth: bonusHalfWidth },
+          ],
+          bonusHalfWidth,
+        );
+        this.time.delayedCall(1200, () => {
+          if (!fighter || fighter.isDead) return;
+          this.firePower(fighter, bonus2X, 0, 1, { fastTelegraph: true, sizeMult: 0.7, lowestSurface: true });
+        });
+      }
+      this.sendPowerCast('heavens_fury', { worldX: pointer.worldX, worldY: pointer.worldY, level, bonusX, bonus2X });
     } else if (power === 'shield') {
       fighter.specialPowers.shift();
       if (fighter.isEye) {
@@ -4844,22 +5592,42 @@ export default class GameScene extends Phaser.Scene {
       this.fireSkullCurse(fighter, pointer.worldX, pointer.worldY, level);
       this.sendPowerCast('skull_curse', { worldX: pointer.worldX, worldY: pointer.worldY, level });
     } else if (power === 'wheel') {
+      const level = fighter.upgradedPowers.has('wheel') ? 2 : 1;
       fighter.specialPowers.shift();
-      this.fireWheel(fighter, pointer.worldX);
-      this.sendPowerCast('wheel', { worldX: pointer.worldX });
+      if (level >= 2) fighter.upgradedPowers.delete('wheel');
+      if (level >= 2) {
+        this.fireWheelStorm(fighter);
+        this.sendPowerCast('wheel', { worldX: pointer.worldX, level: 2 });
+      } else {
+        this.fireWheel(fighter, pointer.worldX);
+        this.sendPowerCast('wheel', { worldX: pointer.worldX });
+      }
     } else if (power === 'fire_storm') {
+      const level = fighter.upgradedPowers.has('fire_storm') ? 2 : 1;
       fighter.specialPowers.shift();
-      this.fireFireStorm(fighter);
-      this.sendPowerCast('fire_storm', {});
+      if (level >= 2) fighter.upgradedPowers.delete('fire_storm');
+      this.fireFireStorm(fighter, level);
+      this.sendPowerCast('fire_storm', { level });
     } else if (power === 'ice_beam') {
+      const level = fighter.upgradedPowers.has('ice_beam') ? 2 : 1;
       fighter.specialPowers.shift();
-      const beam = this.fireIceBeam(fighter, pointer.worldX, pointer.worldY);
-      this.sendPowerCast('ice_beam', {
-        worldX: pointer.worldX,
-        worldY: pointer.worldY,
-        beamId: beam?.beamId ?? null,
-        facing: beam?.facing ?? 1,
-      });
+      if (level >= 2) fighter.upgradedPowers.delete('ice_beam');
+      if (level >= 2) {
+        this.castSnowstorm(fighter);
+        this.sendPowerCast('ice_beam', {
+          worldX: pointer.worldX,
+          worldY: pointer.worldY,
+          level: 2,
+        });
+      } else {
+        const beam = this.fireIceBeam(fighter, pointer.worldX, pointer.worldY);
+        this.sendPowerCast('ice_beam', {
+          worldX: pointer.worldX,
+          worldY: pointer.worldY,
+          beamId: beam?.beamId ?? null,
+          facing: beam?.facing ?? 1,
+        });
+      }
     } else if (power === 'skeleton_attack') {
       fighter.specialPowers.shift();
       this.throwSkeletonBall(fighter, pointer.worldX, pointer.worldY);
@@ -5023,6 +5791,7 @@ export default class GameScene extends Phaser.Scene {
 
   triggerLandMine(mine, opts) {
     if (mine.triggered) return;
+    if (mine.frozenOverlay) return; // mina congelada não dispara durante a tempestade
     mine.triggered = true;
     const cx = mine.x;
     const cy = mine.y;
@@ -5070,6 +5839,10 @@ export default class GameScene extends Phaser.Scene {
 
     this.playSfx('sfx_landmine_explode', 1.2);
     this.destroyLandMineGlow(mine);
+    if (mine.frozenOverlay) {
+      mine.frozenOverlay.destroy();
+      mine.frozenOverlay = null;
+    }
     mine.destroy();
 
     // Broadcast to remotes so they destroy their local copy of this mine
@@ -5409,10 +6182,51 @@ export default class GameScene extends Phaser.Scene {
     this.eyeHudText.setVisible(true);
   }
 
+  updateStormHud(time) {
+    if (!this.stormHudText) return;
+    let label = null;
+    let endAt = 0;
+    let strokeColor = 0xff8c63;
+    let labelColor = '#fde047';
+    if (this._snowstormActive) {
+      label = 'SNOW STORM';
+      // _snowstormEndTimer fires at full duration; estimate from last seen elapsed
+      endAt = (this._snowstormStartedAt || time) + ICE_BEAM_L2_DURATION_MS;
+      strokeColor = 0x88ccff;
+      labelColor = '#bae6fd';
+    } else if (this._firestormVisualActive) {
+      label = 'FIRE STORM';
+      // pick the latest end across all buffed fighters
+      let maxUntil = 0;
+      for (const f of this.fighters || []) {
+        if (f && f.fireStormBuff && (f.fireStormBuffUntil || 0) > maxUntil) {
+          maxUntil = f.fireStormBuffUntil;
+        }
+      }
+      endAt = maxUntil;
+      strokeColor = 0xff8c63;
+      labelColor = '#fde047';
+    }
+    if (!label || !endAt) {
+      this.stormHudBg.setVisible(false);
+      this.stormHudLabel.setVisible(false);
+      this.stormHudText.setVisible(false);
+      return;
+    }
+    const remaining = Math.max(0, endAt - time);
+    this.stormHudText.setText(`${(remaining / 1000).toFixed(1)}s`);
+    this.stormHudLabel.setText(label);
+    this.stormHudLabel.setColor(labelColor);
+    this.stormHudBg.setStrokeStyle(2, strokeColor, 0.9);
+    this.stormHudBg.setVisible(true);
+    this.stormHudLabel.setVisible(true);
+    this.stormHudText.setVisible(true);
+  }
+
   applyIncomingHit(target, hit) {
     if (!target || target.isDead) return;
     if (hit.iceTick) {
-      this.applyIceTick(target, hit.iceBeamId);
+      this.applyIceTick(target, hit.iceBeamId, hit.iceCasterIndex);
       return;
     }
     if (target.isEye) {
@@ -5439,7 +6253,12 @@ export default class GameScene extends Phaser.Scene {
       }
       if (hit.knockupY) target.sprite.body.setVelocityY(hit.knockupY);
       if (hit.stun) this.applyStun(target);
-      if (hit.curse) this.applySkullCurse(target, hit.curseLevel || 1);
+      if (hit.curse) this.applySkullCurse(target, hit.curseLevel || 1, hit.curseWaveId);
+      if (hit.burn) this.applyBurn(target, {
+        tickDamage: hit.burnTickDamage,
+        tickInterval: hit.burnTickInterval,
+        duration: hit.burnDuration,
+      });
     }
     if (hit.powerFlashColor !== null && hit.powerFlashColor !== undefined) {
       this.triggerPowerFlash(target, hit.powerFlashColor);
@@ -5459,7 +6278,7 @@ export default class GameScene extends Phaser.Scene {
     }
     if (hit.curse) {
       this.revertFromEye(target);
-      this.applySkullCurse(target, hit.curseLevel || 1);
+      this.applySkullCurse(target, hit.curseLevel || 1, hit.curseWaveId);
       return;
     }
     if (hit.stun) {
@@ -5634,6 +6453,10 @@ export default class GameScene extends Phaser.Scene {
       if (f && !f.isDead) this.spawnDoubleJumpEffect(f);
       return;
     }
+    if (data.type === 'snowstorm_end') {
+      this.endSnowstorm({ fromNetwork: true });
+      return;
+    }
     if (data.type === 'mine_explode') {
       if (!this.landMines) return;
       const tol = 60;
@@ -5685,19 +6508,36 @@ export default class GameScene extends Phaser.Scene {
       if (!caster) return;
       if (data.power === 'heavens_fury') {
         this.firePower(caster, data.worldX, data.worldY, data.level || 1);
+        if (data.bonusX != null) {
+          this.time.delayedCall(600, () => {
+            if (!caster || caster.isDead) return;
+            this.firePower(caster, data.bonusX, 0, 1, { fastTelegraph: true, lowestSurface: true });
+          });
+        }
+        if (data.bonus2X != null) {
+          this.time.delayedCall(1200, () => {
+            if (!caster || caster.isDead) return;
+            this.firePower(caster, data.bonus2X, 0, 1, { fastTelegraph: true, sizeMult: 0.7, lowestSurface: true });
+          });
+        }
       } else if (data.power === 'shield') {
         if (!caster.isEye) this.applyShield(caster);
       } else if (data.power === 'skull_curse') {
         this.fireSkullCurse(caster, data.worldX, data.worldY, data.level || 1);
       } else if (data.power === 'wheel') {
-        this.fireWheel(caster, data.worldX);
+        if ((data.level || 1) >= 2) this.fireWheelStorm(caster);
+        else this.fireWheel(caster, data.worldX);
       } else if (data.power === 'ice_beam') {
-        this.fireIceBeam(caster, data.worldX, data.worldY, {
-          beamId: data.beamId,
-          facing: data.facing,
-        });
+        if ((data.level || 1) >= 2) {
+          this.castSnowstorm(caster);
+        } else {
+          this.fireIceBeam(caster, data.worldX, data.worldY, {
+            beamId: data.beamId,
+            facing: data.facing,
+          });
+        }
       } else if (data.power === 'fire_storm') {
-        this.fireFireStorm(caster);
+        this.fireFireStorm(caster, data.level || 1);
       } else if (data.power === 'skeleton_attack') {
         this.throwSkeletonBall(caster, data.worldX, data.worldY);
       } else if (data.power === 'land_mine') {
@@ -5973,14 +6813,15 @@ export default class GameScene extends Phaser.Scene {
       let speed = MOVE_SPEED;
       if (fighter.curseSlowed) speed *= SKULL_CURSE_SLOW_FACTOR;
       if (fighter.iceSlowActive && fighter.iceSlowFactor) speed *= fighter.iceSlowFactor;
+      if (fighter.fireStormBuff) speed *= FIRE_STORM_L2_SPEED_MULT;
 
       // Quando indo pra loot, parar mais perto. Quando perseguindo enemy, manter range de melee.
       const stopDist = (mvX === (loot && loot.x) && mvY === (loot && loot.y)) ? 24 : 80;
 
       if (absDx > stopDist) {
-        body.setVelocityX(dx < 0 ? -speed : speed);
+        this.setSlipperyVel(body, dx < 0 ? -speed : speed, fighter);
       } else {
-        body.setVelocityX(0);
+        this.setSlipperyVel(body, 0, fighter);
       }
 
       // Face com histerese de 50px
@@ -5995,7 +6836,8 @@ export default class GameScene extends Phaser.Scene {
       if (wantsJump && time > (fighter.aiNextJumpAt || 0) && jumpsLeft > 0) {
         const isSecond = jumpsLeft < MAX_JUMPS;
         const slowMult = fighter.curseSlowed ? SKULL_CURSE_SLOW_FACTOR : 1;
-        body.setVelocityY((isSecond ? -DOUBLE_JUMP_VELOCITY : -JUMP_VELOCITY) * slowMult);
+        const slipJumpMult = fighter.iceSlippery ? (fighter.iceJumpFactor || 1) : 1;
+        body.setVelocityY((isSecond ? -DOUBLE_JUMP_VELOCITY : -JUMP_VELOCITY) * slowMult * slipJumpMult);
         fighter.aiJumpsRemaining = jumpsLeft - 1;
         fighter.aiNextJumpAt = time + 220;
       }
@@ -6141,6 +6983,7 @@ export default class GameScene extends Phaser.Scene {
           knockbackX: facing * 200,
           knockupY: -160,
           attackerIndex: fighter.ownerIndex,
+          burn: !!fighter.fireStormBuff,
         });
         this.playSfx('sfx_hit');
         if (this.triggerHitFlash) this.triggerHitFlash(t);
@@ -6190,6 +7033,29 @@ export default class GameScene extends Phaser.Scene {
       this.firePower(fighter, tx, ty, level);
       fighter.specialPowers.shift();
       if (level >= 2) fighter.upgradedPowers.delete('heavens_fury');
+      if (level >= 2) {
+        const ray1HalfWidth = HEAVENS_FURY_STRIKE_HALF_WIDTH * 2;
+        const bonusHalfWidth = HEAVENS_FURY_STRIKE_HALF_WIDTH;
+        const bX = this.pickHeavensFuryBonusX(
+          [{ x: tx, halfWidth: ray1HalfWidth }],
+          bonusHalfWidth,
+        );
+        this.time.delayedCall(600, () => {
+          if (!fighter || fighter.isDead) return;
+          this.firePower(fighter, bX, 0, 1, { fastTelegraph: true, lowestSurface: true });
+        });
+        const b2X = this.pickHeavensFuryBonusX(
+          [
+            { x: tx, halfWidth: ray1HalfWidth },
+            { x: bX, halfWidth: bonusHalfWidth },
+          ],
+          bonusHalfWidth,
+        );
+        this.time.delayedCall(1200, () => {
+          if (!fighter || fighter.isDead) return;
+          this.firePower(fighter, b2X, 0, 1, { fastTelegraph: true, sizeMult: 0.7, lowestSurface: true });
+        });
+      }
     } else if (power === 'shield') {
       fighter.specialPowers.shift();
       this.applyShield(fighter);
@@ -6199,14 +7065,22 @@ export default class GameScene extends Phaser.Scene {
       if (level >= 2) fighter.upgradedPowers.delete('skull_curse');
       this.fireSkullCurse(fighter, tx, ty, level);
     } else if (power === 'wheel') {
+      const level = fighter.upgradedPowers?.has('wheel') ? 2 : 1;
       fighter.specialPowers.shift();
-      this.fireWheel(fighter, tx);
+      if (level >= 2) fighter.upgradedPowers.delete('wheel');
+      if (level >= 2) this.fireWheelStorm(fighter);
+      else this.fireWheel(fighter, tx);
     } else if (power === 'fire_storm') {
+      const level = fighter.upgradedPowers?.has('fire_storm') ? 2 : 1;
       fighter.specialPowers.shift();
-      this.fireFireStorm(fighter);
+      if (level >= 2) fighter.upgradedPowers.delete('fire_storm');
+      this.fireFireStorm(fighter, level);
     } else if (power === 'ice_beam') {
+      const level = fighter.upgradedPowers?.has('ice_beam') ? 2 : 1;
       fighter.specialPowers.shift();
-      this.fireIceBeam(fighter, tx, ty);
+      if (level >= 2) fighter.upgradedPowers.delete('ice_beam');
+      if (level >= 2) this.castSnowstorm(fighter);
+      else this.fireIceBeam(fighter, tx, ty);
     } else if (power === 'skeleton_attack') {
       fighter.specialPowers.shift();
       this.throwSkeletonBall(fighter, tx, ty);
@@ -6241,11 +7115,12 @@ export default class GameScene extends Phaser.Scene {
 
     const grounded = body.blocked.down;
     const slowMult = fighter.curseSlowed ? SKULL_CURSE_SLOW_FACTOR : 1;
+    const slipJumpMult = fighter.iceSlippery ? (fighter.iceJumpFactor || 1) : 1;
     if (grounded) {
-      body.setVelocityY(-JUMP_VELOCITY * slowMult);
+      body.setVelocityY(-JUMP_VELOCITY * slowMult * slipJumpMult);
       fighter.aiJumpsRemaining = (fighter.aiJumpsRemaining ?? MAX_JUMPS) - 1;
     } else if ((fighter.aiJumpsRemaining ?? 0) > 0) {
-      body.setVelocityY(-DOUBLE_JUMP_VELOCITY * slowMult);
+      body.setVelocityY(-DOUBLE_JUMP_VELOCITY * slowMult * slipJumpMult);
       fighter.aiJumpsRemaining -= 1;
     }
     // Empurra lateralmente pro lado oposto da ameaça
@@ -6356,6 +7231,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     this.updateEyeHud(time);
+    this.updateStormHud(time);
     this.updateSelfArrow();
     this.updateKillHud();
     this.updateIceBeams(time);
@@ -6576,14 +7452,15 @@ export default class GameScene extends Phaser.Scene {
 
       let speed = fighter.curseSlowed ? MOVE_SPEED * SKULL_CURSE_SLOW_FACTOR : MOVE_SPEED;
       if (fighter.iceSlowActive && fighter.iceSlowFactor) speed *= fighter.iceSlowFactor;
+      if (fighter.fireStormBuff) speed *= FIRE_STORM_L2_SPEED_MULT;
       if (leftDown && !rightDown) {
-        body.setVelocityX(-speed);
+        this.setSlipperyVel(body, -speed, fighter);
         desiredFlip = true;
       } else if (rightDown && !leftDown) {
-        body.setVelocityX(speed);
+        this.setSlipperyVel(body, speed, fighter);
         desiredFlip = false;
       } else {
-        body.setVelocityX(0);
+        this.setSlipperyVel(body, 0, fighter);
       }
 
       if (desiredFlip !== this.player.flipX) {
@@ -6632,8 +7509,9 @@ export default class GameScene extends Phaser.Scene {
       ) {
         const isSecondJump = this.jumpsRemaining < MAX_JUMPS;
         const slowMult = fighter.curseSlowed ? SKULL_CURSE_SLOW_FACTOR : 1;
+        const slipJumpMult = fighter.iceSlippery ? (fighter.iceJumpFactor || 1) : 1;
         body.setVelocityY(
-          (isSecondJump ? -DOUBLE_JUMP_VELOCITY : -JUMP_VELOCITY) * slowMult
+          (isSecondJump ? -DOUBLE_JUMP_VELOCITY : -JUMP_VELOCITY) * slowMult * slipJumpMult
         );
         this.playSfx('sfx_jump', 2.5);
         this.jumpsRemaining -= 1;
@@ -6666,9 +7544,11 @@ export default class GameScene extends Phaser.Scene {
         const multiplier = this.didDoubleJump
           ? DOUBLE_JUMP_FALL_MULTIPLIER
           : FALL_GRAVITY_MULTIPLIER;
-        body.setGravityY(this.physics.world.gravity.y * (multiplier - 1));
+        const slipG = fighter.iceSlippery ? ICE_BEAM_L2_GRAVITY_FACTOR : 1;
+        body.setGravityY(this.physics.world.gravity.y * (multiplier * slipG - 1));
       } else {
-        body.setGravityY(0);
+        const slipG = fighter.iceSlippery ? ICE_BEAM_L2_GRAVITY_FACTOR : 1;
+        body.setGravityY(this.physics.world.gravity.y * (slipG - 1));
       }
 
       if (this.powerQueued && !fighter.isAttacking && fighter.specialPowers.length > 0) {
@@ -6831,6 +7711,7 @@ export default class GameScene extends Phaser.Scene {
                 knockbackX,
                 knockupY,
                 useDeath2: true,
+                burn: !!fighter.fireStormBuff,
               });
             }
           }
@@ -6899,6 +7780,7 @@ export default class GameScene extends Phaser.Scene {
               breakShield: true,
               curse: true,
               curseLevel: p.curseLevel || 1,
+              curseWaveId: p.waveId || null,
               playHitSfx: true,
               useDeath2: true,
             });
@@ -6954,6 +7836,26 @@ export default class GameScene extends Phaser.Scene {
         this.fireStormRays.splice(i, 1);
         continue;
       }
+      if (r.homingTarget && !r.homingTarget.isDead) {
+        const tb = r.homingTarget.sprite.body;
+        const tx = tb.x + tb.width / 2;
+        const ty = tb.y + tb.height / 2;
+        const dx = tx - r.x;
+        const dy = ty - r.y;
+        const dist = Math.hypot(dx, dy) || 1;
+        const speed = r.homingSpeed || FIRE_STORM_L2_SPEED;
+        if (dist <= FIRE_STORM_L2_RELEASE_DIST) {
+          // Reached the caster — release outward in the direction it was traveling (away from caster)
+          const releaseAngle = Math.atan2(-dy, -dx); // away from caster
+          r.body.setVelocity(Math.cos(releaseAngle) * speed, Math.sin(releaseAngle) * speed);
+          r.setRotation(releaseAngle);
+          r.homingTarget = null; // stop homing → travels straight outward until off-map
+        } else {
+          const newAngle = Math.atan2(dy, dx);
+          r.body.setVelocity((dx / dist) * speed, (dy / dist) * speed);
+          r.setRotation(newAngle);
+        }
+      }
       if (r.aura) r.aura.setPosition(r.x, r.y);
       const offMap =
         r.x < -80 || r.x > MAP_WIDTH + 80 || r.y < -80 || r.y > MAP_HEIGHT + 80;
@@ -6988,6 +7890,10 @@ export default class GameScene extends Phaser.Scene {
             playHitSfx: true,
             powerFlashColor: POWERS.fire_storm.orbColor,
             fireStormHit: true,
+            burn: r.isL2 ? true : false,
+            burnTickDamage: r.isL2 ? 2 : undefined,
+            burnTickInterval: r.isL2 ? 1000 : undefined,
+            burnDuration: r.isL2 ? 4000 : undefined,
           });
           this.spawnFireStormHit(target);
         }
@@ -7027,6 +7933,27 @@ export default class GameScene extends Phaser.Scene {
           w.visual.play(desiredAnim);
         }
         this.updateWheelLoopSound(w, onGround);
+        const now = this.time.now;
+        if (now - (w.lastTrailAt || 0) > 30) {
+          w.lastTrailAt = now;
+          const ghost = this.add.sprite(w.visual.x, w.visual.y, 'wheel', w.visual.frame.name)
+            .setScale(w.visual.scaleX, w.visual.scaleY)
+            .setOrigin(w.visual.originX, w.visual.originY)
+            .setFlipX(w.visual.flipX)
+            .setTintFill(0xffffff)
+            .setAlpha(0.55)
+            .setDepth(w.visual.depth - 0.1)
+            .setBlendMode(Phaser.BlendModes.ADD);
+          this.tweens.add({
+            targets: ghost,
+            alpha: 0,
+            scaleX: ghost.scaleX * 0.6,
+            scaleY: ghost.scaleY * 0.6,
+            duration: 240,
+            ease: 'Quad.easeOut',
+            onComplete: () => ghost.destroy(),
+          });
+        }
       }
       if (w.hasHit) continue;
 
