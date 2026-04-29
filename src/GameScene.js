@@ -4218,10 +4218,13 @@ export default class GameScene extends Phaser.Scene {
     fox.hpBarFill.setVisible(fillW > 0);
   }
 
-  startSkeletonDeath(fox) {
+  startSkeletonDeath(fox, opts) {
     if (fox.state === 'dying') return;
     fox.state = 'dying';
     fox.target = null;
+    if (this.isMultiplayer && this.network && !(opts && opts.fromNetwork)) {
+      this.network.send({ type: 'skeleton_killed', x: fox.x, y: fox.y });
+    }
     if (fox.frozenOverlay) { fox.frozenOverlay.destroy(); fox.frozenOverlay = null; }
     if (fox.frozenTintSprite) { fox.frozenTintSprite.destroy(); fox.frozenTintSprite = null; }
     fox.isFrozen = false;
@@ -5009,11 +5012,12 @@ export default class GameScene extends Phaser.Scene {
     return any;
   }
 
-  triggerLandMine(mine) {
+  triggerLandMine(mine, opts) {
     if (mine.triggered) return;
     mine.triggered = true;
     const cx = mine.x;
     const cy = mine.y;
+    const visualOnly = !!(opts && opts.visualOnly);
 
     // Visual: explosion spritesheet (frames 2-12 of explosion-b)
     const explosion = this.add.sprite(cx, cy, 'landmine_explosion', 2)
@@ -5022,40 +5026,47 @@ export default class GameScene extends Phaser.Scene {
     explosion.play('landmine_explosion');
     explosion.once('animationcomplete', () => explosion.destroy());
 
-    // Damage in radius
-    for (const f of this.fighters) {
-      if (!f || f.isDead || f.isInvulnerable) continue;
-      const fb = f.sprite.body;
-      const fcx = fb.x + fb.width / 2;
-      const fcy = fb.y + fb.height / 2;
-      const dist = Math.hypot(fcx - cx, fcy - cy);
-      if (dist < LAND_MINE_RADIUS * 1.4) {
-        this.dealHit(f, {
-          damage: LAND_MINE_DAMAGE,
-          knockbackX: (fcx > cx ? 1 : -1) * 280,
-          knockupY: -340,
-          attackerIndex: mine.owner?.ownerIndex,
-          playHitSfx: true,
-          powerFlashColor: 0xff8a2c,
-        });
+    if (!visualOnly) {
+      // Damage in radius
+      for (const f of this.fighters) {
+        if (!f || f.isDead || f.isInvulnerable) continue;
+        const fb = f.sprite.body;
+        const fcx = fb.x + fb.width / 2;
+        const fcy = fb.y + fb.height / 2;
+        const dist = Math.hypot(fcx - cx, fcy - cy);
+        if (dist < LAND_MINE_RADIUS * 1.4) {
+          this.dealHit(f, {
+            damage: LAND_MINE_DAMAGE,
+            knockbackX: (fcx > cx ? 1 : -1) * 280,
+            knockupY: -340,
+            attackerIndex: mine.owner?.ownerIndex,
+            playHitSfx: true,
+            powerFlashColor: 0xff8a2c,
+          });
+        }
       }
-    }
-    // Esqueletos no raio morrem instantaneamente
-    if (this.skeletons && this.skeletons.length > 0) {
-      this.damageSkeletonsInRect(
-        mine.owner,
-        cx - LAND_MINE_RADIUS,
-        cx + LAND_MINE_RADIUS,
-        cy - LAND_MINE_RADIUS,
-        cy + LAND_MINE_RADIUS,
-        SKELETON_MAX_HP + 1,
-        new Set()
-      );
+      // Esqueletos no raio morrem instantaneamente
+      if (this.skeletons && this.skeletons.length > 0) {
+        this.damageSkeletonsInRect(
+          mine.owner,
+          cx - LAND_MINE_RADIUS,
+          cx + LAND_MINE_RADIUS,
+          cy - LAND_MINE_RADIUS,
+          cy + LAND_MINE_RADIUS,
+          SKELETON_MAX_HP + 1,
+          new Set()
+        );
+      }
     }
 
     this.playSfx('sfx_landmine_explode', 1.2);
     this.destroyLandMineGlow(mine);
     mine.destroy();
+
+    // Broadcast to remotes so they destroy their local copy of this mine
+    if (this.isMultiplayer && this.network && !visualOnly) {
+      this.network.send({ type: 'mine_explode', x: cx, y: cy });
+    }
   }
 
   spawnDoubleJumpEffect(fighter) {
@@ -5614,6 +5625,32 @@ export default class GameScene extends Phaser.Scene {
       if (f && !f.isDead) this.spawnDoubleJumpEffect(f);
       return;
     }
+    if (data.type === 'mine_explode') {
+      if (!this.landMines) return;
+      const tol = 60;
+      let best = null;
+      let bestDist = tol;
+      for (const m of this.landMines) {
+        if (!m || m.triggered || !m.active) continue;
+        const d = Math.hypot(m.x - data.x, m.y - data.y);
+        if (d < bestDist) { best = m; bestDist = d; }
+      }
+      if (best) this.triggerLandMine(best, { visualOnly: true });
+      return;
+    }
+    if (data.type === 'skeleton_killed') {
+      if (!this.skeletons) return;
+      const tol = 80;
+      let best = null;
+      let bestDist = tol;
+      for (const fox of this.skeletons) {
+        if (!fox || fox.state === 'dying') continue;
+        const d = Math.hypot(fox.x - data.x, fox.y - data.y);
+        if (d < bestDist) { best = fox; bestDist = d; }
+      }
+      if (best) this.startSkeletonDeath(best, { fromNetwork: true });
+      return;
+    }
     if (data.type === 'loot_spawn') {
       if (this._isLootAuthority) return;
       if (this.findLootByNetId(data.id)) return;
@@ -5768,7 +5805,9 @@ export default class GameScene extends Phaser.Scene {
       this.checkMatchOver();
     }
     const hasShieldVisual = !!remote.shieldAnimSprite;
-    if (data.shielded === false && hasShieldVisual) {
+    if (data.shielded === true && !hasShieldVisual && !remote.isDead) {
+      this.applyShield(remote);
+    } else if (data.shielded === false && hasShieldVisual) {
       this.removeShield(remote);
     }
   }
