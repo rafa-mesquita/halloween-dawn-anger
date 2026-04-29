@@ -689,11 +689,11 @@ export default class GameScene extends Phaser.Scene {
       frameHeight: HOLY_SHIELD_FRAME_SIZE,
     });
     this.load.image('shield_icon', 'sprites/Poder 2 (Shield)/shield icon.png');
-    this.load.spritesheet('skull_curse', 'sprites/Poder 3 (Skull Curse)/Dark VFX 1 (40x32).png', {
+    this.load.spritesheet('skull_curse', 'sprites/Poder 3 (skull curse)/Dark VFX 1 (40x32).png', {
       frameWidth: SKULL_CURSE_FRAME_W,
       frameHeight: SKULL_CURSE_FRAME_H,
     });
-    this.load.spritesheet('skull_curse_vfx', 'sprites/Poder 3 (Skull Curse)/518.png', {
+    this.load.spritesheet('skull_curse_vfx', 'sprites/Poder 3 (skull curse)/518.png', {
       frameWidth: SKULL_CURSE_VFX_FRAME_W,
       frameHeight: SKULL_CURSE_VFX_FRAME_H,
     });
@@ -790,11 +790,11 @@ export default class GameScene extends Phaser.Scene {
       frameWidth: 64,
       frameHeight: 64,
     });
-    this.load.spritesheet('skull_curse_loot_idle', 'sprites/Poder 3 (Skull Curse)/skull curse loot.png', {
+    this.load.spritesheet('skull_curse_loot_idle', 'sprites/Poder 3 (skull curse)/skull curse loot.png', {
       frameWidth: LOOT_FRAME_SIZE,
       frameHeight: LOOT_FRAME_SIZE,
     });
-    this.load.spritesheet('skull_curse_loot_catch', 'sprites/Poder 3 (Skull Curse)/skull curse loot catch.png', {
+    this.load.spritesheet('skull_curse_loot_catch', 'sprites/Poder 3 (skull curse)/skull curse loot catch.png', {
       frameWidth: LOOT_FRAME_SIZE,
       frameHeight: LOOT_FRAME_SIZE,
     });
