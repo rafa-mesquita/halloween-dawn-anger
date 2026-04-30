@@ -1,60 +1,63 @@
 # Próxima Sessão
 
 > Última atualização: 2026-04-29
-> Sessão anterior: Skeleton Attack L2 (trio: skeleton + omar + archer) implementada — 6 dos 7 power upgrades estão prontos. Commit `a29fcce` pushed pra `origin/main`.
+> Sessão anterior: Fix flecha invisível do arqueiro no MP, MP-sync de skeleton_attack castado por bot, e tweak no range do pulo. Commit `2da6002` pushed pra `origin/main`.
 
 ## Estado atual
-- Branch `main` no `origin/main` (commit `a29fcce`).
-- Phaser 3.80 + Vite + PeerJS rodando local via `npm run dev` (porta padrão 5173).
-- Sistema de upgrade de skills (`UPGRADABLE_POWERS`) cobre 6/7 powers: heavens_fury, skull_curse, ice_beam (snowstorm), wheel (storm), fire_storm (heat aura), skeleton_attack (trio).
-- HUD timer no topo da tela mostra tempo restante das tempestades de neve/fogo.
-- Codex CLI integrado e funcional — `codex exec "<prompt>"` em background gera sprite sheets direto pra `public/sprites/`.
+- Branch `main` no `origin/main` (commit `2da6002`).
+- Phaser 3.80 + Vite + PeerJS rodando local via `npm run dev` (porta 5173).
+- Sistema de upgrade de skills cobre 6/7 powers — falta só `land_mine`.
+- 2v2 team mode + bots + attack-reset timer já implementados (commits `3be9d2b`, `9ba5b29`).
+- Flecha do arqueiro agora aparece pros remote clients; bot castando skeleton agora também aparece.
 
 ## Por onde começar
-1. **Land Mine L2** — único upgrade pendente. Sugestões já discutidas na sessão: minas mais potentes, +1 carga, AoE maior, mina-armadilha invisível. Pedir ao usuário qual direção quer e implementar. Adicionar `'land_mine'` ao `UPGRADABLE_POWERS` (linha ~312 de `GameScene.js`).
-2. **Testar interações do trio com powers existentes** — confirmar in-game que omar/archer reagem certinho a HF/wheel/skull curse/ice beam (deveriam herdar via `isSkeletonPet: true`, mas user pediu pra checar). Especial atenção: freeze visual do `applyFreezeSkeleton` em sprites diferentes do skeleton padrão.
-3. **Bug pendente skull curse L2 + skeleton hit**: usuário relatou "segunda leva nao desce" quando atinge esqueleto. Apliquei pass-through (linha ~8442 de `GameScene.js`) que aplica poison sem destruir o projétil. Se o problema persistir após o fix, investigar os `delayedCall` de wave 2 (talvez algum side-effect afetando o `fighter` capturado no closure).
-4. **Polimento visual residual**: usuário relatou archer sumindo em "alguns frames específicos" do roll/hurt. Encurtei pra 16-21 e 48-51 mas pode haver edge case. Se persistir, isolar o frame específico que dispara o problema.
+1. **Estender broadcast de bot AI pros outros powers** — só `skeleton_attack` foi resolvido. Mesmo bug afeta `heavens_fury`, `skull_curse`, `wheel`, `fire_storm`, `ice_beam`, `shield` quando castados por bot (host roda AI sem broadcast). Padrão pronto: usar `broadcastBotPowerCast` (linha ~8474 de `GameScene.js`).
+2. **Land Mine L2** — único upgrade pendente do `UPGRADABLE_POWERS` (linha ~312 de `GameScene.js`). Pedir direção ao usuário (mais potente, +1 carga, AoE maior, mina-armadilha).
+3. **Testar in-game o fix da flecha + bot skeleton no MP** — confirmar que arrow aparece pros 2 jogadores e que bot castando skeleton spawna trio/ball em ambos os lados.
+4. **Verificar interações trio L2 com powers** — pendência da sessão anterior, ainda não foi testada (omar/archer reagem corretamente a HF/wheel/skull curse/ice beam).
 
 ## Contexto crítico
-- **PLATFORM_RECTS** (em `src/map1.js`): 6 plataformas. As "principais" usadas pelo trio L2 são índices **3, 4, 5** (médio-direita y=481, baixo-esquerda y=721, baixo-direita y=925). As outras (0, 1, 2) são pequenas/no topo e não recebem o trio.
-- **Spawn do trio NÃO usa bola caindo do céu** — o ball-drop pegava a plataforma mais alta na coluna X (problema com plats 4 e 5 que têm plats 1 e 3 acima delas). Agora `dropTrioBall` chama `fireSkeleton/fireOmar/fireArcher` direto na plataforma com `spawnGreenMaterializeVfx` (flash verde + ground ring + 14 partículas subindo).
-- **MP sync via netId determinístico**: cada esqueleto/omar/archer tem `netId = "<casterIdx>-<counter>"` baseado no contador de bolas do caster. `trioOrder`, `trioNetIds`, `trioTypes` viajam no `power_cast` pra todos os clientes terem mesmo layout (qual entidade em qual plataforma).
-- **L2 skull curse skulls atravessam esqueletos** (`passThrough = curseLevel >= 2`): aplicam poison mas não destroem. L1 mantém comportamento de destruir no contato.
-- **Snowstorm/Firestorm "latest wins"**: castar uma cancela a outra (`endFireStorm()` ou `endSnowstorm()` chamados no início do cast). HUD timer detecta automaticamente qual está ativa pelos flags `_snowstormActive` xor `_firestormVisualActive`.
-- **L2 ice beam empoderada (snowstorm caster casta L1)**: 15 dmg/tick (throttled 600ms via `target.snowBeamLastDmgAt`) + instant freeze. Outro player que cast L1 durante a snowstorm não tem empowerment. Verificação por `casterIndex === this._snowstormCaster?.ownerIndex`.
-- **Codex CLI**: instalado em `~/AppData/Roaming/npm/codex` (v0.125+). Rodar com `Bash(codex exec "<prompt>", run_in_background=true)`. Resultados aparecem onde o prompt indicar (geralmente em `public/sprites/<power>/`). Não precisa pedir confirmação ao usuário pra rodar — é o fluxo padrão dele. Memória `reference_codex_cli.md` cobre isso.
-- **Limite de 2000px em imagens lidas pelo Read tool** — algumas sheets do projeto passam disso (ex: `player_death 2.png` é 2304x1152). Usar PowerShell + `System.Drawing.Image` pra inspecionar dimensões e cortar antes de ler.
-- **Formato dos sheets do trio**:
-  - `Omar Caveira/Skeleton enemy.png` 832×320, 13×5 grid de 64×64. Anims trimadas pra evitar frames vazios: attack 0-9, die 13-22, walk 26-33, hurt 39-41, idle 52-53.
-  - `arqueiro fantastico/spritesheet.png` 512×512, 8×8 grid de 64×64. Anims: run 0-7, die 8-15, roll 16-21, aim 24-27, shoot 32-39 (definido mas NÃO USADO porque tem células vazias), idle 40-43, hurt 48-51 (era 44-47 antes do fix).
-- **Archer arrow piercing**: a cada 3ª flecha (`fox.arrowCount % 3 === 0`), spawna roxa/grande (scale 4.5x, tint 0xc084fc, glow_purple_light com pulse), 50 dmg, atravessa todos os fighters via `pierceHitSet` até sair do mapa, trail mais agressivo.
+- **Bug da flecha invisível**: a AI do skeleton/archer roda em todos os clientes (`updateSkeletons` sem gate de MP). O spawn da flecha estava gated por `isAuthoritativeOwner(caster)`, fazendo só o autoritativo ver a flecha. Fix: removido o gate no spawn (linha ~5662 de `GameScene.js`); o dano continua gated dentro de `updateArcherArrows` (linha ~5325). Trade-off: pode haver leve desync visual da flecha já que cada cliente computa vx/vy a partir da posição local do fox, mas as posições do fox são ~consistentes via AI determinística + state messages.
+- **Bug do bot skeleton invisível no MP**: `tryAICastPower` (que só roda no host pros bots) chamava `fireSkeletonTrio`/`throwSkeletonBall` localmente sem mandar `power_cast` pela rede. Fix: novo helper `broadcastBotPowerCast(fighter, power, params)` que o host usa quando bot casta. Usa `casterIndex = fighter.ownerIndex` (não `myIndex`).
+- **Mesmo bug em outros powers**: heavens_fury, skull_curse, wheel, fire_storm, ice_beam, shield castados por bot continuam não broadcastando. User não pediu pra fixar todos — só skeleton.
+- **Jump velocity tweak**: 700→740 (single), 540→580 (double). Bumb de ~6% no airtime. User testou 820/640 e achou alto demais. Atual foi escolha do user diretamente.
+- **PLATFORM_RECTS** (em `src/map1.js`): 6 plataformas. Trio L2 sempre nas índices **3, 4, 5** (médio-direita y=481, baixo-esquerda y=721, baixo-direita y=925).
+- **MP sync via netId determinístico**: `netId = "<casterIdx>-<counter>"` baseado no `caster.skeletonSpawnCounter`. `trioOrder`, `trioNetIds`, `trioTypes` viajam no `power_cast` pra L2.
+- **Snowstorm/Firestorm "latest wins"**: castar uma cancela a outra; HUD timer detecta automaticamente pelo flag ativo.
+- **Codex CLI**: `codex exec "<prompt>"` em background, gera sheets em `public/sprites/`. Não pedir confirmação — fluxo padrão.
+- **Limite de 2000px no Read tool**: algumas sheets passam disso (ex: `player_death 2.png` 2304x1152). Usar PowerShell + `System.Drawing.Image` pra inspecionar dimensões antes.
 
 ## Pendências conhecidas
-- [ ] Land Mine L2 — único upgrade pendente do WOOD_POWER_POOL
+- [ ] Estender `broadcastBotPowerCast` pros outros 6 powers (heavens_fury, skull_curse, wheel, fire_storm, ice_beam, shield)
+- [ ] Land Mine L2 — único upgrade pendente do `UPGRADABLE_POWERS`
 - [ ] Confirmar in-game: omar/archer reagem corretamente a todos os powers (HF/wheel/skull curse/ice beam/etc)
-- [ ] Testar fix do skull curse L2 com hit em esqueleto — se ainda falhar, investigar mais
-- [ ] Edge cases visuais: archer sumindo em algum frame específico do roll/hurt
+- [ ] Testar in-game os 2 fixes desta sessão (flecha visível + bot skeleton sync)
+- [ ] Edge cases visuais: archer sumindo em algum frame específico do roll/hurt (pendente da sessão anterior)
 - [ ] Death 2 anim system tem mais power triggers possíveis (HF L2 instakill, fire storm burn-DOT death) — atualmente só `useDeath2: true` em hits básicos
-- [ ] Eye loot está disabled da pool de wood (decisão pendente)
+- [ ] Eye loot disabled da pool de wood (decisão pendente)
+- [ ] AI da `Math.random()` para roll do archer (linha ~5760) pode causar pequeno desync de estado entre clientes — não crítico
 
 ## Arquivos / locais relevantes
-- `src/GameScene.js` — main game logic, ~10k linhas, todos os powers e MP sync. Constantes do trio em ~linha 320-345.
-- `src/map1.js` — `PLATFORM_RECTS` (6 plats com x/y/w/h) e `MAP_WIDTH=1920, MAP_HEIGHT=1080`
-- `src/main.js` — Phaser config, scenes, char selection
-- `src/network.js` — wrapper PeerJS pra MP P2P
-- `public/sprites/Power 8 (skeleton)/Omar Caveira/` — sheet do omar (com .aseprite source)
-- `public/sprites/Power 8 (skeleton)/arqueiro fantastico/` — sheet do archer + `projectile.png` (40×5, flecha)
-- `public/sprites/Poder 5 (fire storm)/aura/sheet-transparent.png` — Codex-gerada flame aura (8 frames 128×128)
-- `public/maps/Mapa 1 - Graveyard of Souls/` — Fundo.png, Plataformas.png, Hitbox.png, Crow.png, Fundo nevado.png, Fundo fire storm.png
-- `public/audio/powers/icebeam/` — snow storm.mp3 (ambient loop), vento.mp3 (skip 1.5s no início), crash ice.mp3, ice cast.mp3
-- `public/audio/powers/skull_curse/skull up.mp3` — cast extra da skull curse L2
+- `src/GameScene.js` — main game logic (~10k linhas).
+  - Constantes de jump (linhas 5-6): `JUMP_VELOCITY=740, DOUBLE_JUMP_VELOCITY=580`
+  - Constantes do trio (linhas ~320-348)
+  - `spawnArcherArrow` (linha ~5235), `updateArcherArrows` (linha ~5287)
+  - `fireArcher` (linha ~5074), `fireSkeleton` (linha ~4930), `fireOmar` (linha ~5014)
+  - `fireSkeletonTrio` (linha ~5134), `dropTrioBall` (linha ~5175)
+  - `tryAICastPower` (linha ~8363), `broadcastBotPowerCast` (linha ~8474)
+  - Receiver `power_cast` em `handleNetState` (linha ~7846)
+  - `isAuthoritativeOwner` (linha ~7681)
+- `src/map1.js` — `PLATFORM_RECTS`, `MAP_WIDTH=1920`, `MAP_HEIGHT=1080`
+- `src/network.js` — wrapper PeerJS p/ MP P2P
+- `src/main.js` — Phaser config, gravity y=800
+- `public/sprites/Power 8 (skeleton)/Omar Caveira/` — sheet do omar
+- `public/sprites/Power 8 (skeleton)/arqueiro fantastico/` — sheet do archer + `projectile.png`
 
 ## Comandos úteis
 ```bash
 npm run dev                  # inicia vite dev server (localhost:5173)
 npm run build                # build prod
-node -c src/GameScene.js     # syntax check rápido (não roda — só valida parser)
-codex exec "<prompt>"        # gera sprite via Codex (rodar em background com run_in_background=true)
-git push origin main         # push (já liberado nas permissões)
+node --check src/GameScene.js  # syntax check rápido
+codex exec "<prompt>"        # gera sprite via Codex (rodar em background)
+rtk git push                 # push (já liberado nas permissões)
 ```
