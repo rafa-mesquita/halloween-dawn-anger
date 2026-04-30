@@ -6,15 +6,14 @@
 ## Estado atual
 - Branch `main` no `origin/main` (commit `2da6002`).
 - Phaser 3.80 + Vite + PeerJS rodando local via `npm run dev` (porta 5173).
-- Sistema de upgrade de skills cobre 6/7 powers — falta só `land_mine`.
+- Sistema de upgrade de skills cobre todos os 7 powers (land_mine L2 = 2 waves de 6 party mines com pull/slow).
 - 2v2 team mode + bots + attack-reset timer já implementados (commits `3be9d2b`, `9ba5b29`).
 - Flecha do arqueiro agora aparece pros remote clients; bot castando skeleton agora também aparece.
 
 ## Por onde começar
 1. **Estender broadcast de bot AI pros outros powers** — só `skeleton_attack` foi resolvido. Mesmo bug afeta `heavens_fury`, `skull_curse`, `wheel`, `fire_storm`, `ice_beam`, `shield` quando castados por bot (host roda AI sem broadcast). Padrão pronto: usar `broadcastBotPowerCast` (linha ~8474 de `GameScene.js`).
-2. **Land Mine L2** — único upgrade pendente do `UPGRADABLE_POWERS` (linha ~312 de `GameScene.js`). Pedir direção ao usuário (mais potente, +1 carga, AoE maior, mina-armadilha).
-3. **Testar in-game o fix da flecha + bot skeleton no MP** — confirmar que arrow aparece pros 2 jogadores e que bot castando skeleton spawna trio/ball em ambos os lados.
-4. **Verificar interações trio L2 com powers** — pendência da sessão anterior, ainda não foi testada (omar/archer reagem corretamente a HF/wheel/skull curse/ice beam).
+2. **Testar in-game o fix da flecha + bot skeleton no MP** — confirmar que arrow aparece pros 2 jogadores e que bot castando skeleton spawna trio/ball em ambos os lados.
+3. **Verificar interações trio L2 com powers** — pendência da sessão anterior, ainda não foi testada (omar/archer reagem corretamente a HF/wheel/skull curse/ice beam).
 
 ## Contexto crítico
 - **Bug da flecha invisível**: a AI do skeleton/archer roda em todos os clientes (`updateSkeletons` sem gate de MP). O spawn da flecha estava gated por `isAuthoritativeOwner(caster)`, fazendo só o autoritativo ver a flecha. Fix: removido o gate no spawn (linha ~5662 de `GameScene.js`); o dano continua gated dentro de `updateArcherArrows` (linha ~5325). Trade-off: pode haver leve desync visual da flecha já que cada cliente computa vx/vy a partir da posição local do fox, mas as posições do fox são ~consistentes via AI determinística + state messages.
@@ -29,7 +28,6 @@
 
 ## Pendências conhecidas
 - [ ] Estender `broadcastBotPowerCast` pros outros 6 powers (heavens_fury, skull_curse, wheel, fire_storm, ice_beam, shield)
-- [ ] Land Mine L2 — único upgrade pendente do `UPGRADABLE_POWERS`
 - [ ] Confirmar in-game: omar/archer reagem corretamente a todos os powers (HF/wheel/skull curse/ice beam/etc)
 - [ ] Testar in-game os 2 fixes desta sessão (flecha visível + bot skeleton sync)
 - [ ] Edge cases visuais: archer sumindo em algum frame específico do roll/hurt (pendente da sessão anterior)

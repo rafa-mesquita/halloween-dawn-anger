@@ -233,7 +233,7 @@ export class NetworkManager {
       this.peer = new Peer();
       this.peer.on('error', reject);
       this.peer.on('open', () => {
-        this.hostConn = this.peer.connect(ID_PREFIX + code, { reliable: false });
+        this.hostConn = this.peer.connect(ID_PREFIX + code, { reliable: true });
         this.hostConn.on('open', () => {
           this.isConnected = true;
           this.hostConn.on('data', (data) => this.onClientReceive(data));

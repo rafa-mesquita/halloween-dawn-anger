@@ -2815,11 +2815,11 @@ export default class GameScene extends Phaser.Scene {
     ) {
       this.resetAttackOrbs();
     }
-    if (this.isMultiplayer && !isRemotePick && fighter === this.playerFighter) {
+    if (this.isMultiplayer && !isRemotePick && this.isAuthoritativeOwner(fighter)) {
       this.sendLootNetMsg({
         type: 'loot_pickup',
         id: loot.netId,
-        pickerIndex: this.myIndex,
+        pickerIndex: fighter.ownerIndex,
       });
     }
     if (loot.lifetimeTimer) loot.lifetimeTimer.remove(false);
@@ -3242,36 +3242,45 @@ export default class GameScene extends Phaser.Scene {
     this.spawnWheelProjectile(fighter, startX, startY, dir, WHEEL_SCALE, -360);
   }
 
-  fireWheelStorm(fighter) {
-    // Build a list with each size repeated twice → 10 wheels, then shuffle
+  buildWheelStormSpecs() {
+    // Pré-computa as specs no caster pra todos os clientes verem a mesma sequência via power_cast.
     const order = [];
     for (const s of WHEEL_L2_SIZE_MULTS) { order.push(s); order.push(s); }
     Phaser.Utils.Array.Shuffle(order);
+    const specs = [];
     for (let i = 0; i < order.length; i++) {
       const sizeMult = order[i];
+      const mode = Phaser.Math.Between(0, 2);
+      let startX, startY, dir, vy;
+      if (mode === 0) {
+        startX = Phaser.Math.Between(120, MAP_WIDTH - 120);
+        startY = -40;
+        dir = Math.random() < 0.5 ? -1 : 1;
+        vy = Phaser.Math.Between(220, 320);
+      } else {
+        dir = mode === 1 ? 1 : -1;
+        startX = dir > 0 ? -40 : MAP_WIDTH + 40;
+        startY = Phaser.Math.Between(80, Math.floor(MAP_HEIGHT * 0.65));
+        vy = -260;
+      }
+      specs.push({ sizeMult, startX, startY, dir, vy });
+    }
+    return specs;
+  }
+
+  fireWheelStorm(fighter, specs) {
+    if (!specs) specs = this.buildWheelStormSpecs();
+    for (let i = 0; i < specs.length; i++) {
+      const s = specs[i];
       this.time.delayedCall(i * WHEEL_L2_SPAWN_INTERVAL_MS, () => {
         if (!fighter || fighter.isDead) return;
-        // Entry mode: 0 = from above (falls down, hits upper platforms), 1 = from left, 2 = from right
-        const mode = Phaser.Math.Between(0, 2);
-        let startX, startY, dir, vy;
-        if (mode === 0) {
-          startX = Phaser.Math.Between(120, MAP_WIDTH - 120);
-          startY = -40;
-          dir = Math.random() < 0.5 ? -1 : 1;
-          vy = Phaser.Math.Between(220, 320);
-        } else {
-          dir = mode === 1 ? 1 : -1;
-          startX = dir > 0 ? -40 : MAP_WIDTH + 40;
-          startY = Phaser.Math.Between(80, Math.floor(MAP_HEIGHT * 0.65));
-          vy = -260;
-        }
         const w = this.spawnWheelProjectile(
           fighter,
-          startX,
-          startY,
-          dir,
-          WHEEL_SCALE * sizeMult,
-          vy
+          s.startX,
+          s.startY,
+          s.dir,
+          WHEEL_SCALE * s.sizeMult,
+          s.vy
         );
         if (w) w.isL2 = true;
       });
@@ -3873,11 +3882,11 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
-  fireSkullCurse(fighter, pointerWorldX, pointerWorldY, level = 1) {
+  fireSkullCurse(fighter, pointerWorldX, pointerWorldY, level = 1, rainSpecs = null, rainId = null) {
     this.playSfx('sfx_skull_cast', 1.6);
     if (level >= 2) {
       this.playSfx('sfx_skull_cast_up', 0.9);
-      this.fireSkullCurseRain(fighter, pointerWorldX);
+      this.fireSkullCurseRain(fighter, rainSpecs, rainId);
       return;
     }
     const body = fighter.sprite.body;
@@ -3892,28 +3901,47 @@ export default class GameScene extends Phaser.Scene {
     this.spawnSkullProjectile(fighter, startX, startY, vx, vy, false, angle, 1);
   }
 
-  fireSkullCurseRain(fighter) {
+  buildSkullCurseRainSpecs() {
     const wave1 = 12;
     const wave2 = 6;
-    const spacingMs = 40;
-    const fallVy = 220; // velocidade constante de queda (sem gravidade) — chuva mais suave
-    const rainId = (this._skullRainCounter = (this._skullRainCounter || 0) + 1);
+    const w1 = [];
+    const w2 = [];
     for (let i = 0; i < wave1; i++) {
+      w1.push({
+        startX: Phaser.Math.Between(40, MAP_WIDTH - 40),
+        startY: Phaser.Math.Between(-300, -150),
+      });
+    }
+    for (let i = 0; i < wave2; i++) {
+      w2.push({
+        startX: Phaser.Math.Between(40, MAP_WIDTH - 40),
+        startY: Phaser.Math.Between(-300, -150),
+      });
+    }
+    return { w1, w2 };
+  }
+
+  fireSkullCurseRain(fighter, specs = null, rainId = null) {
+    const spacingMs = 40;
+    const fallVy = 220;
+    if (!specs) specs = this.buildSkullCurseRainSpecs();
+    if (rainId == null) rainId = (this._skullRainCounter = (this._skullRainCounter || 0) + 1);
+    const w1 = specs.w1 || [];
+    const w2 = specs.w2 || [];
+    for (let i = 0; i < w1.length; i++) {
+      const sp = w1[i];
       this.time.delayedCall(i * spacingMs, () => {
         if (!fighter || fighter.isDead) return;
-        const startX = Phaser.Math.Between(40, MAP_WIDTH - 40);
-        const startY = Phaser.Math.Between(-300, -150);
-        const p = this.spawnSkullProjectile(fighter, startX, startY, 0, fallVy, false, Math.PI / 2, 2);
+        const p = this.spawnSkullProjectile(fighter, sp.startX, sp.startY, 0, fallVy, false, Math.PI / 2, 2);
         if (p) p.waveId = `${rainId}-1`;
       });
     }
-    const wave2DelayMs = wave1 * spacingMs + 1000;
-    for (let i = 0; i < wave2; i++) {
+    const wave2DelayMs = w1.length * spacingMs + 1000;
+    for (let i = 0; i < w2.length; i++) {
+      const sp = w2[i];
       this.time.delayedCall(wave2DelayMs + i * spacingMs, () => {
         if (!fighter || fighter.isDead) return;
-        const startX = Phaser.Math.Between(40, MAP_WIDTH - 40);
-        const startY = Phaser.Math.Between(-300, -150);
-        const p = this.spawnSkullProjectile(fighter, startX, startY, 0, fallVy, false, Math.PI / 2, 2);
+        const p = this.spawnSkullProjectile(fighter, sp.startX, sp.startY, 0, fallVy, false, Math.PI / 2, 2);
         if (p) p.waveId = `${rainId}-2`;
       });
     }
@@ -3961,6 +3989,12 @@ export default class GameScene extends Phaser.Scene {
   }
 
   applySkullCurse(target, level = 1, waveId = null) {
+    // Dedupe por waveId: 2 caveiras da mesma wave hitando o mesmo alvo só aplicam 1 stack.
+    if (level >= 2 && waveId) {
+      if (!target.curseSeenWaveIds) target.curseSeenWaveIds = new Set();
+      if (target.curseSeenWaveIds.has(waveId)) return;
+      target.curseSeenWaveIds.add(waveId);
+    }
     // No L2, só as 2 primeiras caveiras a acertar aplicam efeito; da 3ª em diante é no-op.
     if (level >= 2 && (target.curseL2Stacks || 0) >= 2) {
       return;
@@ -4040,6 +4074,7 @@ export default class GameScene extends Phaser.Scene {
     target.curseSlowed = false;
     target.curseL2Stacks = 0;
     target.curseLastWaveId = null;
+    if (target.curseSeenWaveIds) target.curseSeenWaveIds.clear();
     if (target.curseSlowTimer) {
       target.curseSlowTimer.remove(false);
       target.curseSlowTimer = null;
@@ -4595,6 +4630,7 @@ export default class GameScene extends Phaser.Scene {
     // Slow + slippery + visual frost on every other living fighter
     for (const f of this.fighters) {
       if (!f || f === caster || f.isDead) continue;
+      if (this.isFriendly(f, caster)) continue;
       this.applyIceSlippery(f, ICE_BEAM_L2_DURATION_MS);
     }
 
@@ -4602,6 +4638,7 @@ export default class GameScene extends Phaser.Scene {
     if (this.skeletons) {
       for (const fox of this.skeletons) {
         if (!fox || fox.state === 'dying') continue;
+        if (this.isFriendly(fox.caster, caster)) continue;
         this.applyFreezeSkeleton(fox);
         fox.frozenUntil = this.time.now + ICE_BEAM_L2_DURATION_MS;
       }
@@ -6458,15 +6495,22 @@ export default class GameScene extends Phaser.Scene {
       const level = fighter.upgradedPowers.has('skull_curse') ? 2 : 1;
       fighter.specialPowers.shift();
       if (level >= 2) fighter.upgradedPowers.delete('skull_curse');
-      this.fireSkullCurse(fighter, pointer.worldX, pointer.worldY, level);
-      this.sendPowerCast('skull_curse', { worldX: pointer.worldX, worldY: pointer.worldY, level });
+      let rainSpecs = null;
+      let rainId = null;
+      if (level >= 2) {
+        rainSpecs = this.buildSkullCurseRainSpecs();
+        rainId = (this._skullRainCounter = (this._skullRainCounter || 0) + 1);
+      }
+      this.fireSkullCurse(fighter, pointer.worldX, pointer.worldY, level, rainSpecs, rainId);
+      this.sendPowerCast('skull_curse', { worldX: pointer.worldX, worldY: pointer.worldY, level, rainSpecs, rainId });
     } else if (power === 'wheel') {
       const level = fighter.upgradedPowers.has('wheel') ? 2 : 1;
       fighter.specialPowers.shift();
       if (level >= 2) fighter.upgradedPowers.delete('wheel');
       if (level >= 2) {
-        this.fireWheelStorm(fighter);
-        this.sendPowerCast('wheel', { worldX: pointer.worldX, level: 2 });
+        const wheelSpecs = this.buildWheelStormSpecs();
+        this.fireWheelStorm(fighter, wheelSpecs);
+        this.sendPowerCast('wheel', { worldX: pointer.worldX, level: 2, wheelSpecs });
       } else {
         this.fireWheel(fighter, pointer.worldX);
         this.sendPowerCast('wheel', { worldX: pointer.worldX });
@@ -7863,9 +7907,9 @@ export default class GameScene extends Phaser.Scene {
       } else if (data.power === 'shield') {
         if (!caster.isEye) this.applyShield(caster);
       } else if (data.power === 'skull_curse') {
-        this.fireSkullCurse(caster, data.worldX, data.worldY, data.level || 1);
+        this.fireSkullCurse(caster, data.worldX, data.worldY, data.level || 1, data.rainSpecs, data.rainId);
       } else if (data.power === 'wheel') {
-        if ((data.level || 1) >= 2) this.fireWheelStorm(caster);
+        if ((data.level || 1) >= 2) this.fireWheelStorm(caster, data.wheelSpecs);
         else this.fireWheel(caster, data.worldX);
       } else if (data.power === 'ice_beam') {
         if ((data.level || 1) >= 2) {
@@ -7946,10 +7990,10 @@ export default class GameScene extends Phaser.Scene {
       remote.hp = data.hp;
     }
     if (Array.isArray(data.powers)) {
-      remote.specialPowers = data.powers.slice();
+      remote.specialPowers = data.isDead ? [] : data.powers.slice();
     }
     if (Array.isArray(data.upgraded)) {
-      remote.upgradedPowers = new Set(data.upgraded);
+      remote.upgradedPowers = data.isDead ? new Set() : new Set(data.upgraded);
     }
     if (typeof data.stunned === 'boolean') {
       if (data.stunned && !remote.isStunned) this.applyStun(remote);
@@ -9446,6 +9490,16 @@ export default class GameScene extends Phaser.Scene {
         const f = this.playerFighter;
         if (f && !f.isDead && this.physics.overlap(loot, f.sprite)) {
           this.pickupLoot(loot, f);
+          continue;
+        }
+        if (this.isHost) {
+          for (const bot of this.fighters) {
+            if (!bot || !bot.isBot || bot.isDead) continue;
+            if (this.physics.overlap(loot, bot.sprite)) {
+              this.pickupLoot(loot, bot);
+              break;
+            }
+          }
         }
         continue;
       }
