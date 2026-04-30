@@ -9473,18 +9473,25 @@ export default class GameScene extends Phaser.Scene {
         const cx = lb.x + lb.width / 2 + localF.hpBarWidth / 2 + this.resetTimerRadius + 4;
         const cy = lb.y - 12;
         const r = this.resetTimerRadius;
+        const allCharged = this.attackOrbs.every((available) => available);
         g.lineStyle(1.5, 0x0ea5e9, 0.7);
         g.strokeCircle(cx, cy, r);
-        g.fillStyle(0x0f172a, 0.7);
-        g.fillCircle(cx, cy, r);
-        if (this.resetAt !== null) {
-          const elapsed = ORB_FULL_RESET_MS - Math.max(0, this.resetAt - time);
-          const pct = Math.max(0, Math.min(1, elapsed / ORB_FULL_RESET_MS));
-          const startAngle = -Math.PI / 2;
-          const endAngle = startAngle + pct * Math.PI * 2;
+        if (allCharged) {
+          // Todos os ataques carregados — círculo cheio em azul.
           g.fillStyle(0x38bdf8, 0.95);
-          g.slice(cx, cy, r - 1, startAngle, endAngle, false);
-          g.fillPath();
+          g.fillCircle(cx, cy, r - 1);
+        } else {
+          g.fillStyle(0x0f172a, 0.7);
+          g.fillCircle(cx, cy, r);
+          if (this.resetAt !== null) {
+            const elapsed = ORB_FULL_RESET_MS - Math.max(0, this.resetAt - time);
+            const pct = Math.max(0, Math.min(1, elapsed / ORB_FULL_RESET_MS));
+            const startAngle = -Math.PI / 2;
+            const endAngle = startAngle + pct * Math.PI * 2;
+            g.fillStyle(0x38bdf8, 0.95);
+            g.slice(cx, cy, r - 1, startAngle, endAngle, false);
+            g.fillPath();
+          }
         }
       }
     }
