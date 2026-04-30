@@ -2,8 +2,8 @@ import Phaser from 'phaser';
 import { MAP_WIDTH, MAP_HEIGHT, PLATFORM_RECTS } from './map1.js';
 
 const MOVE_SPEED = 420;
-const JUMP_VELOCITY = 700;
-const DOUBLE_JUMP_VELOCITY = 540;
+const JUMP_VELOCITY = 740;
+const DOUBLE_JUMP_VELOCITY = 580;
 const WHEEL_STUN_HITS = 3;
 const MAX_JUMPS = 2;
 const FALL_GRAVITY_MULTIPLIER = 2.8;
@@ -5659,11 +5659,10 @@ export default class GameScene extends Phaser.Scene {
             ? tgt.x
             : tgt.sprite.body.x + tgt.sprite.body.width / 2;
           if (fox.petType === 'archer') {
-            // Spawn an arrow toward the target
-            if (this.isAuthoritativeOwner(caster)) {
-              const ty = tgt.isSkeletonPet ? tgt.y - 30 : tgt.sprite.body.y + tgt.sprite.body.height / 2;
-              this.spawnArcherArrow(fox, tx, ty);
-            }
+            // Spawn an arrow toward the target on every client (visual). Damage
+            // is still gated by isAuthoritativeOwner inside updateArcherArrows.
+            const ty = tgt.isSkeletonPet ? tgt.y - 30 : tgt.sprite.body.y + tgt.sprite.body.height / 2;
+            this.spawnArcherArrow(fox, tx, ty);
           } else {
             const reach = fox.petType === 'omar' ? OMAR_HIT_REACH : SKELETON_BITE_REACH;
             const baseDmg = fox.petType === 'omar' ? OMAR_HIT_DAMAGE : SKELETON_BITE_DAMAGE;
@@ -8450,9 +8449,25 @@ export default class GameScene extends Phaser.Scene {
       const level = fighter.upgradedPowers?.has('skeleton_attack') ? 2 : 1;
       fighter.specialPowers.shift();
       if (level >= 2) fighter.upgradedPowers.delete('skeleton_attack');
-      if (level >= 2) this.fireSkeletonTrio(fighter);
-      else this.throwSkeletonBall(fighter, tx, ty);
+      if (level >= 2) {
+        const trio = this.fireSkeletonTrio(fighter);
+        this.broadcastBotPowerCast(fighter, 'skeleton_attack', {
+          worldX: tx, worldY: ty, level: 2,
+          trioOrder: trio?.order, trioNetIds: trio?.netIds, trioTypes: trio?.types,
+        });
+      } else {
+        this.throwSkeletonBall(fighter, tx, ty);
+        this.broadcastBotPowerCast(fighter, 'skeleton_attack', {
+          worldX: tx, worldY: ty, level: 1,
+        });
+      }
     }
+  }
+
+  broadcastBotPowerCast(fighter, power, params) {
+    if (!this.isMultiplayer || !this.isHost) return;
+    if (!this.network || !this.network.isConnected) return;
+    this.network.send({ type: 'power_cast', casterIndex: fighter.ownerIndex, power, ...params });
   }
 
   tryAIDodge(fighter, time) {
