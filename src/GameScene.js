@@ -8441,54 +8441,85 @@ export default class GameScene extends Phaser.Scene {
       this.firePower(fighter, tx, ty, level);
       fighter.specialPowers.shift();
       if (level >= 2) fighter.upgradedPowers.delete('heavens_fury');
+      let bonusX = null;
+      let bonus2X = null;
       if (level >= 2) {
         const ray1HalfWidth = HEAVENS_FURY_STRIKE_HALF_WIDTH * 2;
         const bonusHalfWidth = HEAVENS_FURY_STRIKE_HALF_WIDTH;
-        const bX = this.pickHeavensFuryBonusX(
+        bonusX = this.pickHeavensFuryBonusX(
           [{ x: tx, halfWidth: ray1HalfWidth }],
           bonusHalfWidth,
         );
         this.time.delayedCall(600, () => {
           if (!fighter || fighter.isDead) return;
-          this.firePower(fighter, bX, 0, 1, { fastTelegraph: true, lowestSurface: true });
+          this.firePower(fighter, bonusX, 0, 1, { fastTelegraph: true, lowestSurface: true });
         });
-        const b2X = this.pickHeavensFuryBonusX(
+        bonus2X = this.pickHeavensFuryBonusX(
           [
             { x: tx, halfWidth: ray1HalfWidth },
-            { x: bX, halfWidth: bonusHalfWidth },
+            { x: bonusX, halfWidth: bonusHalfWidth },
           ],
           bonusHalfWidth,
         );
         this.time.delayedCall(1200, () => {
           if (!fighter || fighter.isDead) return;
-          this.firePower(fighter, b2X, 0, 1, { fastTelegraph: true, sizeMult: 0.7, lowestSurface: true });
+          this.firePower(fighter, bonus2X, 0, 1, { fastTelegraph: true, sizeMult: 0.7, lowestSurface: true });
         });
       }
+      this.broadcastBotPowerCast(fighter, 'heavens_fury', {
+        worldX: tx, worldY: ty, level, bonusX, bonus2X,
+      });
     } else if (power === 'shield') {
       fighter.specialPowers.shift();
       this.applyShield(fighter);
+      this.broadcastBotPowerCast(fighter, 'shield', {});
     } else if (power === 'skull_curse') {
       const level = fighter.upgradedPowers?.has('skull_curse') ? 2 : 1;
       fighter.specialPowers.shift();
       if (level >= 2) fighter.upgradedPowers.delete('skull_curse');
-      this.fireSkullCurse(fighter, tx, ty, level);
+      let rainSpecs = null;
+      let rainId = null;
+      if (level >= 2) {
+        rainSpecs = this.buildSkullCurseRainSpecs();
+        rainId = (this._skullRainCounter = (this._skullRainCounter || 0) + 1);
+      }
+      this.fireSkullCurse(fighter, tx, ty, level, rainSpecs, rainId);
+      this.broadcastBotPowerCast(fighter, 'skull_curse', {
+        worldX: tx, worldY: ty, level, rainSpecs, rainId,
+      });
     } else if (power === 'wheel') {
       const level = fighter.upgradedPowers?.has('wheel') ? 2 : 1;
       fighter.specialPowers.shift();
       if (level >= 2) fighter.upgradedPowers.delete('wheel');
-      if (level >= 2) this.fireWheelStorm(fighter);
-      else this.fireWheel(fighter, tx);
+      if (level >= 2) {
+        const wheelSpecs = this.buildWheelStormSpecs();
+        this.fireWheelStorm(fighter, wheelSpecs);
+        this.broadcastBotPowerCast(fighter, 'wheel', { worldX: tx, level: 2, wheelSpecs });
+      } else {
+        this.fireWheel(fighter, tx);
+        this.broadcastBotPowerCast(fighter, 'wheel', { worldX: tx });
+      }
     } else if (power === 'fire_storm') {
       const level = fighter.upgradedPowers?.has('fire_storm') ? 2 : 1;
       fighter.specialPowers.shift();
       if (level >= 2) fighter.upgradedPowers.delete('fire_storm');
       this.fireFireStorm(fighter, level);
+      this.broadcastBotPowerCast(fighter, 'fire_storm', { level });
     } else if (power === 'ice_beam') {
       const level = fighter.upgradedPowers?.has('ice_beam') ? 2 : 1;
       fighter.specialPowers.shift();
       if (level >= 2) fighter.upgradedPowers.delete('ice_beam');
-      if (level >= 2) this.castSnowstorm(fighter);
-      else this.fireIceBeam(fighter, tx, ty);
+      if (level >= 2) {
+        this.castSnowstorm(fighter);
+        this.broadcastBotPowerCast(fighter, 'ice_beam', { worldX: tx, worldY: ty, level: 2 });
+      } else {
+        const beam = this.fireIceBeam(fighter, tx, ty);
+        this.broadcastBotPowerCast(fighter, 'ice_beam', {
+          worldX: tx, worldY: ty,
+          beamId: beam?.beamId ?? null,
+          facing: beam?.facing ?? 1,
+        });
+      }
     } else if (power === 'skeleton_attack') {
       const level = fighter.upgradedPowers?.has('skeleton_attack') ? 2 : 1;
       fighter.specialPowers.shift();
