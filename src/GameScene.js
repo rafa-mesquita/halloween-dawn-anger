@@ -7244,61 +7244,115 @@ export default class GameScene extends Phaser.Scene {
   }
 
   createOffscreenIndicator(fighter) {
-    const arrow = this.add.triangle(0, 0, 26, 0, 12, -9, 12, 9, 0xffffff, 1)
-      .setStrokeStyle(2, 0x000000, 1);
-    const inner = this.add.circle(0, 0, 15, 0xffffff, 1)
-      .setStrokeStyle(2, 0x000000, 1);
-    const initialChar = ((fighter.nick || '?')[0] || '?').toUpperCase();
-    const initial = this.add.text(0, 0, initialChar, {
-      font: 'bold 14px sans-serif',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3,
-    }).setOrigin(0.5);
-    const container = this.add.container(0, 0, [arrow, inner, initial])
+    const headKey = fighter?.char ? `head_${fighter.char.id}` : null;
+    const hasHead = headKey && this.textures.exists(headKey);
+    const ring = this.add.circle(0, 0, 22, 0xffffff, 1)
+      .setStrokeStyle(2, 0x000000, 1)
       .setDepth(95)
       .setVisible(false);
-    fighter.offscreenIndicator = { container, arrow, inner, initial };
+    const arrow = this.add.graphics().setDepth(95).setVisible(false);
+    let head = null;
+    let initial = null;
+    if (hasHead) {
+      head = this.add.image(0, 0, headKey).setDepth(96).setVisible(false);
+      const tex = this.textures.get(headKey).getSourceImage();
+      const maxDim = Math.max(tex.width || 32, tex.height || 32);
+      head._baseScale = 36 / maxDim;
+    } else {
+      const initialChar = ((fighter.nick || '?')[0] || '?').toUpperCase();
+      initial = this.add.text(0, 0, initialChar, {
+        font: 'bold 16px sans-serif',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 3,
+      }).setOrigin(0.5).setDepth(96).setVisible(false);
+    }
+    fighter.offscreenIndicator = { ring, arrow, head, initial };
   }
 
   updateOffscreenIndicators() {
     if (!this.fighters) return;
     const cam = this.cameras.main;
     const view = cam.worldView;
-    const margin = 32;
-    const cwx = view.centerX;
-    const cwy = view.centerY;
-    const halfW = view.width / 2 - margin;
-    const halfH = view.height / 2 - margin;
+    const RING_RADIUS = 22;
+    const margin = RING_RADIUS + 22;
+    const SCALE_RANGE = 420;
+    const SCALE_MIN = 0.55;
+
     for (const f of this.fighters) {
       const ind = f.offscreenIndicator;
       if (!ind) continue;
-      if (f.isDead || !f.sprite) {
-        ind.container.setVisible(false);
-        continue;
-      }
-      const wx = f.sprite.x;
-      const wy = f.sprite.y;
-      const onScreen =
+      const alive = !f.isDead && f.sprite;
+      const wx = alive ? f.sprite.x : 0;
+      const wy = alive ? f.sprite.y : 0;
+      const onScreen = alive &&
         wx >= view.x && wx <= view.right &&
         wy >= view.y && wy <= view.bottom;
-      if (onScreen) {
-        ind.container.setVisible(false);
+      if (!alive || onScreen) {
+        ind.ring.setVisible(false);
+        ind.arrow.setVisible(false);
+        if (ind.head) ind.head.setVisible(false);
+        if (ind.initial) ind.initial.setVisible(false);
         continue;
       }
-      const dx = wx - cwx;
-      const dy = wy - cwy;
-      const tx = dx === 0 ? Infinity : halfW / Math.abs(dx);
-      const ty = dy === 0 ? Infinity : halfH / Math.abs(dy);
-      const t = Math.min(tx, ty);
-      const ex = cwx + dx * t;
-      const ey = cwy + dy * t;
-      ind.container.setPosition(ex, ey);
-      ind.arrow.setRotation(Math.atan2(dy, dx));
+
+      // Posição: ponto da viewport mais próximo do player (clamp direto).
+      // Isso garante que o ícone fique alinhado horizontal/vertical com o player.
+      const ex = Phaser.Math.Clamp(wx, view.x + margin, view.right - margin);
+      const ey = Phaser.Math.Clamp(wy, view.y + margin, view.bottom - margin);
+      // Ângulo: do ícone para o player (não do centro da tela). Assim a seta aponta direto.
+      const dx = wx - ex;
+      const dy = wy - ey;
+      const angle = Math.atan2(dy, dx);
+
+      const offDist = Math.hypot(dx, dy);
+      const scale = Phaser.Math.Clamp(1 - offDist / SCALE_RANGE, SCALE_MIN, 1);
+
       const allyColor = this.ownerGlowColorFor(f);
-      ind.arrow.fillColor = allyColor;
-      ind.inner.fillColor = allyColor;
-      ind.container.setVisible(true);
+      const r = RING_RADIUS * scale;
+
+      ind.ring.setPosition(ex, ey);
+      ind.ring.setScale(scale);
+      ind.ring.fillColor = allyColor;
+      ind.ring.setVisible(true);
+
+      const arrowLen = 16 * scale;
+      const arrowHalfW = 9 * scale;
+      const cosA = Math.cos(angle);
+      const sinA = Math.sin(angle);
+      const tipX = ex + cosA * (r + arrowLen);
+      const tipY = ey + sinA * (r + arrowLen);
+      const baseCx = ex + cosA * r;
+      const baseCy = ey + sinA * r;
+      const perpX = -sinA;
+      const perpY = cosA;
+      const baseLX = baseCx + perpX * arrowHalfW;
+      const baseLY = baseCy + perpY * arrowHalfW;
+      const baseRX = baseCx - perpX * arrowHalfW;
+      const baseRY = baseCy - perpY * arrowHalfW;
+
+      ind.arrow.clear();
+      ind.arrow.fillStyle(allyColor, 1);
+      ind.arrow.lineStyle(2, 0x000000, 1);
+      ind.arrow.beginPath();
+      ind.arrow.moveTo(tipX, tipY);
+      ind.arrow.lineTo(baseLX, baseLY);
+      ind.arrow.lineTo(baseRX, baseRY);
+      ind.arrow.closePath();
+      ind.arrow.fillPath();
+      ind.arrow.strokePath();
+      ind.arrow.setVisible(true);
+
+      if (ind.head) {
+        ind.head.setPosition(ex, ey);
+        ind.head.setScale(ind.head._baseScale * scale);
+        ind.head.setVisible(true);
+      }
+      if (ind.initial) {
+        ind.initial.setPosition(ex, ey);
+        ind.initial.setScale(scale);
+        ind.initial.setVisible(true);
+      }
     }
   }
 
