@@ -1,7 +1,7 @@
 # Próxima Sessão
 
-> Última atualização: 2026-04-30
-> Sessão anterior: Auditoria MP completa — fixes pra reliable channel, skull curse dedupe, bot loot pickup em MP, wheel/skull L2 sync determinístico, friendly fire snowstorm 2v2, isDead state guard, e broadcast de bot AI pros 6 powers que faltavam. Commits `4853bfa` + `53177f8`.
+> Última atualização: 2026-05-01
+> Sessão anterior: Auditoria MP completa — fixes pra reliable channel, skull curse dedupe, bot loot pickup em MP, wheel/skull L2 sync determinístico, friendly fire snowstorm 2v2, isDead state guard, e broadcast de bot AI pros 6 powers que faltavam. Commits `4853bfa`, `53177f8`, `97c58af` no `main` local — **não pushed ainda**.
 
 ## Estado atual
 - Branch `main`, commits novos (`4853bfa`, `53177f8`) — não pushed ainda.
