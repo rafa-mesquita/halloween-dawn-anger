@@ -577,6 +577,26 @@ export default class GameScene extends Phaser.Scene {
     return !this.isFriendly(attacker, victim);
   }
 
+  isAllyOfLocal(target) {
+    if (!target) return false;
+    const me = this.playerFighter;
+    if (!me) return false;
+    if (target === me) return true;
+    return this.isFriendly(target, me);
+  }
+
+  hpBarColorFor(target) {
+    return this.isAllyOfLocal(target) ? 0x22c55e : 0xef4444;
+  }
+
+  ownerSpriteTintFor(target) {
+    return this.isAllyOfLocal(target) ? 0xaaffaa : 0xffaaaa;
+  }
+
+  ownerGlowColorFor(target) {
+    return this.isAllyOfLocal(target) ? 0x22c55e : 0xef4444;
+  }
+
   preload() {
     const baseSheets = ['idle', 'run', 'jump', 'fall', 'attack', 'attack_up', 'attack_down', 'death'];
     for (const char of CHARACTERS) {
@@ -4447,7 +4467,7 @@ export default class GameScene extends Phaser.Scene {
     fox.isFrozen = false;
     fox.frozenUntil = 0;
     fox.iceTickCount = 0;
-    fox.sprite.clearTint();
+    fox.sprite.setTint(this.ownerSpriteTintFor(fox.caster));
     if (fox.sprite.anims) fox.sprite.anims.resume();
     if (fox.frozenOverlay) { fox.frozenOverlay.destroy(); fox.frozenOverlay = null; }
     if (fox.frozenTintSprite) { fox.frozenTintSprite.destroy(); fox.frozenTintSprite = null; }
@@ -4993,6 +5013,7 @@ export default class GameScene extends Phaser.Scene {
       .setOrigin(0.5, 0.92)
       .setDepth(DEFAULT_SPRITE_DEPTH - 0.2);
     sprite.play('skeleton_idle');
+    sprite.setTint(this.ownerSpriteTintFor(caster));
     this.tweens.add({
       targets: sprite,
       scaleX: SKELETON_SCALE,
@@ -5007,7 +5028,7 @@ export default class GameScene extends Phaser.Scene {
       .setStrokeStyle(1, 0x0f172a)
       .setDepth(DEFAULT_SPRITE_DEPTH + 0.5);
     const fillLeftX = cx - (SKELETON_HP_BAR_WIDTH - 2) / 2;
-    const hpBarFill = this.add.rectangle(fillLeftX, platformY - barOffsetY, SKELETON_HP_BAR_WIDTH - 2, SKELETON_HP_BAR_HEIGHT - 2, caster.char.tintColor)
+    const hpBarFill = this.add.rectangle(fillLeftX, platformY - barOffsetY, SKELETON_HP_BAR_WIDTH - 2, SKELETON_HP_BAR_HEIGHT - 2, this.hpBarColorFor(caster))
       .setOrigin(0, 0.5)
       .setDepth(DEFAULT_SPRITE_DEPTH + 0.6);
 
@@ -5067,13 +5088,14 @@ export default class GameScene extends Phaser.Scene {
       .setOrigin(0.5, 0.78)
       .setDepth(DEFAULT_SPRITE_DEPTH - 0.2);
     sprite.play('omar_idle');
+    sprite.setTint(this.ownerSpriteTintFor(caster));
     this.tweens.add({ targets: sprite, scaleX: OMAR_SCALE, scaleY: OMAR_SCALE, alpha: 1, duration: 320, ease: 'Back.easeOut' });
     const barOffsetY = 100;
     const hpBarBg = this.add.rectangle(cx, platformY - barOffsetY, SKELETON_HP_BAR_WIDTH, SKELETON_HP_BAR_HEIGHT, 0x000000, 0.7)
       .setStrokeStyle(1, 0x0f172a).setDepth(DEFAULT_SPRITE_DEPTH + 0.5);
     const hpBarFill = this.add.rectangle(
       cx - (SKELETON_HP_BAR_WIDTH - 2) / 2, platformY - barOffsetY,
-      SKELETON_HP_BAR_WIDTH - 2, SKELETON_HP_BAR_HEIGHT - 2, caster.char.tintColor
+      SKELETON_HP_BAR_WIDTH - 2, SKELETON_HP_BAR_HEIGHT - 2, this.hpBarColorFor(caster)
     ).setOrigin(0, 0.5).setDepth(DEFAULT_SPRITE_DEPTH + 0.6);
     let netId = externalNetId;
     if (!netId) {
@@ -5127,13 +5149,14 @@ export default class GameScene extends Phaser.Scene {
       .setOrigin(0.5, 0.7)
       .setDepth(DEFAULT_SPRITE_DEPTH - 0.2);
     sprite.play('archer_idle');
+    sprite.setTint(this.ownerSpriteTintFor(caster));
     this.tweens.add({ targets: sprite, scaleX: ARCHER_SCALE, scaleY: ARCHER_SCALE, alpha: 1, duration: 320, ease: 'Back.easeOut' });
     const barOffsetY = 100;
     const hpBarBg = this.add.rectangle(cx, platformY - barOffsetY, SKELETON_HP_BAR_WIDTH, SKELETON_HP_BAR_HEIGHT, 0x000000, 0.7)
       .setStrokeStyle(1, 0x0f172a).setDepth(DEFAULT_SPRITE_DEPTH + 0.5);
     const hpBarFill = this.add.rectangle(
       cx - (SKELETON_HP_BAR_WIDTH - 2) / 2, platformY - barOffsetY,
-      SKELETON_HP_BAR_WIDTH - 2, SKELETON_HP_BAR_HEIGHT - 2, caster.char.tintColor
+      SKELETON_HP_BAR_WIDTH - 2, SKELETON_HP_BAR_HEIGHT - 2, this.hpBarColorFor(caster)
     ).setOrigin(0, 0.5).setDepth(DEFAULT_SPRITE_DEPTH + 0.6);
     let netId = externalNetId;
     if (!netId) {
@@ -5730,7 +5753,7 @@ export default class GameScene extends Phaser.Scene {
         if (time >= fox.attackDoneAt) {
           fox.state = 'patrol';
           fox.target = null;
-          if (fox.sprite && fox.sprite.clearTint) fox.sprite.clearTint();
+          if (fox.sprite && fox.sprite.setTint) fox.sprite.setTint(this.ownerSpriteTintFor(fox.caster));
           fox.isSpecialAttack = false;
           const cd = fox.petType === 'archer' ? ARCHER_SHOOT_COOLDOWN_MS
             : fox.petType === 'omar' ? OMAR_HIT_COOLDOWN_MS
@@ -5846,7 +5869,7 @@ export default class GameScene extends Phaser.Scene {
             fox.sprite.play('omar_attack', true);
             fox.currentAnim = 'omar_attack';
             if (fox.isSpecialAttack) fox.sprite.setTint(0xfde047);
-            else fox.sprite.clearTint();
+            else fox.sprite.setTint(this.ownerSpriteTintFor(fox.caster));
             this.playSfx('sfx_skeleton_attack', fox.isSpecialAttack ? 1.0 : 0.7);
           } else {
             const nextX = fox.x + fox.facing * OMAR_CHASE_SPEED * dt;
@@ -5868,7 +5891,7 @@ export default class GameScene extends Phaser.Scene {
             fox.sprite.play(animKey, true);
             fox.currentAnim = animKey;
             if (fox.isSpecialAttack) fox.sprite.setTint(0xfde047);
-            else fox.sprite.clearTint();
+            else fox.sprite.setTint(this.ownerSpriteTintFor(fox.caster));
             this.playSfx('sfx_skeleton_attack', fox.isSpecialAttack ? 1.0 : 0.7);
           } else {
             const nextX = fox.x + fox.facing * SKELETON_PATROL_SPEED * dt;
@@ -6619,8 +6642,9 @@ export default class GameScene extends Phaser.Scene {
     sprite.spawnedAt = this.time.now;
     sprite.triggered = false;
     sprite.armed = false;
-    // Glow pulsante no topo (cor do owner)
-    const glowColor = owner?.char?.tintColor ?? 0xff2222;
+    sprite.setTint(this.ownerSpriteTintFor(owner));
+    // Glow pulsante no topo: vermelho pra inimigo, verde pra aliado
+    const glowColor = this.ownerGlowColorFor(owner);
     const glow = this.add.circle(x, y - 22, 7, glowColor, 0.95)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(DEFAULT_SPRITE_DEPTH + 1.6); // junto com a mina, à frente do player
@@ -6719,6 +6743,7 @@ export default class GameScene extends Phaser.Scene {
     sprite.armed = false; // arma após LAND_MINE_L2_ARMING_MS — dá tempo de reação
     sprite.partyMine = true;
     sprite.partyExplodeAt = null;
+    sprite.setTint(this.ownerSpriteTintFor(owner));
     sprite.setAlpha(0.55); // visualmente "warming up"
     this.time.delayedCall(LAND_MINE_L2_ARMING_MS, () => {
       if (!sprite.active || sprite.triggered) return;
@@ -6727,8 +6752,8 @@ export default class GameScene extends Phaser.Scene {
       sprite.setAlpha(1);
     });
 
-    // Glow vermelho/laranja mais intenso
-    const glow = this.add.circle(sprite.x, spriteY - 22, 9, 0xff5a2c, 0.95)
+    // Glow: vermelho pra inimigo, verde pra aliado
+    const glow = this.add.circle(sprite.x, spriteY - 22, 9, this.ownerGlowColorFor(owner), 0.95)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(DEFAULT_SPRITE_DEPTH + 1.6);
     sprite.glow = glow;
@@ -6742,8 +6767,8 @@ export default class GameScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
 
-    // Anel de magnetismo (cor do caster — fica claro de quem é a área)
-    const ownerColor = owner?.char?.tintColor ?? 0xff5a2c;
+    // Anel de magnetismo: aliado=verde, inimigo=vermelho
+    const ownerColor = this.ownerGlowColorFor(owner);
     const pullRing = this.add.circle(sprite.x, y - 8, LAND_MINE_L2_PULL_RADIUS, ownerColor, 0.10)
       .setStrokeStyle(3, ownerColor, 0.7)
       .setBlendMode(Phaser.BlendModes.ADD)
@@ -9661,7 +9686,7 @@ export default class GameScene extends Phaser.Scene {
 
     const hpPct = fighter.hp / MAX_HP;
     this.hudHpFill.width = (this.hudBarWidth - 2) * hpPct;
-    this.hudHpFill.fillColor = hpPct > 0.5 ? 0x22c55e : hpPct > 0.25 ? 0xeab308 : 0xef4444;
+    this.hudHpFill.fillColor = 0x22c55e;
     this.hudHpText.setText(`${Math.round(hpPct * 100)}%`);
     this.hudLivesText.setText(`Vidas: ${fighter.lives}`);
 
@@ -9786,7 +9811,7 @@ export default class GameScene extends Phaser.Scene {
         f.hpBarBg.setPosition(barX, barY);
         f.hpBarFill.setPosition(barX - (f.hpBarWidth - 2) / 2, barY);
         f.hpBarFill.width = (f.hpBarWidth - 2) * pct;
-        f.hpBarFill.fillColor = pct > 0.5 ? 0x22c55e : pct > 0.25 ? 0xeab308 : 0xef4444;
+        f.hpBarFill.fillColor = this.hpBarColorFor(f);
       }
       if (f.teamBadge) {
         // Posiciona à esquerda da barra de HP pra não sobrepor os ícones de poder (que ficam centralizados acima da barra).
