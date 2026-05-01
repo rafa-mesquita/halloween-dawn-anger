@@ -2029,6 +2029,7 @@ export default class GameScene extends Phaser.Scene {
         null,
         this.oneWayProcessCallback
       );
+      this.createOffscreenIndicator(fighter);
     }
 
     this.playerFighter = this.isMultiplayer
@@ -7242,6 +7243,65 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  createOffscreenIndicator(fighter) {
+    const arrow = this.add.triangle(0, 0, 26, 0, 12, -9, 12, 9, 0xffffff, 1)
+      .setStrokeStyle(2, 0x000000, 1);
+    const inner = this.add.circle(0, 0, 15, 0xffffff, 1)
+      .setStrokeStyle(2, 0x000000, 1);
+    const initialChar = ((fighter.nick || '?')[0] || '?').toUpperCase();
+    const initial = this.add.text(0, 0, initialChar, {
+      font: 'bold 14px sans-serif',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0.5);
+    const container = this.add.container(0, 0, [arrow, inner, initial])
+      .setDepth(95)
+      .setVisible(false);
+    fighter.offscreenIndicator = { container, arrow, inner, initial };
+  }
+
+  updateOffscreenIndicators() {
+    if (!this.fighters) return;
+    const cam = this.cameras.main;
+    const view = cam.worldView;
+    const margin = 32;
+    const cwx = view.centerX;
+    const cwy = view.centerY;
+    const halfW = view.width / 2 - margin;
+    const halfH = view.height / 2 - margin;
+    for (const f of this.fighters) {
+      const ind = f.offscreenIndicator;
+      if (!ind) continue;
+      if (f.isDead || !f.sprite) {
+        ind.container.setVisible(false);
+        continue;
+      }
+      const wx = f.sprite.x;
+      const wy = f.sprite.y;
+      const onScreen =
+        wx >= view.x && wx <= view.right &&
+        wy >= view.y && wy <= view.bottom;
+      if (onScreen) {
+        ind.container.setVisible(false);
+        continue;
+      }
+      const dx = wx - cwx;
+      const dy = wy - cwy;
+      const tx = dx === 0 ? Infinity : halfW / Math.abs(dx);
+      const ty = dy === 0 ? Infinity : halfH / Math.abs(dy);
+      const t = Math.min(tx, ty);
+      const ex = cwx + dx * t;
+      const ey = cwy + dy * t;
+      ind.container.setPosition(ex, ey);
+      ind.arrow.setRotation(Math.atan2(dy, dx));
+      const allyColor = this.ownerGlowColorFor(f);
+      ind.arrow.fillColor = allyColor;
+      ind.inner.fillColor = allyColor;
+      ind.container.setVisible(true);
+    }
+  }
+
   updateSelfArrow() {
     if (!this.selfArrow) return;
     const f = this.playerFighter;
@@ -8730,6 +8790,7 @@ export default class GameScene extends Phaser.Scene {
     this.updateEyeHud(time);
     this.updateStormHud(time);
     this.updateSelfArrow();
+    this.updateOffscreenIndicators();
     this.updateKillHud();
     this.updateKillFeed(time);
     this.updateIceBeams(time);
